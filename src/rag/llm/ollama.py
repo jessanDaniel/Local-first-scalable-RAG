@@ -1,41 +1,53 @@
-"""Phase 11 — Ollama implementation of the LLM interface.
-
-Same behavior as Phase 10, now wrapped in a class that implements LLM, so the
-rest of the pipeline can depend on the interface instead of on Ollama
-specifically."""
+"""Ollama implementation of the LLM interface (local, $0)."""
 
 import time
 
-import requests
-
-from rag.llm.interface import LLM
-
-OLLAMA_URL = "http://localhost:11434/api/generate"
+from rag.llm.http import post_json
+from rag.llm.interface import LLM, Generation, LLMError, chat_messages
 
 
 class OllamaLLM(LLM):
-    def __init__(self, model: str = "llama3.2:1b"):
-        self.model = model
+    provider = "ollama"
 
-    def generate(self, prompt: str) -> dict:
+    def __init__(
+        self,
+        model: str,
+        base_url: str,
+        timeout_seconds: float,
+        max_retries: int,
+        temperature: float,
+    ):
+        self.model = model
+        self.base_url = base_url.rstrip("/")
+        self.timeout_seconds = timeout_seconds
+        self.max_retries = max_retries
+        self.temperature = temperature
+
+    def generate(self, prompt: str, system: str | None = None) -> Generation:
         start = time.perf_counter()
-        response = requests.post(
-            OLLAMA_URL,
-            json={"model": self.model, "prompt": prompt, "stream": False},
+        data = post_json(
+            f"{self.base_url}/api/chat",
+            {
+                "model": self.model,
+                "messages": chat_messages(prompt, system),
+                "stream": False,
+                "options": {"temperature": self.temperature},
+            },
+            timeout_seconds=self.timeout_seconds,
+            max_retries=self.max_retries,
         )
-        response.raise_for_status()
         elapsed = time.perf_counter() - start
 
-        data = response.json()
-        return {
-            "answer": data["response"],
-            "model": self.model,
-            "elapsed_seconds": elapsed,
-        }
+        try:
+            text = data["message"]["content"]
+        except (KeyError, TypeError) as exc:
+            raise LLMError(f"Unexpected Ollama response: {str(data)[:500]}") from exc
 
-
-def print_generation_debug(result: dict) -> None:
-    print(f"Model: {result['model']}")
-    print(f"Elapsed: {result['elapsed_seconds']:.2f}s")
-    print("Answer:")
-    print(result["answer"])
+        return Generation(
+            text=text,
+            provider=self.provider,
+            model=self.model,
+            elapsed_seconds=elapsed,
+            prompt_tokens=data.get("prompt_eval_count"),
+            completion_tokens=data.get("eval_count"),
+        )

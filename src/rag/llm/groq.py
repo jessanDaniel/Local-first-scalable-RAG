@@ -1,45 +1,56 @@
-"""Phase 11 — Groq implementation of the LLM interface (free tier, hosted).
+"""Groq implementation of the LLM interface (hosted, free tier, optional)."""
 
-Same contract as OllamaLLM: construct with a model, call generate(prompt).
-This is the actual proof that the interface works: swapping this in for
-OllamaLLM anywhere in the pipeline requires zero changes to retrieval,
-chunking, or context construction code."""
-
-import os
 import time
 
-import requests
-from dotenv import load_dotenv
+from rag.llm.http import post_json
+from rag.llm.interface import LLM, Generation, LLMError, chat_messages
 
-from rag.llm.interface import LLM
-
-load_dotenv()
-
-GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
+GROQ_CHAT_URL = "https://api.groq.com/openai/v1/chat/completions"
 
 
 class GroqLLM(LLM):
-    def __init__(self, model: str | None = None):
-        self.model = model or os.environ["GROQ_MODEL"]
-        self.api_key = os.environ["GROQ_API_KEY"]
+    provider = "groq"
 
-    def generate(self, prompt: str) -> dict:
+    def __init__(
+        self,
+        model: str,
+        api_key: str,
+        timeout_seconds: float,
+        max_retries: int,
+        temperature: float,
+    ):
+        self.model = model
+        self.api_key = api_key
+        self.timeout_seconds = timeout_seconds
+        self.max_retries = max_retries
+        self.temperature = temperature
+
+    def generate(self, prompt: str, system: str | None = None) -> Generation:
         start = time.perf_counter()
-        response = requests.post(
-            GROQ_URL,
-            headers={"Authorization": f"Bearer {self.api_key}"},
-            json={
+        data = post_json(
+            GROQ_CHAT_URL,
+            {
                 "model": self.model,
-                "messages": [{"role": "user", "content": prompt}],
+                "messages": chat_messages(prompt, system),
+                "temperature": self.temperature,
             },
+            headers={"Authorization": f"Bearer {self.api_key}"},
+            timeout_seconds=self.timeout_seconds,
+            max_retries=self.max_retries,
         )
-        response.raise_for_status()
         elapsed = time.perf_counter() - start
 
-        data = response.json()
-        answer = data["choices"][0]["message"]["content"]
-        return {
-            "answer": answer,
-            "model": self.model,
-            "elapsed_seconds": elapsed,
-        }
+        try:
+            text = data["choices"][0]["message"]["content"]
+        except (KeyError, IndexError, TypeError) as exc:
+            raise LLMError(f"Unexpected Groq response: {str(data)[:500]}") from exc
+
+        usage = data.get("usage") or {}
+        return Generation(
+            text=text,
+            provider=self.provider,
+            model=self.model,
+            elapsed_seconds=elapsed,
+            prompt_tokens=usage.get("prompt_tokens"),
+            completion_tokens=usage.get("completion_tokens"),
+        )
