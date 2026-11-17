@@ -80,20 +80,21 @@ else is **cancelled**.
 **Paused on purpose (2026-10-10):** The user closed the learning track because the pipeline dev
 is complete, and is turning this repo into a production-grade RAG. Phases 16–25 are not abandoned
 work to finish first; they are a backlog. Reopen a phase only when the user asks. Phase 16 already
-has `evaluations/phase16_retrieval_eval.py` and `evaluations/phase16_retrieval_eval.csv` (Hit@K,
-Recall@K, complete, distractor). `evaluations/phase16_retrieval_notes.md` was never written, and
+has `experiments/learning/phase16_retrieval_eval.py` and `experiments/learning/phase16_retrieval_eval.csv` (Hit@K,
+Recall@K, complete, distractor). `experiments/learning/phase16_retrieval_notes.md` was never written, and
 the plain-language walkthrough of those results is no longer a gate.
 
 **Next up:** Production-grade RAG, following `docs/production_plan.md` (§9 decisions agreed
 2026-11-17: arXiv cs.CL + cs.LG 2023+, FAISS, `bge-small-en-v1.5`, `qwen2.5:7b-instruct`, no
-Docker so arXiv HTML parsing with PyMuPDF fallback). Stage 1 step 1 (git init + snapshot
-commit) is done. Next: Stage 1 step 2 — make `src/` a real package (`package = true`), remove
-the `sys.path` hacks, move `evaluations/` to `experiments/learning/`, move
-`AGENTS-learning-companion.md` to `docs/archive/`. Do not start Phase 16.
+Docker so arXiv HTML parsing with PyMuPDF fallback). Stage 1 steps 1–2 are done (git repo;
+`src/rag/` package; learning scripts in `experiments/learning/`; companion doc in
+`docs/archive/`). Next: Stage 1 step 3 — `rag/config.py` with `pydantic-settings`, an LLM
+provider factory that reads `LLM_PROVIDER`, model names only from config, request timeouts,
+token counts, and a typed `Generation` result. Do not start Phase 16.
 
 ### Phase 7 close-out (2026-09-20)
 
-Full write-up saved to `evaluations/phase7_chroma_notes.md` (comparison table + all three
+Full write-up saved to `experiments/learning/phase7_chroma_notes.md` (comparison table + all three
 experiment results + corrected conclusion). Summary: default-L2 vs. cosine-space collections
 produced identical rankings and, once cosine space was configured, numerically identical scores to
 Phase 6 (0.5778 / 0.5121 / 0.4279, matched exactly via `1 - distance`). Root cause: chunk
@@ -128,55 +129,53 @@ finding under "Chroma vs. manual search" below.
 
 | Path | Role |
 |---|---|
-| `src/ingestion/loader.py` | `LoadedDocument`, `load_txt()` |
-| `src/ingestion/chunker.py` | `Chunk`, `chunk_text(..., chunk_size, overlap)` |
-| `src/embeddings/embedder.py` | `Embedder`, `EmbeddedChunk` |
+| `src/rag/ingestion/loader.py` | `LoadedDocument`, `load_txt()` |
+| `src/rag/ingestion/chunker.py` | `Chunk`, `chunk_text(..., chunk_size, overlap)` |
+| `src/rag/embeddings/embedder.py` | `Embedder`, `EmbeddedChunk` |
 | `documents/company_policy.txt` | Short sample (~473 words) — good for smoke tests |
 | `documents/employee_handbook.txt` | Longer sample (~2175 words) — use for size/overlap matrices |
-| `evaluations/run_chunking_experiment.py` | Size × overlap matrix → `chunking_experiment.csv` |
-| `evaluations/boundary_crossing_check.py` | 0% vs overlap boundary probe |
-| `evaluations/embedding_similarity_experiment.py` | Phase 5 script (may need creating/running) |
-| `evaluations/manual_retrieval_debug.py` | Phase 6 — manual cosine top-K debug on `company_policy` |
-| `src/retrieval/similarity.py` | Phase 6 — `cosine_similarity()`, `top_k()`, `print_retrieval_debug()` |
-| `evaluations/chroma_experiment.py` | Phase 7 — same doc/query as Phase 6, via Chroma (default L2 space) |
-| `evaluations/chroma_cosine_experiment.py` | Phase 7 — same, with `hnsw:space: cosine`; confirms exact score match to Phase 6 |
-| `evaluations/check_embedding_norms.py` | Phase 7 — confirms `all-MiniLM-L6-v2` embeddings are unit-length (norm always 1.0000) |
-| `evaluations/phase7_chroma_notes.md` | Phase 7 close-out — full comparison table + findings |
+| `experiments/learning/run_chunking_experiment.py` | Size × overlap matrix → `chunking_experiment.csv` |
+| `experiments/learning/boundary_crossing_check.py` | 0% vs overlap boundary probe |
+| `experiments/learning/embedding_similarity_experiment.py` | Phase 5 script (may need creating/running) |
+| `experiments/learning/manual_retrieval_debug.py` | Phase 6 — manual cosine top-K debug on `company_policy` |
+| `src/rag/retrieval/similarity.py` | Phase 6 — `cosine_similarity()`, `top_k()`, `print_retrieval_debug()` |
+| `experiments/learning/chroma_experiment.py` | Phase 7 — same doc/query as Phase 6, via Chroma (default L2 space) |
+| `experiments/learning/chroma_cosine_experiment.py` | Phase 7 — same, with `hnsw:space: cosine`; confirms exact score match to Phase 6 |
+| `experiments/learning/check_embedding_norms.py` | Phase 7 — confirms `all-MiniLM-L6-v2` embeddings are unit-length (norm always 1.0000) |
+| `experiments/learning/phase7_chroma_notes.md` | Phase 7 close-out — full comparison table + findings |
 | `chroma_db/` | Phase 7 — persistent Chroma store on disk (created at runtime, gitignored) |
-| `src/retrieval/vector_store.py` | Phase 8 — `VectorStore`: thin Chroma wrapper, storage/index layer only |
-| `src/retrieval/retriever.py` | Phase 8 — `Retriever`: `index_chunks()` + `retrieve(query, k)`, decoupled from prompts/LLM |
-| `evaluations/retriever_debug.py` | Phase 8 — end-to-end check; matches Phase 6/7 scores exactly (0.5778/0.5121/0.4279) |
-| `src/generation/context_builder.py` | Phase 9 — `build_context()`, `build_prompt()`, `print_context_debug()`; deterministic template, no LLM call |
-| `evaluations/context_debug.py` | Phase 9 — end-to-end: retrieve(query,k) → exact prompt string printed |
-| `src/llm/ollama.py` | Phase 10 — `generate()`, `print_generation_debug()`; direct Ollama HTTP API call, hard-coded on purpose (Phase 11 abstracts it) |
-| `evaluations/end_to_end_debug.py` | Phase 10 — full pipeline: retrieve → context → Ollama → answer, all stages printed |
-| `src/llm/interface.py` | Phase 11 — `LLM` abstract base class; `generate(prompt) -> dict` contract, no provider knowledge |
-| `src/llm/ollama.py` | Phase 11 — refactored to `OllamaLLM(LLM)`; `model` now constructor-time config, not a per-call arg |
-| `src/llm/groq.py` | Phase 11 — `GroqLLM(LLM)`; hosted free-tier provider, OpenAI-compatible chat completions API |
-| `evaluations/groq_smoke_test.py` | Phase 11 — isolated `GroqLLM` test, no retrieval/context involved |
-| `evaluations/groq_list_models.py` | Phase 11 diagnostic — lists Groq's current model catalog (used to fix a decommissioned-model 404) |
-| `evaluations/end_to_end_groq.py` | Phase 11 — full pipeline with `GroqLLM` swapped in for `OllamaLLM`; proves zero pipeline changes needed |
+| `src/rag/retrieval/vector_store.py` | Phase 8 — `VectorStore`: thin Chroma wrapper, storage/index layer only |
+| `src/rag/retrieval/retriever.py` | Phase 8 — `Retriever`: `index_chunks()` + `retrieve(query, k)`, decoupled from prompts/LLM |
+| `experiments/learning/retriever_debug.py` | Phase 8 — end-to-end check; matches Phase 6/7 scores exactly (0.5778/0.5121/0.4279) |
+| `src/rag/generation/context_builder.py` | Phase 9 — `build_context()`, `build_prompt()`, `print_context_debug()`; deterministic template, no LLM call |
+| `experiments/learning/context_debug.py` | Phase 9 — end-to-end: retrieve(query,k) → exact prompt string printed |
+| `src/rag/llm/ollama.py` | Phase 10 — `generate()`, `print_generation_debug()`; direct Ollama HTTP API call, hard-coded on purpose (Phase 11 abstracts it) |
+| `experiments/learning/end_to_end_debug.py` | Phase 10 — full pipeline: retrieve → context → Ollama → answer, all stages printed |
+| `src/rag/llm/interface.py` | Phase 11 — `LLM` abstract base class; `generate(prompt) -> dict` contract, no provider knowledge |
+| `src/rag/llm/ollama.py` | Phase 11 — refactored to `OllamaLLM(LLM)`; `model` now constructor-time config, not a per-call arg |
+| `src/rag/llm/groq.py` | Phase 11 — `GroqLLM(LLM)`; hosted free-tier provider, OpenAI-compatible chat completions API |
+| `experiments/learning/groq_smoke_test.py` | Phase 11 — isolated `GroqLLM` test, no retrieval/context involved |
+| `experiments/learning/groq_list_models.py` | Phase 11 diagnostic — lists Groq's current model catalog (used to fix a decommissioned-model 404) |
+| `experiments/learning/end_to_end_groq.py` | Phase 11 — full pipeline with `GroqLLM` swapped in for `OllamaLLM`; proves zero pipeline changes needed |
 | `.env` | Real secrets (gitignored): `GROQ_API_KEY`, `GROQ_MODEL=openai/gpt-oss-20b` |
-| `evaluations/phase12_failure_experiments.py` | Phase 12 — all 3 required experiments in one script (missing-info, retrieval-failure k=1 vs k=3, generation-failure) |
-| `evaluations/phase12_genfail_ollama.py` | Phase 12 — generation-failure retry with `llama3.2:1b`, same context as the Groq run |
-| `evaluations/phase12_explore_retrieval_failure.py` / `phase12_confirm_retrieval_failure.py` | Phase 12 — found the retrieval-failure case empirically (8 candidate queries tested, not guessed) |
-| `evaluations/phase12_failure_notes.md` | Phase 12 close-out — full write-up, all 3 experiments, retrieval-vs-generation diagnosis table |
-| `evaluations/phase13_topk_experiment.py` | Phase 13 — K∈{1,3,5,10} sweep, 3 queries × 2 docs, retry/backoff for Groq rate limits → `topk_experiment.csv` |
-| `evaluations/phase13_topk_notes.md` | Phase 13 close-out — full results table + "is more context always better?" finding |
-| `evaluations/phase14_chunk_topk_matrix.py` | Phase 14 — retrieval grid over chunk size × overlap × K → `phase14_chunk_topk_matrix.csv` |
-| `evaluations/phase14_generation.py` | Phase 14 — Groq on the 9 cells where needle rank changed → `phase14_generation.csv` |
-| `evaluations/phase14_chunk_topk_notes.md` | Phase 14 close-out — rank table, generation labels, split-sentence failure |
-| `evaluations/eval_questions.jsonl` | Phase 15 — 30 questions: direct, multi-step, missing-information, distractor |
-| `evaluations/check_eval_questions.py` | Phase 15 — each quote must occur once in its document |
-| `evaluations/phase15_eval_dataset_notes.md` | Phase 15 close-out — record shape and what each question type is for |
+| `experiments/learning/phase12_failure_experiments.py` | Phase 12 — all 3 required experiments in one script (missing-info, retrieval-failure k=1 vs k=3, generation-failure) |
+| `experiments/learning/phase12_genfail_ollama.py` | Phase 12 — generation-failure retry with `llama3.2:1b`, same context as the Groq run |
+| `experiments/learning/phase12_explore_retrieval_failure.py` / `phase12_confirm_retrieval_failure.py` | Phase 12 — found the retrieval-failure case empirically (8 candidate queries tested, not guessed) |
+| `experiments/learning/phase12_failure_notes.md` | Phase 12 close-out — full write-up, all 3 experiments, retrieval-vs-generation diagnosis table |
+| `experiments/learning/phase13_topk_experiment.py` | Phase 13 — K∈{1,3,5,10} sweep, 3 queries × 2 docs, retry/backoff for Groq rate limits → `topk_experiment.csv` |
+| `experiments/learning/phase13_topk_notes.md` | Phase 13 close-out — full results table + "is more context always better?" finding |
+| `experiments/learning/phase14_chunk_topk_matrix.py` | Phase 14 — retrieval grid over chunk size × overlap × K → `phase14_chunk_topk_matrix.csv` |
+| `experiments/learning/phase14_generation.py` | Phase 14 — Groq on the 9 cells where needle rank changed → `phase14_generation.csv` |
+| `experiments/learning/phase14_chunk_topk_notes.md` | Phase 14 close-out — rank table, generation labels, split-sentence failure |
+| `experiments/learning/eval_questions.jsonl` | Phase 15 — 30 questions: direct, multi-step, missing-information, distractor |
+| `experiments/learning/check_eval_questions.py` | Phase 15 — each quote must occur once in its document |
+| `experiments/learning/phase15_eval_dataset_notes.md` | Phase 15 close-out — record shape and what each question type is for |
 
-Eval scripts under `evaluations/` must add project root to `sys.path` (they are not installed
-packages). Pattern already used:
-
-```python
-project_root = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(project_root))
-```
+Since Stage 1 step 2 (2026-11-17) the code is an installed package: `src/rag/`, imported as
+`rag.*` (`from rag.retrieval.retriever import Retriever`). `uv sync` installs it in editable mode,
+so no script needs a `sys.path` hack. The learning-track scripts live in `experiments/learning/`
+and locate the repo with `project_root = Path(__file__).resolve().parents[2]` (for `documents/`
+and `chroma_db/`). `uv run rag` is the CLI entry point (`rag.main:main`).
 
 ### Experiment findings so far (do not lose these)
 
@@ -228,7 +227,7 @@ above, `chromadb.PersistentClient` with a **default** (unconfigured) collection:
   `Embedder.embed_texts()` produces non-unit-length vectors since it never passes
   `normalize_embeddings=True`, and that the Phase 7 ranking-match was therefore a coincidental
   property of `company_policy`'s chunks having similar norms. **This was wrong.** Ran
-  `evaluations/check_embedding_norms.py` on all 6 `company_policy` chunks (word counts 100, 100,
+  `experiments/learning/check_embedding_norms.py` on all 6 `company_policy` chunks (word counts 100, 100,
   100, 100, 100, 23) — every single one has `np.linalg.norm(embedding) == 1.0000`, independent of
   chunk length. Traced this to `modules.json` in the cached `all-MiniLM-L6-v2` snapshot: the model
   pipeline is `Transformer → Pooling → 2_Normalize` — a normalization layer is **baked into the
@@ -299,7 +298,7 @@ query "What is the company's refund policy?", model `llama3.2:1b`:
   in `.env` initially empty (file created but not saved with content — caught via `wc -l .env`
   showing 0 lines), then a 404 from a stale model name (`llama-3.1-8b-instant` — decommissioned,
   not in Groq's current catalog). Diagnosed by listing the live model catalog
-  (`evaluations/groq_list_models.py`) rather than guessing; fixed by switching to
+  (`experiments/learning/groq_list_models.py`) rather than guessing; fixed by switching to
   `openai/gpt-oss-20b`. Lesson: hosted-provider model names aren't stable long-term — this is a
   real operational difference from local models, where you control the model file directly.
 - Latency comparison, same query, same context: `OllamaLLM` (`llama3.2:1b`, local, CPU-only in this
@@ -312,7 +311,7 @@ query "What is the company's refund policy?", model `llama3.2:1b`:
   leaves the machine and you're subject to the provider's catalog changes and rate limits.
 
 **Phase 12 (grounding + failure experiments, mandatory)** — full write-up in
-`evaluations/phase12_failure_notes.md`; summary:
+`experiments/learning/phase12_failure_notes.md`; summary:
 
 - **Missing information** (`company_policy`, "student/military discounts?"): correctly refused —
   neither retrieval nor generation failure, the document genuinely lacks the info and generation
@@ -341,7 +340,7 @@ query "What is the company's refund policy?", model `llama3.2:1b`:
   a "failure" without first checking the actual retrieved chunks/context, not just the final answer.
 
 **Phase 13 (Top-K experiments)** — K∈{1,3,5,10}, full results in
-`evaluations/phase13_topk_notes.md` / `topk_experiment.csv`; headline finding:
+`experiments/learning/phase13_topk_notes.md` / `topk_experiment.csv`; headline finding:
 
 - Retrieval hit rate is monotonically non-decreasing in k, as expected (more chunks can only add
   coverage). Answer correctness is **not** monotonic in k.
@@ -365,7 +364,7 @@ query "What is the company's refund policy?", model `llama3.2:1b`:
   here.
 
 **Phase 14 (chunking × Top-K matrix)** — full write-up in
-`evaluations/phase14_chunk_topk_notes.md`. Retrieval: 48 rows in
+`experiments/learning/phase14_chunk_topk_notes.md`. Retrieval: 48 rows in
 `phase14_chunk_topk_matrix.csv`. Generation: 9 Groq calls in `phase14_generation.csv`.
 
 - `needle_in_index` was true for every row. Rank still moved. Refund days stayed rank 1 at every
@@ -385,9 +384,9 @@ query "What is the company's refund policy?", model `llama3.2:1b`:
 - No single chunk size, overlap, or K wins both handbook queries. That is why a 20–30 question
   set comes next, rather than picking a default from this grid.
 
-**Phase 15 (evaluation dataset)** — 30 questions in `evaluations/eval_questions.jsonl`
+**Phase 15 (evaluation dataset)** — 30 questions in `experiments/learning/eval_questions.jsonl`
 (12 direct, 6 multi-step, 6 missing-information, 6 distractor). Notes:
-`evaluations/phase15_eval_dataset_notes.md`. `check_eval_questions.py` confirms every
+`experiments/learning/phase15_eval_dataset_notes.md`. `check_eval_questions.py` confirms every
 `source_quote` and `distractor_quote` occurs exactly once in its document after whitespace
 is collapsed.
 
@@ -466,6 +465,8 @@ answer "what problem does this framework solve?" — not as a shortcut.
 | Doc formats | `.txt` first, then `.md`, then `.pdf` |
 
 ## 6. Repository structure
+
+Superseded by `docs/production_plan.md` §3 (package is now `src/rag/`). Kept for history.
 
 ```text
 rag-document-qa/
@@ -562,7 +563,7 @@ Work through these **in order, one phase at a time**. Do not skip ahead or pre-b
 - **Never skip the debug/inspection tooling** for a phase to "save time" — the visibility is the
   point of the project.
 - **Record experiments, don't just assert.** Whenever a phase includes an experiment, produce an
-  artifact (table, log file, note in `evaluations/`) with actual numbers — never conclude with
+  artifact (table, log file, note in `experiments/learning/`) with actual numbers — never conclude with
   "it works" without a measurement. Also copy key numbers into §1b findings.
 - **When something fails (bad retrieval, hallucination, wrong answer), don't immediately patch it.**
   First diagnose: is this a retrieval failure or a generation failure? Only fix after the user

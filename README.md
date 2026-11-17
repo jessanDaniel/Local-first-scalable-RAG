@@ -20,7 +20,7 @@ running locally.
 
 ```bash
 uv sync
-uv run python src/main.py
+uv run rag
 ```
 
 Copy `.env.example` to `.env` and adjust as needed (defaults to local Ollama, no paid APIs).

@@ -478,4 +478,5 @@ spans, the same shape as `eval_questions.jsonl`. Then: ablations (dense vs BM25 
 6. **No Docker** on this machine: arXiv HTML parsing with PyMuPDF fallback; the service runs as
    native processes.
 
-Progress: Stage 1 step 1 (git init + snapshot commit) done.
+Progress: Stage 1 steps 1–2 done (git repo; `src/rag/` installed package, no `sys.path`
+hacks; learning scripts in `experiments/learning/`; companion doc in `docs/archive/`).
