@@ -84,14 +84,12 @@ has `evaluations/phase16_retrieval_eval.py` and `evaluations/phase16_retrieval_e
 Recall@K, complete, distractor). `evaluations/phase16_retrieval_notes.md` was never written, and
 the plain-language walkthrough of those results is no longer a gate.
 
-**Next up:** Production-grade RAG, on top of Phases 1–15. Do not start Phase 16, do not write the
-Phase 16 notes, and do not explain the Phase 16 CSV unless the user asks. First session: agree
-what "production-grade" means for this repo (corpus, citations, access control, evaluation,
-observability, API/deployment) against what is already built, then implement one slice. Original
-Phase 16 plan, if reopened later: score Hit@K and Recall@K for `evaluations/eval_questions.jsonl`
-against `source_quotes`, and record how often a `distractor_quote` outranks the true span. Hold
-chunk size and overlap fixed (handbook 150/15, policy 100/10). Missing-information rows have no
-source span; skip them for Hit@K. `LLM_PROVIDER` in `.env.example` is still unused.
+**Next up:** Production-grade RAG, following `docs/production_plan.md` (§9 decisions agreed
+2026-11-17: arXiv cs.CL + cs.LG 2023+, FAISS, `bge-small-en-v1.5`, `qwen2.5:7b-instruct`, no
+Docker so arXiv HTML parsing with PyMuPDF fallback). Stage 1 step 1 (git init + snapshot
+commit) is done. Next: Stage 1 step 2 — make `src/` a real package (`package = true`), remove
+the `sys.path` hacks, move `evaluations/` to `experiments/learning/`, move
+`AGENTS-learning-companion.md` to `docs/archive/`. Do not start Phase 16.
 
 ### Phase 7 close-out (2026-09-20)
 

@@ -467,12 +467,15 @@ spans, the same shape as `eval_questions.jsonl`. Then: ablations (dense vs BM25 
 
 ---
 
-## 9. Decisions needed before Stage 1
+## 9. Decisions (agreed 2026-11-17)
 
-1. **Corpus slice**: which arXiv categories and date range? (Recommended: `cs.CL` + `cs.LG`,
-   2023+, starting at 200 papers.)
-2. **Dense store**: FAISS index files (recommended) or Qdrant as a service?
-3. **Embedding model**: `bge-small-en-v1.5` (recommended) or a 768-dim model from the start?
-4. **Default local LLM**: `qwen2.5:7b-instruct` or `llama3.1:8b`?
-5. **Learning-track files**: move `evaluations/` to `experiments/learning/`, and delete or archive
-   `AGENTS-learning-companion.md`?
+1. **Corpus slice**: arXiv `cs.CL` + `cs.LG`, submitted 2023 or later, starting at 200 papers.
+2. **Dense store**: FAISS index files. No Qdrant.
+3. **Embedding model**: `BAAI/bge-small-en-v1.5` (384 dims, 512-token limit).
+4. **Default local LLM**: `qwen2.5:7b-instruct` via Ollama. Groq stays optional.
+5. **Learning-track files**: `evaluations/` moves to `experiments/learning/`;
+   `AGENTS-learning-companion.md` moves to `docs/archive/` (kept, not deleted).
+6. **No Docker** on this machine: arXiv HTML parsing with PyMuPDF fallback; the service runs as
+   native processes.
+
+Progress: Stage 1 step 1 (git init + snapshot commit) done.
