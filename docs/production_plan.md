@@ -61,7 +61,7 @@ Worth adding one line to the Phase 14 notes so the finding isn't lost.
 
 | File | State | Problem for production | Plan |
 |---|---|---|---|
-| `src/ingestion/loader.py` | `.txt` only; `document_id = path.stem` | No PDF. Filename IDs collide. No metadata (title, authors, year, arXiv ID, category). | Replace with paper acquisition + arXiv HTML parsing (§4.1–4.2) |
+| `src/ingestion/loader.py` | `.txt` only; `document_id = path.stem` | No PDF. Filename IDs collide. No metadata (title, authors, year, arXiv ID, category). | Replace with paper acquisition + PDF parsing (§4.1–4.2) |
 | `src/ingestion/chunker.py` | `text.split()` into word windows | Destroys paragraphs, sections, line breaks. No character offsets, so no exact citations. Word count, not tokens (§1.1). `chunk_id = doc_pos` changes when the chunker changes. | Rewrite: structure-aware, token-sized, offsets, content-hash IDs (§4.3) |
 | `src/embeddings/embedder.py` | Loads model; `encode()` with defaults | No batch size or device, no query/passage prefixes, no length check, model name defaulted in code | Keep the class shape, add those (§4.5) |
 | `src/retrieval/similarity.py` | Manual cosine + top-K; also defines `ScoredChunk` | Library module edits `sys.path` at import. Shared data class lives in an experiment module. | Move `ScoredChunk` to `models.py`. Keep `top_k()` as the exact-search reference for checking ANN recall. |
@@ -102,29 +102,33 @@ stage that uses them.
 
 Rough size: 50k papers × ~50 chunks ≈ **2.5M chunks**.
 
-### 2.2 Parsing: arXiv HTML first (no Docker on this machine)
+### 2.2 Parsing: PDF, with GROBID run natively (no Docker)
+
+Decided 2026-11-17: **PDF is the primary source.** arXiv's HTML version only exists for arXiv
+(mostly papers since late 2023), while a general research-paper RAG has to read PDFs from any
+source: ACL Anthology, conference proceedings, and Stage 5 uploads. Building on PDF from the
+start means one parsing path for everything.
 
 Research PDFs are two-column, with equations, tables, figure captions, running headers, footnotes,
-and a reference list. A plain text extractor (PyMuPDF) interleaves columns and mixes references
-into body text. Docker is not available on this machine, so the parser must run as plain Python
-(or plain Java).
+and a reference list. A plain text extractor interleaves columns and mixes references into body
+text, so the parser has to understand scholarly layout. Docker is not available here, so it must
+run as a native process.
 
-| Option | Quality | Speed | Runs without Docker? |
+| Option | Quality | Speed | Without Docker |
 |---|---|---|---|
-| **arXiv HTML** (`arxiv.org/html/<id>`, recommended) | arXiv converts the author's LaTeX to HTML. Real `<section>` tree, headings, paragraphs, figure/table captions, math with LaTeX alt-text, bibliography in its own block. No PDF layout guessing at all. | Fast (one HTTP fetch + BeautifulSoup) | Yes |
-| GROBID | Built for scholarly PDFs: section tree, captions, references, page coordinates | ~1–3 s/paper per thread (estimate) | Possible: it's Java, buildable with Gradle, and you already have a JDK. Apple Silicon support for its native libraries needs checking. |
-| Docling | Good layout and tables | Slow without a GPU; uses MPS | Yes (`uv add docling`), heavy models |
-| PyMuPDF / `pymupdf4llm` | Weak structure, but page numbers are exact | Very fast | Yes |
+| **GROBID** (primary) | Built for scholarly PDFs: title, authors, abstract, section tree, paragraphs, figure/table captions, parsed references, page coordinates for every paragraph | ~1–3 s/paper per thread (estimate, measure it) | Java service run from its Gradle wrapper with the JDK 17 already installed (`/opt/homebrew/opt/openjdk@17`); no change to the work Java setup. Apple Silicon support for its native libraries is checked first. |
+| **Docling** (backup if GROBID won't run on arm64) | Good layout, reading order and tables; MIT license | Slower: seconds per page, uses MPS | `uv add docling`; torch is already installed |
+| **PyMuPDF** (last-resort fallback) | Weak structure; exact page text | Very fast | `uv add pymupdf`; AGPL (fine for an open-source repo) |
 
-Plan: **arXiv HTML as the main path, PyMuPDF as the fallback** for papers with no HTML version,
-with the parser recorded on each paper so weak parses can be found later. arXiv has generated
-HTML for new submissions since late 2023, which matches a 2023+ corpus. Some papers fail to
-convert, so check coverage on the first 200 and record the rate. GROBID-native or Docling stay
-as upgrades if the fallback rate turns out high.
+Plan: **GROBID first.** When GROBID fails or its output fails the quality gates, fall back to
+PyMuPDF and mark `parse_status=suspect`. If GROBID cannot run natively on Apple Silicon, Docling
+becomes the primary parser instead. Every parser sits behind one interface
+(`parse(pdf_path) -> Paper + list[Section]`), the same pattern as the LLM interface, so
+swapping or adding one is a new module, not a rewrite. The parser used is recorded on every
+paper.
 
-One trade-off: HTML has no page numbers. Citations point to the section
-(`2106.09685 §4.1`) and link to `arxiv.org/html/<id>#<section-anchor>`, which is a better link
-than a PDF page anyway. Chunks from the PyMuPDF fallback carry page numbers instead.
+Citations carry the page number: `[3] Hu et al. 2021 (2106.09685) §4.2, p.5`, linking to
+`arxiv.org/pdf/<id>#page=5` for arXiv papers.
 
 ### 2.3 Storage: SQLite is the source of truth; indexes are rebuildable
 
@@ -255,8 +259,9 @@ src/rag/
   models.py              Paper, Section, Chunk, Candidate, RetrievalTrace, Generation, Citation
   store/db.py            SQLite schema, migrations, repository functions
   acquire/arxiv.py       metadata listing + throttled PDF download + manifest
-  parse/arxiv_html.py    arXiv HTML → ParsedPaper (sections/paragraphs/captions/refs)
-  parse/fallback.py      PyMuPDF fallback for papers without HTML
+  parse/base.py          Parser interface: parse(pdf) -> Paper + list[Section]
+  parse/grobid.py        PDF → GROBID TEI XML → sections/paragraphs/captions/refs/pages
+  parse/pymupdf.py       last-resort fallback
   chunk/chunker.py       structure-aware, tokenizer-sized chunker (versioned)
   embed/embedder.py      batched, device-aware, prefix-aware
   index/dense.py         DenseIndex interface + FAISS implementations
@@ -291,8 +296,8 @@ crash at paper 18,000 restarts at 18,001.
 
 1. **Acquire** (`rag ingest --category cs.CL --since 2022-01 --limit 200`): list IDs, store
    metadata, download PDFs throttled, record sha256. Skip IDs already present.
-2. **Parse** (`rag parse`): fetch arXiv HTML (throttled, cached to `data/raw/html/`), then
-   HTML → `ParsedPaper`; PDF + PyMuPDF if there is no HTML. Quality gates: no
+2. **Parse** (`rag parse`): send each PDF to the local GROBID service (N workers), TEI XML →
+   `Paper` + `Section`s with page numbers; PyMuPDF if GROBID fails. Quality gates: no
    body text, too few sections, too many non-alphabetic characters (a sign of a broken font map),
    or abstract missing → mark `parse_status=suspect` and try the fallback. Dump each parse to
    `data/parsed/<id>.json` for inspection (the Phase 1 "extraction stats" idea, per paper).
@@ -372,8 +377,10 @@ Goal: a real question about real papers gets a cited answer, end to end, dense o
 3. `config.py` + `llm/factory.py`: `LLM_PROVIDER` actually used; model names only from config;
    timeouts; token counts; typed `Generation`.
 4. `models.py` + SQLite schema.
-5. Acquire ~200 arXiv papers (one category). Parse arXiv HTML, PyMuPDF fallback. Dump to JSON.
-   Look at 10 parses by hand and record the HTML coverage rate before going on.
+5. Run GROBID natively (Gradle wrapper, JDK 17) and parse one PDF to prove it works on Apple
+   Silicon; if it can't, switch to Docling. Then acquire ~200 arXiv PDFs (cs.CL + cs.LG, 2023+),
+   parse, dump to `data/parsed/<id>.json`, read 10 by hand, record the fallback rate and
+   seconds per paper.
 6. Chunker v2 + tests (section boundaries, token cap, offsets, deterministic IDs).
 7. Embedder v2 (new model, prefixes, batching) + FAISS `IndexFlatIP`.
 8. Citation-aware context + prompt + `citations.py`.
@@ -419,7 +426,7 @@ brought each one in.
 1. Incremental ingest: new papers append to Tantivy and to the FAISS HNSW index. Deleted or new
    versions of papers are handled by a rebuild plus an atomic `current` switch. Index builds are
    versioned (§2.3).
-2. Scale to 25k–50k papers. Record parse throughput and HTML coverage, embedding throughput, index build time,
+2. Scale to 25k–50k papers. Record GROBID throughput and fallback rate, embedding throughput, index build time,
    RAM and disk use.
 3. Quantization experiment: Flat vs HNSW vs HNSW-SQ8 vs IVF-PQ (+ refine). Table of memory,
    p95 latency, ANN recall@100 against exact. Choose with numbers.
@@ -448,7 +455,7 @@ brought each one in.
 
 | Risk | Mitigation |
 |---|---|
-| Some papers have no arXiv HTML, or a broken conversion | quality gates + PyMuPDF fallback + `parse_status` you can query; measure the rate on the first 200 |
+| GROBID mis-parses some PDFs (scanned, unusual templates), or will not run on arm64 | quality gates + PyMuPDF fallback + `parse_status` you can query; Docling as the replacement parser |
 | Math-heavy text embeds poorly | BM25 helps on symbols and names. LaTeX source parsing is a later upgrade. |
 | Choosing fusion/rerank settings with no evaluation | Keep every setting in config with defaults from the literature. Expect to retune once §8 exists. Don't present any default as "best". |
 | Chunking changes silently invalidate indexes | `chunker_version` + `embedding_model` recorded per build; refuse to load an index whose versions don't match the DB |
@@ -475,7 +482,8 @@ spans, the same shape as `eval_questions.jsonl`. Then: ablations (dense vs BM25 
 4. **Default local LLM**: `qwen2.5:7b-instruct` via Ollama. Groq stays optional.
 5. **Learning-track files**: `evaluations/` moves to `experiments/learning/`;
    `AGENTS-learning-companion.md` moves to `docs/archive/` (kept, not deleted).
-6. **No Docker** on this machine: arXiv HTML parsing with PyMuPDF fallback; the service runs as
+6. **No Docker** on this machine; **PDF is the primary source** (GROBID run natively, Docling as
+   backup, PyMuPDF fallback; arXiv HTML dropped as not general enough). The service runs as
    native processes.
 
 Progress: Stage 1 steps 1–4 done (step 4: `rag/models.py` + SQLite store, schema v1; step 3: config, LLM factory, timeouts/retries, token counts, typed `Generation`).

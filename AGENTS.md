@@ -86,15 +86,18 @@ the plain-language walkthrough of those results is no longer a gate.
 
 **Next up:** Production-grade RAG, following `docs/production_plan.md` (§9 decisions agreed
 2026-11-17: arXiv cs.CL + cs.LG 2023+, FAISS, `bge-small-en-v1.5`, `qwen2.5:7b-instruct`, no
-Docker so arXiv HTML parsing with PyMuPDF fallback). Stage 1 steps 1–4 are done.
+Docker; PDF is the primary source — GROBID run natively with JDK 17, Docling as backup,
+PyMuPDF fallback; arXiv HTML dropped). Stage 1 steps 1–4 are done.
 Step 3: `rag/config.py`, `rag/llm/factory.py`, timeouts/retries, typed `Generation`; live check
 passed (qwen2.5:7b-instruct, 5.19s cold / 0.61s warm). Ollama is currently stopped
 (`brew services start ollama` to use it). Step 4: `rag/models.py` (Paper, Section, Chunk;
 content-hash `chunk_id`; chunk offsets index into `Section.text`) and `rag/store/db.py`
 (SQLite at `data/rag.db`, schema v1: papers, sections, chunks, index_builds; per-paper
-replace writes). Next: Stage 1 step 5 — fetch ~200 arXiv cs.CL + cs.LG papers (2023+), parse
-arXiv HTML into Paper + Sections (PyMuPDF fallback), dump parses to `data/parsed/`, read 10 by
-hand, record HTML coverage. Do not start Phase 16.
+replace writes). Next: Stage 1 step 5 — first prove GROBID runs natively on Apple Silicon
+(Gradle wrapper, existing JDK 17; do not change the work Java setup) by parsing one PDF; if not,
+use Docling. Then fetch ~200 arXiv cs.CL + cs.LG PDFs (2023+), parse to Paper + Sections with
+pages behind a parser interface, dump to `data/parsed/`, read 10 by hand, record fallback rate
+and seconds per paper. Do not start Phase 16.
 
 ### Phase 7 close-out (2026-09-20)
 
