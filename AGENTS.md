@@ -95,11 +95,16 @@ content-hash `chunk_id`; chunk offsets index into `Section.text`) and `rag/store
 (SQLite at `data/rag.db`, schema v1: papers, sections, chunks, index_builds; per-paper
 replace writes). Step 5a done: GROBID 0.8.2 runs natively on Apple Silicon
 (default JDK 17, at `~/AI-project/tools/grobid` because a space in the path breaks it); QLoRA parsed in
-2.17s warm with sections, pages, captions and 73 references. Write-up and parser rules:
-`experiments/stage1/grobid_feasibility.md`. Next: step 5b — `rag/parse/` (parser interface +
-GROBID TEI → Paper + Sections with pages, following the rules in that note), then fetch ~200
-arXiv cs.CL + cs.LG PDFs (2023+), parse, read 10 by hand, record fallback rate and seconds per
-paper. Open decision: stay on GROBID 0.8.2 or install keg-only `openjdk@21` for 0.9.1. Do not start Phase 16.
+~2.1s warm. Write-up: `experiments/stage1/grobid_feasibility.md`. Step 5b done: `rag/parse/`
+— `base.py` (`Parser` interface, `ParsedPaper`, quality gates → ok/suspect, debug print),
+`tei.py` (pure TEI → sections: numbered tree, unnumbered headings as children, headless divs
+continue, appendix numbers from heading text, captions only when labelled Figure/Table, pages
+from coords), `grobid.py` (HTTP client, consolidation off, retries 503), `python -m rag.parse
+<pdf>` saves `data/parsed/<id>.tei.xml` + `.json`. `Section` now stores per-paragraph offsets +
+pages (`Paragraph`); DB schema v2 with a v1→v2 migration. 41 tests. Next: step 5c — arXiv
+metadata for ~200 cs.CL + cs.LG papers (2023+), throttled PDF download (generic User-Agent),
+parse each into SQLite (`upsert_paper`, `replace_sections`, `set_parse_status`), PyMuPDF
+fallback for GROBID failures, read 10 parses by hand, record fallback rate and seconds per paper. Do not start Phase 16.
 
 ### Phase 7 close-out (2026-09-20)
 

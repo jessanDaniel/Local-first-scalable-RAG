@@ -12,9 +12,9 @@ import sqlite3
 from datetime import date
 from pathlib import Path
 
-from rag.models import Chunk, Paper, ParseStatus, Section
+from rag.models import Chunk, Paper, Paragraph, ParseStatus, Section
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS papers (
@@ -45,6 +45,7 @@ CREATE TABLE IF NOT EXISTS sections (
     level       INTEGER NOT NULL,
     path        TEXT NOT NULL,
     text        TEXT NOT NULL,
+    paragraphs_json TEXT NOT NULL DEFAULT '[]',
     anchor      TEXT,
     page_start  INTEGER,
     UNIQUE (arxiv_id, ord)
@@ -99,15 +100,26 @@ def connect(db_path: Path) -> sqlite3.Connection:
     return conn
 
 
+# Each migration takes a database from version N to N + 1.
+MIGRATIONS = {
+    1: ["ALTER TABLE sections ADD COLUMN paragraphs_json TEXT NOT NULL DEFAULT '[]'"],
+}
+
+
 def init_schema(conn: sqlite3.Connection) -> None:
     current = conn.execute("PRAGMA user_version").fetchone()[0]
-    if current not in (0, SCHEMA_VERSION):
+    if current > SCHEMA_VERSION:
         raise SchemaVersionError(
             f"database schema is version {current}, code expects {SCHEMA_VERSION}; "
-            "rebuild the database or add a migration"
+            "this code is older than the database"
         )
     with conn:
-        conn.executescript(SCHEMA)
+        if current == 0:
+            conn.executescript(SCHEMA)
+        else:
+            for version in range(current, SCHEMA_VERSION):
+                for statement in MIGRATIONS[version]:
+                    conn.execute(statement)
         conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
 
 
@@ -229,11 +241,16 @@ def replace_sections(conn: sqlite3.Connection, arxiv_id: str, sections: list[Sec
         conn.execute("DELETE FROM sections WHERE arxiv_id = ?", (arxiv_id,))
         conn.executemany(
             """
-            INSERT INTO sections (section_id, arxiv_id, ord, heading, level, path, text, anchor, page_start)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO sections (
+                section_id, arxiv_id, ord, heading, level, path, text, paragraphs_json, anchor, page_start
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             [
-                (s.section_id, s.arxiv_id, s.ord, s.heading, s.level, s.path, s.text, s.anchor, s.page_start)
+                (
+                    s.section_id, s.arxiv_id, s.ord, s.heading, s.level, s.path, s.text,
+                    json.dumps([[p.char_start, p.char_end, p.page_start, p.page_end] for p in s.paragraphs]),
+                    s.anchor, s.page_start,
+                )
                 for s in sections
             ],
         )
@@ -251,6 +268,7 @@ def get_sections(conn: sqlite3.Connection, arxiv_id: str) -> list[Section]:
             level=row["level"],
             path=row["path"],
             text=row["text"],
+            paragraphs=[Paragraph(*span) for span in json.loads(row["paragraphs_json"])],
             anchor=row["anchor"],
             page_start=row["page_start"],
         )

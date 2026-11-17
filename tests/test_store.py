@@ -4,7 +4,7 @@ from datetime import date
 import pytest
 
 from rag.config import Settings
-from rag.models import Chunk, Paper, Section, make_chunk_id
+from rag.models import Chunk, Paper, Paragraph, Section, make_chunk_id
 from rag.store import db
 
 SECTION_TEXT = "LoRA freezes the pretrained weights.\n\nIt trains low-rank matrices A and B."
@@ -175,3 +175,44 @@ def test_bad_offsets_are_rejected():
 def test_db_path_follows_data_dir(tmp_path):
     settings = Settings(_env_file=None, data_dir=tmp_path)
     assert settings.db_path == tmp_path / "rag.db"
+
+
+def test_paragraph_spans_round_trip(conn):
+    db.upsert_paper(conn, make_paper())
+    section = Section.from_paragraphs(
+        "2106.09685", 0, "4 Method", 1, "4 Method",
+        [("LoRA freezes the pretrained weights.", 4, 4), ("It trains low-rank matrices A and B.", 4, 5)],
+    )
+    db.replace_sections(conn, "2106.09685", [section])
+    stored = db.get_sections(conn, "2106.09685")[0]
+    assert stored == section
+    assert stored.page_start == 4
+    assert [(p.page_start, p.page_end) for p in stored.paragraphs] == [(4, 4), (4, 5)]
+
+
+def test_paragraph_offsets_must_fit_the_text():
+    with pytest.raises(ValueError, match="paragraph offsets"):
+        Section("x", 0, "h", 1, "h", "short", paragraphs=[Paragraph(0, 50)])
+
+
+def test_v1_database_is_migrated(tmp_path):
+    path = tmp_path / "rag.db"
+    raw = sqlite3.connect(path)
+    raw.executescript(
+        """
+        CREATE TABLE papers (arxiv_id TEXT PRIMARY KEY);
+        CREATE TABLE sections (
+            section_id TEXT PRIMARY KEY, arxiv_id TEXT NOT NULL, ord INTEGER NOT NULL,
+            heading TEXT NOT NULL, level INTEGER NOT NULL, path TEXT NOT NULL, text TEXT NOT NULL,
+            anchor TEXT, page_start INTEGER
+        );
+        INSERT INTO papers VALUES ('2106.09685');
+        INSERT INTO sections VALUES ('2106.09685:0', '2106.09685', 0, 'h', 1, 'h', 'old text', NULL, NULL);
+        PRAGMA user_version = 1;
+        """
+    )
+    raw.close()
+
+    connection = db.open_db(path)
+    assert connection.execute("PRAGMA user_version").fetchone()[0] == db.SCHEMA_VERSION
+    assert db.get_sections(connection, "2106.09685")[0].paragraphs == []

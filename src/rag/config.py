@@ -24,6 +24,10 @@ class Settings(BaseSettings):
 
     data_dir: Path = PROJECT_ROOT / "data"
 
+    grobid_url: str = "http://localhost:8070"
+    grobid_timeout_seconds: float = Field(default=180.0, gt=0)
+    grobid_max_retries: int = Field(default=3, ge=0)
+
     llm_provider: Literal["ollama", "groq"] = "ollama"
     llm_temperature: float = Field(default=0.0, ge=0.0, le=2.0)
     llm_timeout_seconds: float = Field(default=120.0, gt=0)

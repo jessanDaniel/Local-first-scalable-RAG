@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TEI xmlns="http://www.tei-c.org/ns/1.0">
+  <teiHeader>
+    <fileDesc>
+      <titleStmt><title level="a" type="main">Tiny Adapters for Large Models</title></titleStmt>
+      <sourceDesc><biblStruct><analytic>
+        <author><persName><forename type="first">Ada</forename><surname>Lovelace</surname></persName></author>
+        <author><persName><forename type="first">Alan</forename><forename type="middle">M</forename><surname>Turing</surname></persName></author>
+        <author><affiliation>No person name here</affiliation></author>
+      </analytic></biblStruct></sourceDesc>
+    </fileDesc>
+    <profileDesc><abstract><div><p coords="1,10,10,100,8">We freeze the base model and train small adapters.</p></div></abstract></profileDesc>
+  </teiHeader>
+  <facsimile><surface n="1"/><surface n="2"/><surface n="3"/><surface n="4"/></facsimile>
+  <text>
+    <body>
+      <div><head n="1">Introduction</head>
+        <p coords="1,10,40,100,8">Adapters cut the number of trainable parameters (see <ref>Table 1</ref>).</p>
+      </div>
+      <div><head>Model</head><p coords="1,10,60,100,8;2,10,10,100,8">A paragraph that runs onto page two.</p></div>
+      <div><head n="3">Method</head><p coords="2,10,40,100,8">We insert rank r matrices.</p>
+        <formula coords="2,10,60,100,8">W = W0 + BA<label>(1)</label></formula>
+      </div>
+      <div><head>Double Quantization</head><p coords="2,10,80,100,8">Quantize the constants too.</p></div>
+      <div><p coords="3,10,10,100,8">A headless div continues the previous section.</p></div>
+      <div><head n="5.1">Setup</head><p coords="3,10,40,100,8">Parent 5 is missing.</p></div>
+      <div><head n="5.2">Results</head><p coords="3,10,60,100,8">Adapters match full finetuning.</p></div>
+      <div><head>Guanaco:</head><p coords="3,10,80,100,8">A chat line that GROBID read as a heading.</p></div>
+      <div><head n="6">Conclusion</head><p coords="3,10,90,100,8">Small is enough.</p></div>
+      <figure coords="1,10,90,100,20"><head>Figure 1 :</head><figDesc>Figure 1: Memory use of each method.</figDesc></figure>
+      <figure type="table" coords="2,10,90,100,20"><head>Table 1 :</head><figDesc>Trainable parameters per method.</figDesc></figure>
+      <figure coords="3,10,95,100,20"><head>User:</head><figDesc>Please factorize 1833.</figDesc></figure>
+      <figure coords="3,10,96,100,20"><head>Figure 2 :</head><figDesc></figDesc></figure>
+    </body>
+    <back>
+      <div type="acknowledgement"><div><head>Acknowledgements</head><p>We thank everyone.</p></div></div>
+      <div type="annex">
+        <div><head>A Extra Experiments</head><p coords="4,10,10,100,8">More runs.</p></div>
+        <div><head>Data Details</head><p coords="4,10,20,100,8">Dataset sizes.</p></div>
+        <div><head>B.2 Hyperparameters</head><p coords="4,10,30,100,8">Learning rate 2e-4.</p></div>
+      </div>
+      <div type="references"><listBibl>
+        <biblStruct><analytic><title>Paper one</title></analytic></biblStruct>
+        <biblStruct><analytic><title>Paper two</title></analytic></biblStruct>
+      </listBibl></div>
+    </back>
+  </text>
+</TEI>

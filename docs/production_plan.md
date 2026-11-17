@@ -486,7 +486,7 @@ spans, the same shape as `eval_questions.jsonl`. Then: ablations (dense vs BM25 
    backup, PyMuPDF fallback; arXiv HTML dropped as not general enough). The service runs as
    native processes.
 
-Progress: Stage 1 steps 1–4 done, step 5a done (GROBID 0.8.2 native on the default JDK 17; see
+Progress: Stage 1 steps 1–4 done, step 5a–5b done (5b: `rag/parse/` parser interface + GROBID TEI → sections with pages; schema v2) (GROBID 0.8.2 native on the default JDK 17; see
 `experiments/stage1/grobid_feasibility.md`) (step 4: `rag/models.py` + SQLite store, schema v1; step 3: config, LLM factory, timeouts/retries, token counts, typed `Generation`).
 Earlier: (git repo; `src/rag/` installed package, no `sys.path`
 hacks; learning scripts in `experiments/learning/`; companion doc in `docs/archive/`).

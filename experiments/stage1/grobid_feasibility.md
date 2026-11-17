@@ -71,3 +71,13 @@ Request: `POST /api/processFulltextDocument` with consolidation off and
 - **Math.** Formulas come out as flattened text. Acceptable for retrieval; BM25 (Stage 2)
   will not match LaTeX symbols in them.
 - **Author names.** `persName` has `forename` and `surname` children; join them with a space.
+
+## Step 5b result: the rules applied (`rag/parse/tei.py`)
+
+`uv run python -m rag.parse data/raw/pdf/2305.14314.pdf` on QLoRA: 35 sections (abstract, 24
+body sections incl. sub-headings, 9 appendix sections, captions), 9,472 body words, status ok.
+"Guanaco:" headings sit under `6 Qualitative Analysis > 6.1 …`; "Model" under `1 Introduction`;
+appendix paths come out as `Appendix > B.2 Hyperparameters` (number recovered from the heading
+text, since GROBID gives annex heads no `n`). 9 captions kept with labels and pages ("Table 2:
+Pile" is a GROBID mis-read, kept); the chat "figure" is dropped. Table *contents* are not
+extracted yet, only captions. Pages 17–21 (references) contribute no body text.
