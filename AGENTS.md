@@ -93,11 +93,13 @@ passed (qwen2.5:7b-instruct, 5.19s cold / 0.61s warm). Ollama is currently stopp
 (`brew services start ollama` to use it). Step 4: `rag/models.py` (Paper, Section, Chunk;
 content-hash `chunk_id`; chunk offsets index into `Section.text`) and `rag/store/db.py`
 (SQLite at `data/rag.db`, schema v1: papers, sections, chunks, index_builds; per-paper
-replace writes). Next: Stage 1 step 5 — first prove GROBID runs natively on Apple Silicon
-(Gradle wrapper, existing JDK 17; do not change the work Java setup) by parsing one PDF; if not,
-use Docling. Then fetch ~200 arXiv cs.CL + cs.LG PDFs (2023+), parse to Paper + Sections with
-pages behind a parser interface, dump to `data/parsed/`, read 10 by hand, record fallback rate
-and seconds per paper. Do not start Phase 16.
+replace writes). Step 5a done: GROBID 0.8.2 runs natively on Apple Silicon
+(JDK 11, at `~/AI-project/tools/grobid` because a space in the path breaks it); QLoRA parsed in
+2.17s warm with sections, pages, captions and 73 references. Write-up and parser rules:
+`experiments/stage1/grobid_feasibility.md`. Next: step 5b — `rag/parse/` (parser interface +
+GROBID TEI → Paper + Sections with pages, following the rules in that note), then fetch ~200
+arXiv cs.CL + cs.LG PDFs (2023+), parse, read 10 by hand, record fallback rate and seconds per
+paper. Open decision: stay on GROBID 0.8.2 or install keg-only `openjdk@21` for 0.9.1. Do not start Phase 16.
 
 ### Phase 7 close-out (2026-09-20)
 
@@ -121,6 +123,14 @@ finding under "Chroma vs. manual search" below.
   shell environment, so inference runs CPU-only here — a single ~250-word answer took ~16.6s; use
   this as the latency baseline for Phase 13's Top-K/latency experiments, not necessarily
   representative of an unsandboxed run.
+- **GROBID:** 0.8.2 cloned and built at `~/AI-project/tools/grobid` (outside the repo: Wapiti
+  cannot load models from a path containing a space, like `RAG doc`). Start with
+  `cd ~/AI-project/tools/grobid && JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk-11.jdk/Contents/Home ./gradlew run --no-daemon`;
+  ready when `curl localhost:8070/api/isalive` returns `true`. ~1.9 GB RAM. Always send
+  `consolidateHeader=0`, `consolidateCitations=0`, `consolidateFunders=0` (otherwise it can call
+  CrossRef). 0.9.1 needs JDK 21, not installed.
+- **Downloads from arXiv:** use a generic User-Agent; never put the user's email in request
+  headers.
 - **HF Hub:** model downloads work unauthenticated; `HF_TOKEN` warning can be ignored for now.
 - **Default embedding model:** `all-MiniLM-L6-v2` (384 dims), local via `sentence-transformers`.
 - **Chunk size unit:** word-count proxy for tokens (real tokenizer deferred until needed).
