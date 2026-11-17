@@ -94,7 +94,7 @@ passed (qwen2.5:7b-instruct, 5.19s cold / 0.61s warm). Ollama is currently stopp
 content-hash `chunk_id`; chunk offsets index into `Section.text`) and `rag/store/db.py`
 (SQLite at `data/rag.db`, schema v1: papers, sections, chunks, index_builds; per-paper
 replace writes). Step 5a done: GROBID 0.8.2 runs natively on Apple Silicon
-(JDK 11, at `~/AI-project/tools/grobid` because a space in the path breaks it); QLoRA parsed in
+(default JDK 17, at `~/AI-project/tools/grobid` because a space in the path breaks it); QLoRA parsed in
 2.17s warm with sections, pages, captions and 73 references. Write-up and parser rules:
 `experiments/stage1/grobid_feasibility.md`. Next: step 5b — `rag/parse/` (parser interface +
 GROBID TEI → Paper + Sections with pages, following the rules in that note), then fetch ~200
@@ -125,7 +125,7 @@ finding under "Chroma vs. manual search" below.
   representative of an unsandboxed run.
 - **GROBID:** 0.8.2 cloned and built at `~/AI-project/tools/grobid` (outside the repo: Wapiti
   cannot load models from a path containing a space, like `RAG doc`). Start with
-  `cd ~/AI-project/tools/grobid && JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk-11.jdk/Contents/Home ./gradlew run --no-daemon`;
+  `cd ~/AI-project/tools/grobid && ./gradlew run --no-daemon` (default JDK 17; JDK 11 also works);
   ready when `curl localhost:8070/api/isalive` returns `true`. ~1.9 GB RAM. Always send
   `consolidateHeader=0`, `consolidateCitations=0`, `consolidateFunders=0` (otherwise it can call
   CrossRef). 0.9.1 needs JDK 21, not installed.

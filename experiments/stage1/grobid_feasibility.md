@@ -8,10 +8,10 @@ building the parser on it. Result: **it works.**
 | Item | Value |
 |---|---|
 | GROBID version | **0.8.2** (tag `0.8.2`, cloned to `~/AI-project/tools/grobid`) |
-| JDK | Oracle **11.0.18** (`/Library/Java/JavaVirtualMachines/jdk-11.jdk`), already installed; nothing new installed |
+| JDK | Homebrew OpenJDK **17.0.19**, the machine's default `JAVA_HOME`; nothing new installed. (Oracle 11.0.18 also works; first run used it.) |
 | Engine | CRF (`wapiti`) for every model in `grobid-home/config/grobid.yaml`; no Python/DeLFT needed |
 | Native libs | `grobid-home/lib/mac_arm-64/libwapiti.dylib` and `grobid-home/pdfalto/mac_arm-64/pdfalto`, both arm64 |
-| Start | `cd ~/AI-project/tools/grobid && JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk-11.jdk/Contents/Home ./gradlew run --no-daemon` |
+| Start | `cd ~/AI-project/tools/grobid && ./gradlew run --no-daemon` (uses the default JDK 17) |
 | Ready check | `curl localhost:8070/api/isalive` → `true`; `/api/version` → `0.8.2` |
 | Memory | ~1.9 GB resident while running |
 
@@ -21,8 +21,9 @@ building the parser on it. Result: **it works.**
    17 and 11. 0.8.2 targets Java 11, so it was used instead of installing a new JDK.
    Upgrading to 0.9.1 means installing `openjdk@21` (Homebrew keg-only, does not change the
    default `java`). Open decision.
-2. **0.8.2 builds with Gradle 7.2, which needs JDK 11 here** (7.2 predates official JDK 17
-   support).
+2. **0.8.2 builds and runs on JDK 17.** I first assumed Gradle 7.2 would not run on 17 and used
+   JDK 11 without testing. Re-tested: `gradlew install` succeeds on 17, and QLoRA parsed on 17
+   gives output identical to the JDK 11 run except the timestamp (10.42 s cold, 2.10 s warm).
 3. **Spaces in the path break GROBID.** Run from `…/RAG doc/tools/grobid`, Wapiti tried to load
    the model file `"~/AI-project/RAG"` and failed: the native library cuts
    its path at the space. GROBID must live at a path without spaces, hence
