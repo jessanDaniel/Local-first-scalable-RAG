@@ -1,0 +1,13 @@
+doc,query,k,n_chunks_total,n_chunks_returned,retrieval_hit,context_chars,context_words,retrieval_time_s,generation_time_s,answer_correct,answer_preview
+company_policy.txt,How many days do I have to request a refund?,1,6,1,True,653,101,0.078,0.36,True,30 days.
+company_policy.txt,How many days do I have to request a refund?,3,6,3,True,1492,226,0.034,0.52,True,You have 30 days to request a refund.
+company_policy.txt,How many days do I have to request a refund?,5,6,5,True,2787,428,0.0394,0.27,True,You have 30 days from the date of purchase to request a refund.
+company_policy.txt,How many days do I have to request a refund?,10,6,6,True,3421,529,0.0369,0.48,True,You have 30 days from the date of purchase to request a refund.
+employee_handbook.txt,How many consecutive late arrivals trigger a review?,1,16,1,False,1042,151,0.0311,0.59,False,I don't know.
+employee_handbook.txt,How many consecutive late arrivals trigger a review?,3,16,3,True,3114,453,0.0425,0.53,True,Three consecutive late arrivals trigger a review.
+employee_handbook.txt,How many consecutive late arrivals trigger a review?,5,16,5,True,5175,755,0.0492,0.73,True,Three late arrivals (within a rolling 30‑day period) trigger a written attendance review.
+employee_handbook.txt,How many consecutive late arrivals trigger a review?,10,16,10,True,10401,1510,0.0364,0.64,True,Three consecutive late arrivals trigger a written attendance review.
+employee_handbook.txt,How many vacation days do employees get in their first year of service?,1,16,1,True,931,151,0.0416,0.49,True,15 days of paid vacation.
+employee_handbook.txt,How many vacation days do employees get in their first year of service?,3,16,3,True,2930,453,0.0413,0.74,True,Employees accrue **15 days** of paid vacation in their first year of service.
+employee_handbook.txt,How many vacation days do employees get in their first year of service?,5,16,5,True,5104,755,0.0265,0.27,True,Employees receive **15 vacation days** in their first year of service.
+employee_handbook.txt,How many vacation days do employees get in their first year of service?,10,16,10,True,10320,1510,0.0353,0.64,False,I’m not sure.

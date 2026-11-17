@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+
+# uv / venv
+.venv/
+
+# Env secrets
+.env
+
+# OS
+.DS_Store
+
+# Editors
+.vscode/
+.idea/
+
+# Caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local vector store / model caches (regenerable, keep out of git)
+.chroma/
+chroma_db/
+*.index
+
+# Large source documents are project-specific; keep small samples only,
+# ignore anything explicitly marked local-only
+documents/*.local.*

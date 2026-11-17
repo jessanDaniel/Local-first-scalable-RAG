@@ -1,0 +1,233 @@
+Acme Corp Employee Handbook
+Effective Date: January 1, 2025
+Version: 3.2
+
+Welcome to Acme Corp. This handbook describes workplace expectations, benefits, security
+practices, and operational policies for all full-time, part-time, and contract staff. It does
+not replace employment contracts or local labor law. Where this handbook conflicts with
+applicable law, the law prevails. Managers are responsible for applying these policies
+consistently and for escalating exceptions to Human Resources.
+
+Section 1: Employment Classification
+
+Acme Corp classifies workers as full-time employees, part-time employees, temporary employees,
+or independent contractors. Full-time employees generally work at least 40 hours per week and
+are eligible for the complete benefits package described in Section 6. Part-time employees work
+fewer than 30 hours per week and receive a reduced benefits package. Temporary employees are
+hired for a defined project window, typically no longer than six months, and are not eligible
+for retirement matching. Independent contractors are not employees; they invoice through
+Accounts Payable and are responsible for their own taxes and insurance. Misclassification
+concerns should be reported to HR within five business days of discovery.
+
+Section 2: Working Hours and Attendance
+
+Standard office hours are Monday through Friday, 9:00 a.m. to 5:30 p.m. local time, with a
+30-minute unpaid lunch break. Teams may adopt flexible start times between 7:30 a.m. and
+10:00 a.m. with manager approval, provided core collaboration hours of 11:00 a.m. to 3:00 p.m.
+are covered. Remote employees must remain reachable on company chat during their scheduled
+hours. Repeated unexplained absences, or three late arrivals within a rolling 30-day window,
+trigger a written attendance review. Planned time off must be submitted in the HR portal at
+least five business days in advance for absences of one or two days, and at least fifteen
+business days in advance for absences of three or more consecutive days.
+
+Section 3: Hybrid and Remote Work
+
+Acme Corp operates a hybrid model. Roles designated as Office-Primary require at least three
+in-office days per week. Roles designated as Hybrid-Flexible require at least two in-office
+days per week. Fully remote roles are limited to positions approved by both the hiring manager
+and the department VP. Employees working remotely must maintain a private workspace suitable
+for confidential discussions, use company-managed devices for all production systems, and join
+video meetings with camera on unless bandwidth or accessibility constraints apply. Home office
+stipends of up to 400 dollars per calendar year may be reimbursed for chairs, monitors, or
+headsets with receipts submitted within 45 days of purchase. Acme Corp does not reimburse rent,
+utilities, or personal internet service.
+
+Section 4: Code of Conduct
+
+Employees must treat colleagues, customers, and partners with respect. Harassment, discrimination,
+bullying, or retaliation of any kind is prohibited. This includes conduct on company premises,
+at company events, and on company communication channels. Romantic relationships between a
+manager and a direct report must be disclosed to HR immediately so reporting lines can be
+adjusted. Conflicts of interest, including outside employment with a competitor or ownership
+stakes exceeding 5 percent in a vendor company, must be disclosed in writing. Employees may
+not solicit coworkers for non-company commercial products during work hours. Violations are
+investigated by HR and may result in coaching, written warning, unpaid suspension, or
+termination depending on severity and prior history.
+
+Section 5: Confidentiality and Intellectual Property
+
+All product roadmaps, customer lists, pricing models, unpublished research, and internal
+financial forecasts are confidential. Employees may not share confidential materials outside
+Acme Corp without a signed non-disclosure agreement reviewed by Legal. Work product created
+within the scope of employment is owned by Acme Corp, including source code, designs, documents,
+and inventions. Employees must return all company devices and revoke personal copies of company
+data on or before their last working day. Personal cloud accounts and personal USB drives must
+not be used to store company source code or customer personal data. Suspected data leaks must
+be reported to security@acmecorp.example within one hour of discovery.
+
+Section 6: Compensation and Benefits
+
+Salary bands are reviewed annually in March. Merit increases, when granted, take effect in the
+first payroll of April. Overtime for non-exempt employees requires pre-approval and is paid at
+one and one half times the regular hourly rate for hours beyond 40 in a workweek. Full-time
+employees receive medical, dental, and vision coverage beginning on the first day of the month
+following hire. Acme Corp matches 401(k) contributions at 50 percent of employee contributions
+up to 6 percent of eligible compensation. Employees accrue 15 days of paid vacation in years
+one through three of service, 20 days in years four through seven, and 25 days thereafter.
+Sick leave accrues at one day per month up to a maximum bank of 30 days. Parental leave of
+12 weeks paid is available to eligible employees after 12 months of continuous service.
+
+Section 7: Expense Reimbursement
+
+Business expenses must be reasonable, documented, and submitted within 30 days. Meal limits are
+25 dollars for breakfast, 35 dollars for lunch, and 60 dollars for dinner unless a customer
+meeting is pre-approved at a higher amount. Domestic economy airfare is the default; upgrades
+require director approval. Hotel stays should use the corporate travel portal preferred rates
+when available. Alcohol is reimbursable only for customer entertainment with itemized receipts
+and manager approval. Personal expenses charged to a corporate card must be repaid within 14
+days. Missing receipts above 25 dollars require a missing-receipt affidavit. Fraudulent expense
+claims are grounds for immediate termination and possible legal action.
+
+Section 8: Information Security
+
+Employees must use unique passwords of at least 14 characters and enable multi-factor
+authentication on all company accounts. Passwords must not be shared, written on sticky notes,
+or stored in unencrypted personal notes apps. Company laptops must remain encrypted, locked
+when unattended, and patched within seven days of critical security updates. Public Wi-Fi may
+be used only through the company VPN. Phishing simulations occur quarterly; failing two
+consecutive simulations requires a short security refresher course. Software installation on
+managed devices requires approval through the IT service desk except for tools on the approved
+software catalog. Production credentials must never be committed to source control. Security
+incidents involving ransomware, account takeover, or lost devices must be reported immediately
+to the on-call security engineer listed in the internal directory.
+
+Section 9: Software Development Practices
+
+Engineers follow trunk-based development with short-lived feature branches. Pull requests require
+at least one approving review from a code owner before merge to main. Continuous integration
+must pass linting, unit tests, and security scanning before merge. Secrets belong in the
+company secrets manager, not in environment files committed to git. Breaking changes to public
+APIs require a deprecation window of at least 90 days and a changelog entry. On-call rotations
+cover production services 24 hours a day, seven days a week, with a primary and secondary
+engineer. Severity 1 incidents require a customer-facing status update within 30 minutes and a
+blameless postmortem within five business days. Test data must not contain real customer
+personally identifiable information unless explicitly approved and masked.
+
+Section 10: Customer Support Escalation
+
+Support tickets are prioritized as P1 through P4. P1 means complete service outage or data loss
+risk for multiple customers and requires acknowledgment within 15 minutes. P2 means major
+feature unavailable with a workaround and requires acknowledgment within one hour. P3 means
+degraded experience for a subset of users and requires acknowledgment within one business day.
+P4 means general questions or cosmetic issues and requires acknowledgment within two business
+days. Customers with Enterprise plans receive a named customer success manager and a dedicated
+Slack channel. Refunds for service credits follow the Customer Policy Handbook and must be
+approved by Support Leadership for amounts above 500 dollars. Support agents must not speculate
+about root causes in customer threads before Engineering confirms the diagnosis.
+
+Section 11: Performance Management
+
+Goals are set each quarter using the company OKR template. Managers hold 1:1 meetings at least
+biweekly. Formal performance reviews occur twice per year, in June and December. Employees
+rated Below Expectations receive a written performance improvement plan lasting 30 to 60 days
+with concrete milestones. Failure to meet the plan may result in role change or separation.
+Promotion packets require evidence of scope increase, sustained impact, and peer feedback from
+at least three collaborators. Calibration sessions across teams are required before final
+rating submission to reduce bias. Employees may submit a written rebuttal to HR within ten
+business days of receiving a formal review.
+
+Section 12: Learning and Development
+
+Acme Corp provides an annual learning stipend of 1,000 dollars for courses, books, and
+conferences related to the employee's role. Conference travel requires manager approval and
+must be booked through the corporate travel portal. Internal tech talks occur every other
+Thursday at noon; recordings are stored in the company knowledge base. Mentorship pairings
+run for six-month cycles and are coordinated by the People Development team. Employees are
+expected to complete mandatory compliance training annually, including security awareness,
+anti-harassment, and data privacy modules, within 30 days of assignment. Incomplete mandatory
+training blocks promotion eligibility until finished.
+
+Section 13: Health, Safety, and Facilities
+
+Office locations maintain first-aid kits on every floor and clearly marked emergency exits.
+Fire drills occur twice per year. Employees who observe unsafe conditions must report them to
+Facilities the same day. Desk hoteling desks must be cleared by 6:00 p.m.; personal items left
+overnight may be moved to Lost and Found after 48 hours. Kitchen areas must be kept clean;
+food left unlabeled in shared refrigerators is discarded every Friday at 4:00 p.m. Bicycles
+may be stored only in designated racks. Visitors must sign in at reception and be escorted by
+an employee at all times in badge-restricted areas. After-hours building access requires an
+active badge and is logged automatically.
+
+Section 14: Travel and International Assignments
+
+Domestic travel for customer meetings should be consolidated when multiple accounts are in the
+same metro area within a seven-day window. International travel requires VP approval and a
+completed travel risk assessment for destinations under a government advisory. Employees on
+temporary international assignment longer than 90 days must complete tax counseling with the
+global mobility vendor before departure. Travel insurance is provided automatically for
+approved trips booked through the corporate portal. Personal side trips attached to business
+travel are allowed if incremental costs are paid by the employee and documented separately.
+Export-control restricted technical documents must not be carried into countries on the
+company restricted-travel list without Legal clearance.
+
+Section 15: Procurement and Vendor Management
+
+Purchases under 1,000 dollars may be made on a corporate card with manager approval. Purchases
+between 1,000 and 10,000 dollars require a purchase order. Purchases above 10,000 dollars
+require Legal review of the vendor contract and Security review if the vendor will process
+company or customer data. Preferred vendors listed in the procurement catalog should be used
+when they meet requirements. Employees must not accept personal gifts from vendors valued over
+75 dollars. Annual vendor access reviews occur each November; unused vendor accounts are
+disabled. Shadow IT tools that store company data without IT approval are prohibited and may
+be blocked at the network layer.
+
+Section 16: Records Retention
+
+Customer contracts are retained for seven years after termination. Payroll records are retained
+for seven years. Recruitment records for unsuccessful candidates are retained for two years.
+Security logs are retained for at least one year, and for three years when associated with a
+confirmed incident. Employees must not delete records under legal hold. Questions about
+retention schedules go to compliance@acmecorp.example. Paper records containing personal data
+must be shredded using approved consoles, not placed in ordinary recycling bins.
+
+Section 17: Separation from Employment
+
+Resignations should be submitted in writing with at least two weeks of notice for individual
+contributors and at least four weeks of notice for managers. Acme Corp may place employees on
+garden leave during the notice period when access to sensitive systems presents risk. Exit
+interviews are optional but encouraged. Final paychecks include accrued unused vacation where
+required by local law. Benefits coverage generally ends on the last day of employment; COBRA
+information is mailed within 14 days where applicable. Former employees must not retain access
+credentials, documents, or devices. Non-solicit and confidentiality obligations survive
+separation according to the employment agreement.
+
+Section 18: Policy Updates and Questions
+
+This handbook is reviewed at least annually. Material updates are announced by email and posted
+to the company intranet with an effective date. Continued employment after an update constitutes
+acknowledgment unless local law requires a signed acknowledgment form. Questions about
+interpretation should be directed first to the employee's manager, then to HR Business Partners.
+Whistleblower reports involving ethics, fraud, or safety may be submitted anonymously through
+the third-party hotline listed on the intranet ethics page. Retaliation against good-faith
+reporters is strictly prohibited and independently investigated.
+
+Appendix A: Quick Reference Contacts
+
+Human Resources: hr@acmecorp.example
+Information Security: security@acmecorp.example
+Legal: legal@acmecorp.example
+IT Service Desk: it-help@acmecorp.example
+Facilities: facilities@acmecorp.example
+Compliance: compliance@acmecorp.example
+Ethics Hotline: Available on the intranet ethics page
+
+Appendix B: Related Documents
+
+Customer Policy Handbook
+Information Security Standards
+Software Development Playbook
+Travel and Expense Guidelines
+Performance Review Rubric
+Vendor Risk Assessment Checklist
+
+End of Employee Handbook.

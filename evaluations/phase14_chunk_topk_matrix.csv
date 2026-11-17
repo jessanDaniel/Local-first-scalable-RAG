@@ -1,0 +1,49 @@
+doc,query,chunk_size,overlap,k,n_chunks_total,n_chunks_returned,needle_in_index,retrieval_hit,needle_rank,top_score,context_words
+company_policy.txt,How many days do I have to request a refund?,100,0,1,5,1,True,True,1,0.568,101
+company_policy.txt,How many days do I have to request a refund?,100,0,3,5,3,True,True,1,0.568,276
+company_policy.txt,How many days do I have to request a refund?,100,0,5,5,5,True,True,1,0.568,478
+company_policy.txt,How many days do I have to request a refund?,100,0,10,5,5,True,True,1,0.568,478
+company_policy.txt,How many days do I have to request a refund?,100,10,1,6,1,True,True,1,0.568,101
+company_policy.txt,How many days do I have to request a refund?,100,10,3,6,3,True,True,1,0.568,226
+company_policy.txt,How many days do I have to request a refund?,100,10,5,6,5,True,True,1,0.568,428
+company_policy.txt,How many days do I have to request a refund?,100,10,10,6,6,True,True,1,0.568,529
+company_policy.txt,How many days do I have to request a refund?,200,0,1,3,1,True,True,1,0.5661,201
+company_policy.txt,How many days do I have to request a refund?,200,0,3,3,3,True,True,1,0.5661,476
+company_policy.txt,How many days do I have to request a refund?,200,0,5,3,3,True,True,1,0.5661,476
+company_policy.txt,How many days do I have to request a refund?,200,0,10,3,3,True,True,1,0.5661,476
+company_policy.txt,How many days do I have to request a refund?,200,20,1,3,1,True,True,1,0.5661,201
+company_policy.txt,How many days do I have to request a refund?,200,20,3,3,3,True,True,1,0.5661,516
+company_policy.txt,How many days do I have to request a refund?,200,20,5,3,3,True,True,1,0.5661,516
+company_policy.txt,How many days do I have to request a refund?,200,20,10,3,3,True,True,1,0.5661,516
+employee_handbook.txt,How many consecutive late arrivals trigger a review?,150,0,1,15,1,True,True,1,0.3657,151
+employee_handbook.txt,How many consecutive late arrivals trigger a review?,150,0,3,15,3,True,True,1,0.3657,453
+employee_handbook.txt,How many consecutive late arrivals trigger a review?,150,0,5,15,5,True,True,1,0.3657,755
+employee_handbook.txt,How many consecutive late arrivals trigger a review?,150,0,10,15,10,True,True,1,0.3657,1510
+employee_handbook.txt,How many vacation days do employees get in their first year of service?,150,0,1,15,1,True,False,,0.4508,151
+employee_handbook.txt,How many vacation days do employees get in their first year of service?,150,0,3,15,3,True,True,2,0.4508,453
+employee_handbook.txt,How many vacation days do employees get in their first year of service?,150,0,5,15,5,True,True,2,0.4508,755
+employee_handbook.txt,How many vacation days do employees get in their first year of service?,150,0,10,15,10,True,True,2,0.4508,1510
+employee_handbook.txt,How many consecutive late arrivals trigger a review?,150,15,1,16,1,True,False,,0.3139,151
+employee_handbook.txt,How many consecutive late arrivals trigger a review?,150,15,3,16,3,True,True,2,0.3139,453
+employee_handbook.txt,How many consecutive late arrivals trigger a review?,150,15,5,16,5,True,True,2,0.3139,755
+employee_handbook.txt,How many consecutive late arrivals trigger a review?,150,15,10,16,10,True,True,2,0.3139,1510
+employee_handbook.txt,How many vacation days do employees get in their first year of service?,150,15,1,16,1,True,True,1,0.5279,151
+employee_handbook.txt,How many vacation days do employees get in their first year of service?,150,15,3,16,3,True,True,1,0.5279,453
+employee_handbook.txt,How many vacation days do employees get in their first year of service?,150,15,5,16,5,True,True,1,0.5279,755
+employee_handbook.txt,How many vacation days do employees get in their first year of service?,150,15,10,16,10,True,True,1,0.5279,1510
+employee_handbook.txt,How many consecutive late arrivals trigger a review?,300,0,1,8,1,True,False,,0.3607,301
+employee_handbook.txt,How many consecutive late arrivals trigger a review?,300,0,3,8,3,True,False,,0.3607,903
+employee_handbook.txt,How many consecutive late arrivals trigger a review?,300,0,5,8,5,True,False,,0.3607,1505
+employee_handbook.txt,How many consecutive late arrivals trigger a review?,300,0,10,8,8,True,True,6,0.3607,2183
+employee_handbook.txt,How many vacation days do employees get in their first year of service?,300,0,1,8,1,True,True,1,0.4549,301
+employee_handbook.txt,How many vacation days do employees get in their first year of service?,300,0,3,8,3,True,True,1,0.4549,903
+employee_handbook.txt,How many vacation days do employees get in their first year of service?,300,0,5,8,5,True,True,1,0.4549,1505
+employee_handbook.txt,How many vacation days do employees get in their first year of service?,300,0,10,8,8,True,True,1,0.4549,2183
+employee_handbook.txt,How many consecutive late arrivals trigger a review?,300,30,1,8,1,True,False,,0.2708,301
+employee_handbook.txt,How many consecutive late arrivals trigger a review?,300,30,3,8,3,True,False,,0.2708,903
+employee_handbook.txt,How many consecutive late arrivals trigger a review?,300,30,5,8,5,True,False,,0.2708,1490
+employee_handbook.txt,How many consecutive late arrivals trigger a review?,300,30,10,8,8,True,True,7,0.2708,2393
+employee_handbook.txt,How many vacation days do employees get in their first year of service?,300,30,1,8,1,True,False,,0.4395,301
+employee_handbook.txt,How many vacation days do employees get in their first year of service?,300,30,3,8,3,True,False,,0.4395,903
+employee_handbook.txt,How many vacation days do employees get in their first year of service?,300,30,5,8,5,True,True,5,0.4395,1490
+employee_handbook.txt,How many vacation days do employees get in their first year of service?,300,30,10,8,8,True,True,5,0.4395,2393
