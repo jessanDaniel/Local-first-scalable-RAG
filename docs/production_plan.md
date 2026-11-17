@@ -478,6 +478,6 @@ spans, the same shape as `eval_questions.jsonl`. Then: ablations (dense vs BM25 
 6. **No Docker** on this machine: arXiv HTML parsing with PyMuPDF fallback; the service runs as
    native processes.
 
-Progress: Stage 1 steps 1–3 done (step 3: config, LLM factory, timeouts/retries, token counts, typed `Generation`).
+Progress: Stage 1 steps 1–4 done (step 4: `rag/models.py` + SQLite store, schema v1; step 3: config, LLM factory, timeouts/retries, token counts, typed `Generation`).
 Earlier: (git repo; `src/rag/` installed package, no `sys.path`
 hacks; learning scripts in `experiments/learning/`; companion doc in `docs/archive/`).

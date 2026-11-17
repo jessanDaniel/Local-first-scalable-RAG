@@ -22,6 +22,8 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
+    data_dir: Path = PROJECT_ROOT / "data"
+
     llm_provider: Literal["ollama", "groq"] = "ollama"
     llm_temperature: float = Field(default=0.0, ge=0.0, le=2.0)
     llm_timeout_seconds: float = Field(default=120.0, gt=0)
@@ -32,6 +34,10 @@ class Settings(BaseSettings):
 
     groq_api_key: SecretStr | None = None
     groq_model: str | None = None
+
+    @property
+    def db_path(self) -> Path:
+        return self.data_dir / "rag.db"
 
     @model_validator(mode="after")
     def check_provider_settings(self) -> "Settings":

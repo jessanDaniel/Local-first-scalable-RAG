@@ -22,6 +22,9 @@ __pycache__/
 .mypy_cache/
 .ruff_cache/
 
+# Pipeline data: downloaded papers, parses, SQLite db, indexes (all regenerable)
+data/
+
 # Local vector store / model caches (regenerable, keep out of git)
 .chroma/
 chroma_db/

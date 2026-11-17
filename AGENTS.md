@@ -86,14 +86,15 @@ the plain-language walkthrough of those results is no longer a gate.
 
 **Next up:** Production-grade RAG, following `docs/production_plan.md` (§9 decisions agreed
 2026-11-17: arXiv cs.CL + cs.LG 2023+, FAISS, `bge-small-en-v1.5`, `qwen2.5:7b-instruct`, no
-Docker so arXiv HTML parsing with PyMuPDF fallback). Stage 1 steps 1–3 are done. Step 3 added
-`rag/config.py` (pydantic-settings), `rag/llm/factory.py` (`create_llm()` reads `LLM_PROVIDER`),
-`rag/llm/http.py` (timeouts + retries), a typed `Generation` with token counts, and
-`tests/test_llm.py`. The 7 learning scripts that call an LLM no longer run (old dict API); their
-results are in commit 008088e. Live check passed 2026-11-17: Ollama via `brew services`,
-`qwen2.5:7b-instruct` pulled (4.7 GB); 5.19s cold / 0.61s warm, 25 prompt + 27 completion
-tokens, identical answers at temperature 0. Next: Stage 1 step 4 — `rag/models.py` (Paper,
-Section, Chunk, …) and the SQLite schema. Do not start Phase 16.
+Docker so arXiv HTML parsing with PyMuPDF fallback). Stage 1 steps 1–4 are done.
+Step 3: `rag/config.py`, `rag/llm/factory.py`, timeouts/retries, typed `Generation`; live check
+passed (qwen2.5:7b-instruct, 5.19s cold / 0.61s warm). Ollama is currently stopped
+(`brew services start ollama` to use it). Step 4: `rag/models.py` (Paper, Section, Chunk;
+content-hash `chunk_id`; chunk offsets index into `Section.text`) and `rag/store/db.py`
+(SQLite at `data/rag.db`, schema v1: papers, sections, chunks, index_builds; per-paper
+replace writes). Next: Stage 1 step 5 — fetch ~200 arXiv cs.CL + cs.LG papers (2023+), parse
+arXiv HTML into Paper + Sections (PyMuPDF fallback), dump parses to `data/parsed/`, read 10 by
+hand, record HTML coverage. Do not start Phase 16.
 
 ### Phase 7 close-out (2026-09-20)
 
