@@ -90,8 +90,9 @@ Docker so arXiv HTML parsing with PyMuPDF fallback). Stage 1 steps 1–3 are don
 `rag/config.py` (pydantic-settings), `rag/llm/factory.py` (`create_llm()` reads `LLM_PROVIDER`),
 `rag/llm/http.py` (timeouts + retries), a typed `Generation` with token counts, and
 `tests/test_llm.py`. The 7 learning scripts that call an LLM no longer run (old dict API); their
-results are in commit 008088e. Live Ollama call not yet checked: needs `brew services start
-ollama` and `ollama pull qwen2.5:7b-instruct`. Next: Stage 1 step 4 — `rag/models.py` (Paper,
+results are in commit 008088e. Live check passed 2026-11-17: Ollama via `brew services`,
+`qwen2.5:7b-instruct` pulled (4.7 GB); 5.19s cold / 0.61s warm, 25 prompt + 27 completion
+tokens, identical answers at temperature 0. Next: Stage 1 step 4 — `rag/models.py` (Paper,
 Section, Chunk, …) and the SQLite schema. Do not start Phase 16.
 
 ### Phase 7 close-out (2026-09-20)
