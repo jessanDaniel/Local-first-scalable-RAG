@@ -138,10 +138,20 @@ instead of silent truncation), `rag/index/dense.py` (FAISS `IndexFlatIP`, versio
 questions, not the eval): full design rank1 5/10, top3 9/10, top5 10/10; beats no-instruction and
 no-header variants; one near-distractor miss (VAE reparameterization vs DDPM, a Stage 2 rerank
 test case). Notes: `experiments/stage1/dense_seed10.md`. 101 tests. Before each step, pitch it
-first (problem, build, why, proof, risks, out of scope). Next: Stage 1 step 8 — answers with
-citations: number the top 6–8 hits as sources ("[n] title (doc_id) §path, p.N"), prompt asks
-for inline [n] citations and to say what is missing instead of a bare "I don't know", parse and
-verify [n] markers, token budget for the context, `num_ctx` set for Ollama. Do not start Phase 16.
+first (problem, build, why, proof, risks, out of scope). Step 8 done: `rag/answer/` (`sources.py` merge + number + 3,000-token budget
+counted with the Qwen2.5 tokenizer; `prompt.py` system prompt v2; `citations.py` [n] parsing and
+checks; `answerer.py` with `ContextWindowError` before calling the model),
+`uv run python -m rag.ask "<q>" [--explain]`. Ollama now sends `num_ctx` 8192 and `num_predict`
+600 (confirmed 100% GPU, context 8192). Smoke check, 13 questions read by hand: expected paper
+cited 11/11, 8/10 answerable fully correct, 2/2 unanswerable refused; VAE question wrong (DDPM
+distractors ranked above the right chunk), "why do transformers…" wording credits §3.2.1 content
+to other sections (answer chunk ranked 8th of 8). Key lessons: a valid citation is not a correct
+one (needs a support check in the eval); temperature 0 is not fully reproducible under Ollama
+(run eval questions more than once). Notes: `experiments/stage1/answer_seed10.md`. 116 tests.
+Ollama is stopped (`brew services start ollama` before `rag.ask`). Next: Stage 1 step 9 — one
+`rag` CLI (`rag ingest arxiv|files|tei`, `rag chunk`, `rag index build|list`, `rag search`,
+`rag ask`) wrapping the existing `python -m` entry points; then step 10 (ruff config, pytest,
+pre-commit). Do not start Phase 16.
 
 ### Phase 7 close-out (2026-09-20)
 
