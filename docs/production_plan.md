@@ -495,7 +495,8 @@ spans, the same shape as `eval_questions.jsonl`. Then: ablations (dense vs BM25 
    backup, PyMuPDF fallback; arXiv HTML dropped as not general enough). The service runs as
    native processes.
 
-Progress: Stage 1 steps 1–6 done (6: chunker v2-350, 400 chunks from 10 papers, see
+Progress: Stage 1 steps 1–7 done (7: bge-small embeddings + exact FAISS index, `rag.search`, see
+`experiments/stage1/dense_seed10.md`; 6: chunker v2-350, 400 chunks from 10 papers, see
 `experiments/stage1/chunk_seed10.md`; 5d: generic documents — `doc_id`, schema v3, `rag.ingest arxiv|files`; 5c: 10 papers ingested, all ok, 0 fallback; review in
 `experiments/stage1/seed10_parse_review.md`; 5b: 5b: `rag/parse/` parser interface + GROBID TEI → sections with pages; schema v2) (GROBID 0.8.2 native on the default JDK 17; see
 `experiments/stage1/grobid_feasibility.md`) (step 4: `rag/models.py` + SQLite store, schema v1; step 3: config, LLM factory, timeouts/retries, token counts, typed `Generation`).

@@ -1,0 +1,11 @@
+question,doc_id,n_accepted,A_full_rank,A_full_top1_doc_ok,B_no_instruction_rank,B_no_instruction_top1_doc_ok,C_no_header_rank,C_no_header_top1_doc_ok
+why divide attention scores by the square root of the dimension,arxiv:1706.03762,1,2,True,1,True,1,True
+correcting moving averages of the gradient that start at zero,arxiv:1412.6980,3,1,True,1,True,1,True
+train a small network on the softened outputs of a big model,arxiv:1503.02531,12,1,True,2,False,4,True
+how to backpropagate through random sampling of a latent variable,arxiv:1312.6114,4,4,False,4,False,5,False
+why very deep networks get worse and how learning a residual fixes it,arxiv:1512.03385,11,1,True,2,True,1,True
+generate images by learning to undo noise that was added step by step,arxiv:2006.11239,18,2,True,2,True,2,False
+reversing the order of the words in the input sentence helps the LSTM,arxiv:1409.3215,2,2,True,2,True,2,True
+"two networks trained against each other, one making fakes and one spotting them",arxiv:1406.2661,5,2,True,5,True,6,False
+"layer inputs keep changing distribution during training, which slows learning",arxiv:1502.03167,8,1,True,1,True,1,True
+predict the surrounding words given the current word,arxiv:1301.3781,2,1,True,2,True,1,True

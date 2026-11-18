@@ -365,3 +365,41 @@ def _chunk_from_row(row: sqlite3.Row) -> Chunk:
     if chunk.chunk_id != row["chunk_id"]:
         raise ValueError(f"stored chunk_id {row['chunk_id']} does not match its content")
     return chunk
+
+
+# --- index builds -----------------------------------------------------------
+
+
+def record_index_build(
+    conn: sqlite3.Connection,
+    build_id: str,
+    kind: str,
+    embedding_model: str | None,
+    chunker_version: str,
+    params: dict,
+    n_chunks: int,
+    status: str = "building",
+) -> None:
+    with conn:
+        conn.execute(
+            """
+            INSERT INTO index_builds (build_id, kind, embedding_model, chunker_version, params_json, n_chunks, status)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (build_id, kind, embedding_model, chunker_version, json.dumps(params, sort_keys=True), n_chunks, status),
+        )
+
+
+def set_index_build_status(conn: sqlite3.Connection, build_id: str, status: str) -> None:
+    with conn:
+        conn.execute("UPDATE index_builds SET status = ? WHERE build_id = ?", (status, build_id))
+
+
+def list_index_builds(conn: sqlite3.Connection, kind: str | None = None) -> list[dict]:
+    query = "SELECT * FROM index_builds" + (" WHERE kind = ?" if kind else "") + " ORDER BY created_at, build_id"
+    rows = conn.execute(query, (kind,) if kind else ()).fetchall()
+    return [dict(row) | {"params": json.loads(row["params_json"])} for row in rows]
+
+
+def all_chunk_ids(conn: sqlite3.Connection) -> list[str]:
+    return [row[0] for row in conn.execute("SELECT chunk_id FROM chunks ORDER BY doc_id, ord")]

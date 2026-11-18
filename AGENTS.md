@@ -127,10 +127,21 @@ word/char hard cuts, abstract/caption/body types, exact section slices, pages fr
 `uv run python -m rag.chunk [--show DOC_ID]`. 400 chunks, max 350 tokens, median 224. New:
 `uv run python -m rag.ingest tei` re-applies TEI rules to saved GROBID output (no GROBID); new
 TEI rule drops footnotes GROBID files under the abstract. Notes:
-`experiments/stage1/chunk_seed10.md`. 89 tests. Next: Stage 1 step 7 — embedder v2
-(`bge-small-en-v1.5`, query instruction prefix inside `Embedder`, batching, MPS when available,
-contextual header "title | section path" prepended at embed time) + exact FAISS `IndexFlatIP`
-with a row → chunk_id map and an `index_builds` record; `rag search --explain` style debug. Do not start Phase 16.
+`experiments/stage1/chunk_seed10.md`. 89 tests. Step 7 done: `rag/embed/embedder.py` (`Embedder`: bge-small-en-v1.5 on MPS when
+available, query instruction added inside `embed_query`, passages embedded as
+`passage_text()` = "title | section path\nchunk" with a 60-token header, `InputTooLongError`
+instead of silent truncation), `rag/index/dense.py` (FAISS `IndexFlatIP`, versioned builds in
+`data/indexes/dense/<build_id>/`, `CURRENT` pointer, `load_current` refuses stale indexes),
+`rag/index/build.py` (embedding cache by sha1(model+input) in `data/embeddings/`),
+`uv run python -m rag.index build|list`, `uv run python -m rag.search "<q>" [-k] [--explain]`.
+400 chunks embedded in 2.4 s (170/s on MPS), query ≈ 75 ms. Smoke check (10 paraphrased
+questions, not the eval): full design rank1 5/10, top3 9/10, top5 10/10; beats no-instruction and
+no-header variants; one near-distractor miss (VAE reparameterization vs DDPM, a Stage 2 rerank
+test case). Notes: `experiments/stage1/dense_seed10.md`. 101 tests. Before each step, pitch it
+first (problem, build, why, proof, risks, out of scope). Next: Stage 1 step 8 — answers with
+citations: number the top 6–8 hits as sources ("[n] title (doc_id) §path, p.N"), prompt asks
+for inline [n] citations and to say what is missing instead of a bare "I don't know", parse and
+verify [n] markers, token budget for the context, `num_ctx` set for Ollama. Do not start Phase 16.
 
 ### Phase 7 close-out (2026-09-20)
 

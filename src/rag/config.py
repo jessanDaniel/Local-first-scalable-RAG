@@ -36,6 +36,9 @@ class Settings(BaseSettings):
     grobid_max_retries: int = Field(default=3, ge=0)
 
     embedding_model: str = "BAAI/bge-small-en-v1.5"
+    # Prepended to queries only (bge's documented instruction for short query -> passage search).
+    embedding_query_instruction: str = "Represent this sentence for searching relevant passages: "
+    embedding_batch_size: int = Field(default=64, ge=1)
     # Chunk text budget, in embedding-model tokens. Kept well under the model's 512 so the
     # contextual header ("title | section path") added at embedding time still fits.
     chunk_max_tokens: int = Field(default=350, ge=32)
