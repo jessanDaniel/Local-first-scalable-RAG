@@ -43,6 +43,7 @@ CAPTION_LABEL = re.compile(r"^(fig\.?|figure|table)\s*\d+", re.IGNORECASE)
 # "A Extended derivations", "B.2 Hyperparameters", "C. ImageNet Localization"
 LETTERED_HEADING = re.compile(r"^[A-Z](?:\.\d+)*\.?\s+[A-Z0-9]")
 MIN_SECTIONS_BEFORE_BODY_APPENDIX = 2
+FOOTNOTE_MARK = re.compile(r"^[*†‡§¶‖]")
 JUNK_HEADING_MAX_WORDS = 12
 
 
@@ -142,7 +143,9 @@ def _abstract_paragraphs(header: ET.Element) -> list[tuple[str, int | None, int 
     paragraphs = []
     for p in abstract.iter(f"{TEI}p"):
         text = _inline_text(p)
-        if text:
+        # GROBID sometimes files first-page footnotes under the abstract
+        # ("* Equal contribution...", "† Work performed while at ...").
+        if text and not FOOTNOTE_MARK.match(text):
             paragraphs.append((text, *_pages(p)))
     return paragraphs
 

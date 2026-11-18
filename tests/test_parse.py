@@ -28,7 +28,9 @@ def section(paper: ParsedDocument, path: str) -> Section:
 def test_header(paper):
     assert paper.title == "Tiny Adapters for Large Models"
     assert paper.authors == ["Ada Lovelace", "Alan M Turing"]
+    # footnotes GROBID files under the abstract are dropped
     assert paper.abstract == "We freeze the base model and train small adapters."
+    assert section(paper, "Abstract").text == "We freeze the base model and train small adapters."
     assert paper.n_pages == 4
     assert paper.n_references == 2
 

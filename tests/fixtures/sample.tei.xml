@@ -9,7 +9,9 @@
         <author><affiliation>No person name here</affiliation></author>
       </analytic></biblStruct></sourceDesc>
     </fileDesc>
-    <profileDesc><abstract><div><p coords="1,10,10,100,8">We freeze the base model and train small adapters.</p></div></abstract></profileDesc>
+    <profileDesc><abstract><div><p coords="1,10,10,100,8">We freeze the base model and train small adapters.</p>
+      <p coords="1,10,95,100,8">* Equal contribution. Listing order is random.</p>
+      <p coords="1,10,97,100,8">† Work performed while at a lab.</p></div></abstract></profileDesc>
   </teiHeader>
   <facsimile><surface n="1"/><surface n="2"/><surface n="3"/><surface n="4"/></facsimile>
   <text>

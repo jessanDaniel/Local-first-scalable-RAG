@@ -120,10 +120,17 @@ a quality gate. Ingest has two sources: `uv run python -m rag.ingest arxiv <id f
 `data/raw/files/`, title/authors from the parse). Per-document files use `doc_file_stem()`
 (`arxiv_1412.6980.json`). 72 tests. Pending from the user: Perceptron, Dropout (JMLR), AlexNet
 (NeurIPS) PDFs go in `data/raw/manual/`, then `rag.ingest files data/raw/manual/`. Planned:
-rerun ingest at ~200 papers before Stage 2. Next: Stage 1 step 6 — chunker v2 (paragraph-packed,
-≤ 350 embedding tokens, never crosses sections, offsets + page ranges from
-`Section.paragraphs`, captions as `caption` chunks, abstract as one chunk, content-hash ids,
-`chunker_version`). Do not start Phase 16.
+rerun ingest at ~200 papers before Stage 2. Step 6 done: `rag/chunk/` — `tokens.py` (`HFTokenCounter`, counts
+`BAAI/bge-small-en-v1.5` tokens), `chunker.py` (`Chunker`, version `v2-350`: paragraph packing,
+never crosses sections, sentence split with one-sentence overlap inside long paragraphs,
+word/char hard cuts, abstract/caption/body types, exact section slices, pages from paragraphs),
+`uv run python -m rag.chunk [--show DOC_ID]`. 400 chunks, max 350 tokens, median 224. New:
+`uv run python -m rag.ingest tei` re-applies TEI rules to saved GROBID output (no GROBID); new
+TEI rule drops footnotes GROBID files under the abstract. Notes:
+`experiments/stage1/chunk_seed10.md`. 89 tests. Next: Stage 1 step 7 — embedder v2
+(`bge-small-en-v1.5`, query instruction prefix inside `Embedder`, batching, MPS when available,
+contextual header "title | section path" prepended at embed time) + exact FAISS `IndexFlatIP`
+with a row → chunk_id map and an `index_builds` record; `rag search --explain` style debug. Do not start Phase 16.
 
 ### Phase 7 close-out (2026-09-20)
 

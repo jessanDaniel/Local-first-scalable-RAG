@@ -2,6 +2,7 @@
 
     uv run python -m rag.ingest arxiv corpus/seed_ai_research.txt [--limit N]
     uv run python -m rag.ingest files data/raw/manual/            # or individual .pdf paths
+    uv run python -m rag.ingest tei      # re-apply TEI rules to saved GROBID output, no GROBID
 
 Two sources so far. `arxiv`: metadata from the arXiv API (title, authors,
 abstract, dates come from there, not from the PDF), PDF downloaded to
@@ -33,6 +34,7 @@ from rag.models import Document, doc_file_stem, make_doc_id
 from rag.parse.base import ParsedDocument, ParseError, Parser, ParserUnavailableError
 from rag.parse.grobid import GrobidParser
 from rag.parse.pymupdf import PyMuPDFParser
+from rag.parse.tei import tei_to_parsed
 from rag.store import db
 
 # The PDF parser reads the body; this issue is covered by the source's metadata or the file name.
@@ -98,26 +100,7 @@ def parse_and_store(
             download_seconds, parse_seconds, None, 0, 0, error,
         )
 
-    issues = [i for i in parsed.issues if i not in METADATA_ISSUES] + errors
-    status = "suspect" if issues else "ok"
-    document = replace(
-        document,
-        # Source metadata wins; the parse fills only what the source does not know.
-        title=document.title or parsed.title or pdf_path.stem,
-        authors=document.authors or parsed.authors,
-        abstract=document.abstract or parsed.abstract,
-        parser=parsed.parser,
-        parse_status=status,
-        parse_error="; ".join(issues) or None,
-    )
-    db.upsert_document(conn, document)
-    db.replace_sections(conn, document.doc_id, parsed.sections)
-
-    parsed_dir.mkdir(parents=True, exist_ok=True)
-    (parsed_dir / f"{doc_file_stem(document.doc_id)}.json").write_text(
-        json.dumps(asdict(parsed) | {"status": status, "issues": issues}, indent=2, ensure_ascii=False),
-        encoding="utf-8",
-    )
+    document, status, issues = store_parsed(conn, document, parsed, errors, parsed_dir, pdf_path.stem)
     return IngestResult(
         doc_id=document.doc_id,
         title=document.title,
@@ -132,6 +115,38 @@ def parse_and_store(
         body_words=sum(len(s.text.split()) for s in parsed.body_sections),
         issues="; ".join(issues),
     )
+
+
+def store_parsed(
+    conn: sqlite3.Connection,
+    document: Document,
+    parsed: ParsedDocument,
+    errors: list[str],
+    parsed_dir: Path,
+    fallback_title: str,
+) -> tuple[Document, str, list[str]]:
+    """Write a parse result: document row, its sections (old chunks go with them), JSON dump."""
+    issues = [i for i in parsed.issues if i not in METADATA_ISSUES] + errors
+    status = "suspect" if issues else "ok"
+    document = replace(
+        document,
+        # Source metadata wins; the parse fills only what the source does not know.
+        title=document.title or parsed.title or fallback_title,
+        authors=document.authors or parsed.authors,
+        abstract=document.abstract or parsed.abstract,
+        parser=parsed.parser,
+        parse_status=status,
+        parse_error="; ".join(issues) or None,
+    )
+    db.upsert_document(conn, document)
+    db.replace_sections(conn, document.doc_id, parsed.sections)
+
+    parsed_dir.mkdir(parents=True, exist_ok=True)
+    (parsed_dir / f"{doc_file_stem(document.doc_id)}.json").write_text(
+        json.dumps(asdict(parsed) | {"status": status, "issues": issues}, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    return document, status, issues
 
 
 class Ingestor:
@@ -195,6 +210,31 @@ class Ingestor:
             document = replace(document, source_sha256=sha256)
             results.append(self.parse(
                 document, pdf_path, downloaded=downloaded, download_seconds=time.perf_counter() - start,
+            ))
+        return results
+
+    def reapply_tei(self) -> list[IngestResult]:
+        """Run the current TEI rules again on GROBID output saved by earlier runs. No GROBID needed.
+
+        Use after changing rag/parse/tei.py. Replaces sections (and so drops chunks: rechunk after).
+        """
+        results = []
+        for document in db.list_documents(self.conn):
+            if not (document.parser or "").startswith("grobid"):
+                continue
+            tei_path = self.parsed_dir / f"{doc_file_stem(document.doc_id)}.tei.xml"
+            if not tei_path.exists():
+                results.append(replace(skipped(document), issues="no saved TEI; use --reparse with GROBID"))
+                continue
+            start = time.perf_counter()
+            parsed = tei_to_parsed(tei_path.read_text(encoding="utf-8"), document.doc_id, document.parser)
+            document, status, issues = store_parsed(
+                self.conn, document, parsed, [], self.parsed_dir, document.title
+            )
+            results.append(IngestResult(
+                document.doc_id, document.title, status, parsed.parser, False, False, 0.0,
+                time.perf_counter() - start, parsed.n_pages, len(parsed.body_sections),
+                sum(len(s.text.split()) for s in parsed.body_sections), "; ".join(issues),
             ))
         return results
 
@@ -287,7 +327,10 @@ def main() -> int:
     arxiv_args.add_argument("--limit", type=int, help="only the first N ids")
     files_args = sources.add_parser("files", help="local PDF files or folders of PDFs")
     files_args.add_argument("paths", type=Path, nargs="+")
-    for sub in (arxiv_args, files_args):
+    tei_args = sources.add_parser(
+        "tei", help="re-apply the TEI rules to saved GROBID output (after editing rag/parse/tei.py)"
+    )
+    for sub in (arxiv_args, files_args, tei_args):
         sub.add_argument("--reparse", action="store_true", help="parse again even if already parsed")
         sub.add_argument("--report", type=Path, help="write per-document results to this CSV")
     parsed_args = args.parse_args()
@@ -296,8 +339,10 @@ def main() -> int:
     try:
         if parsed_args.source == "arxiv":
             results = ingestor.ingest_arxiv(read_id_file(parsed_args.id_file)[: parsed_args.limit])
-        else:
+        elif parsed_args.source == "files":
             results = ingestor.ingest_files(pdf_paths(parsed_args.paths))
+        else:
+            results = ingestor.reapply_tei()
     except ArxivError as exc:
         print(f"arXiv error: {exc}")
         return 1
@@ -311,6 +356,8 @@ def main() -> int:
         ingestor.close()
 
     print_summary(results)
+    if any(r.status != "skipped" for r in results):
+        print("sections replaced: run `uv run python -m rag.chunk` to rebuild chunks")
     if parsed_args.report and results:
         write_report(results, parsed_args.report)
     return 0

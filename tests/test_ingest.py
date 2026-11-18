@@ -1,3 +1,4 @@
+from dataclasses import replace
 from datetime import date
 from pathlib import Path
 
@@ -171,3 +172,22 @@ def test_only_pdfs_are_accepted(ingestor, tmp_path):
     text_file.write_text("plain text")
     with pytest.raises(ValueError, match="only PDF"):
         ingestor.ingest_files([text_file])
+
+
+def test_reapply_tei_uses_saved_grobid_output(ingestor):
+    tei = (Path(__file__).parent / "fixtures" / "sample.tei.xml").read_text()
+    ingestor.parsed_dir.mkdir(parents=True)
+    (ingestor.parsed_dir / "arxiv_1412.6980.tei.xml").write_text(tei)
+    db.upsert_document(ingestor.conn, replace(make_document(), parser="grobid-0.8.2", parse_status="ok"))
+    db.upsert_document(ingestor.conn, Document(
+        doc_id="arxiv:2006.11239", source="arxiv", title="DDPM", parser="grobid-0.8.2", parse_status="ok",
+    ))
+
+    by_id = {r.doc_id: r for r in ingestor.reapply_tei()}
+    assert by_id[DOC].status == "suspect"  # the fixture is short; only the word-count gate fires
+    sections = db.get_sections(ingestor.conn, DOC)
+    assert sections[0].path == "Abstract" and len(sections) == 13
+    assert db.get_document(ingestor.conn, DOC).title == "Adam"  # source metadata still wins
+    assert by_id["arxiv:2006.11239"].status == "skipped"
+    assert "no saved TEI" in by_id["arxiv:2006.11239"].issues
+    assert ingestor.primary.calls == 0  # GROBID was never asked
