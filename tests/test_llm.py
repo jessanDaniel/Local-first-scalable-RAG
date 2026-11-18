@@ -49,6 +49,7 @@ def test_ollama_response_becomes_generation(monkeypatch):
     def fake_post_json(url, payload, **kwargs):
         assert url == "http://localhost:11434/api/chat"
         assert payload["messages"][0] == {"role": "system", "content": "be brief"}
+        assert payload["options"] == {"temperature": 0.0, "num_ctx": 8192, "num_predict": 600}
         return {"message": {"content": "hi"}, "prompt_eval_count": 12, "eval_count": 3}
 
     monkeypatch.setattr(ollama, "post_json", fake_post_json)
@@ -63,6 +64,7 @@ def test_ollama_response_becomes_generation(monkeypatch):
 def test_groq_response_becomes_generation(monkeypatch):
     def fake_post_json(url, payload, **kwargs):
         assert kwargs["headers"] == {"Authorization": "Bearer key"}
+        assert payload["max_tokens"] == 600
         return {
             "choices": [{"message": {"content": "hi"}}],
             "usage": {"prompt_tokens": 20, "completion_tokens": 5},

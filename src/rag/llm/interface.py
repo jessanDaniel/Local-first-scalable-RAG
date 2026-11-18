@@ -31,6 +31,8 @@ class Generation:
 class LLM(ABC):
     provider: str
     model: str
+    context_window: int  # prompt + answer tokens the model accepts per call
+    max_tokens: int  # longest answer requested
 
     @abstractmethod
     def generate(self, prompt: str, system: str | None = None) -> Generation:

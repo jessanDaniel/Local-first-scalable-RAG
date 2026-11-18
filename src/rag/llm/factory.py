@@ -16,6 +16,8 @@ def create_llm(settings: Settings | None = None) -> LLM:
             timeout_seconds=settings.llm_timeout_seconds,
             max_retries=settings.llm_max_retries,
             temperature=settings.llm_temperature,
+            num_ctx=settings.ollama_num_ctx,
+            max_tokens=settings.llm_max_answer_tokens,
         )
     if settings.llm_provider == "groq":
         return GroqLLM(
@@ -24,5 +26,7 @@ def create_llm(settings: Settings | None = None) -> LLM:
             timeout_seconds=settings.llm_timeout_seconds,
             max_retries=settings.llm_max_retries,
             temperature=settings.llm_temperature,
+            context_window=settings.groq_context_window,
+            max_tokens=settings.llm_max_answer_tokens,
         )
     raise ValueError(f"Unknown LLM provider: {settings.llm_provider}")

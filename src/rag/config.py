@@ -48,11 +48,26 @@ class Settings(BaseSettings):
     llm_timeout_seconds: float = Field(default=120.0, gt=0)
     llm_max_retries: int = Field(default=3, ge=0)
 
+    # Longest answer the model may write, in its own tokens.
+    llm_max_answer_tokens: int = Field(default=600, ge=16)
+    # Tokenizer used to count prompt tokens before sending (should match the LLM's).
+    llm_tokenizer: str = "Qwen/Qwen2.5-7B-Instruct"
+
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "qwen2.5:7b-instruct"
+    # Ollama's context window. Set explicitly: Ollama's default is smaller than the model's, and a
+    # longer prompt is cut from the start without an error.
+    ollama_num_ctx: int = Field(default=8192, ge=512)
 
     groq_api_key: SecretStr | None = None
     groq_model: str | None = None
+    groq_context_window: int = Field(default=8192, ge=512)
+
+    # Answering: how many hits to retrieve, how many sources at most, and the token budget for
+    # the sources block of the prompt.
+    ask_retrieve_k: int = Field(default=10, ge=1)
+    ask_max_sources: int = Field(default=8, ge=1)
+    ask_context_tokens: int = Field(default=3000, ge=200)
 
     @property
     def db_path(self) -> Path:

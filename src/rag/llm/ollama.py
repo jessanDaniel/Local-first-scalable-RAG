@@ -16,8 +16,12 @@ class OllamaLLM(LLM):
         timeout_seconds: float,
         max_retries: int,
         temperature: float,
+        num_ctx: int,
+        max_tokens: int,
     ):
         self.model = model
+        self.context_window = num_ctx
+        self.max_tokens = max_tokens
         self.base_url = base_url.rstrip("/")
         self.timeout_seconds = timeout_seconds
         self.max_retries = max_retries
@@ -31,7 +35,11 @@ class OllamaLLM(LLM):
                 "model": self.model,
                 "messages": chat_messages(prompt, system),
                 "stream": False,
-                "options": {"temperature": self.temperature},
+                "options": {
+                    "temperature": self.temperature,
+                    "num_ctx": self.context_window,
+                    "num_predict": self.max_tokens,
+                },
             },
             timeout_seconds=self.timeout_seconds,
             max_retries=self.max_retries,

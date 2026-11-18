@@ -18,8 +18,12 @@ class GroqLLM(LLM):
         timeout_seconds: float,
         max_retries: int,
         temperature: float,
+        context_window: int,
+        max_tokens: int,
     ):
         self.model = model
+        self.context_window = context_window
+        self.max_tokens = max_tokens
         self.api_key = api_key
         self.timeout_seconds = timeout_seconds
         self.max_retries = max_retries
@@ -33,6 +37,7 @@ class GroqLLM(LLM):
                 "model": self.model,
                 "messages": chat_messages(prompt, system),
                 "temperature": self.temperature,
+                "max_tokens": self.max_tokens,
             },
             headers={"Authorization": f"Bearer {self.api_key}"},
             timeout_seconds=self.timeout_seconds,
