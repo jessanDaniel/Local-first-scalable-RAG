@@ -106,15 +106,24 @@ choice to start small): corpus `corpus/seed_ai_research.txt` = first arXiv paper
 research" track on fanout.sh/papers (Adam, word2vec, VAE, GAN, Seq2Seq, Distillation, DDPM,
 BatchNorm, ResNet, Attention). `rag/acquire/arxiv.py` (API metadata, 3 s throttle, generic
 User-Agent, PDF download with sha256, skips existing), `rag/parse/pymupdf.py` (fallback, one
-section per page, always suspect), `rag/ingest.py` (`uv run python -m rag.ingest <id file>
+section per page, always suspect), `rag/ingest.py` (`uv run python -m rag.ingest arxiv <id file>
 [--limit N] [--reparse] [--report csv]`; GROBID down stops the run instead of falling back).
 Result: 10 ok, 0 fallback, median 1.6 s/paper; by-hand review and two new TEI rules (appendix
 left in body, junk headings) in `experiments/stage1/seed10_parse_review.md`. 65 tests.
-Pending from the user: Perceptron, Dropout (JMLR), AlexNet (NeurIPS) PDFs, to be added by hand;
-they need non-arXiv paper ids first (schema keys on `arxiv_id`). Planned: rerun ingest at ~200
-papers before Stage 2. Next: Stage 1 step 6 — chunker v2 (paragraph-packed, ≤ 350 embedding
-tokens, never crosses sections, offsets + page ranges from `Section.paragraphs`, captions as
-`caption` chunks, abstract as one chunk, content-hash ids, `chunker_version`). Do not start Phase 16.
+Step 5d done (user wants a generic RAG long term, papers
+first): `Paper` → `Document` with `doc_id = "<source>:<key>"` (`arxiv:1412.6980`,
+`file:perceptron-1958`), `source`, `source_uri`, `metadata` (arXiv version/categories live
+there); schema v3 (`documents` table; v2 has no migration — old db moved to
+`data/archive/v2/`); `Parser.parse(path, doc_id)`, `ParsedDocument`; "no abstract" is no longer
+a quality gate. Ingest has two sources: `uv run python -m rag.ingest arxiv <id file>` (PDFs in
+`data/raw/arxiv/`) and `uv run python -m rag.ingest files <pdfs or folder>` (copied to
+`data/raw/files/`, title/authors from the parse). Per-document files use `doc_file_stem()`
+(`arxiv_1412.6980.json`). 72 tests. Pending from the user: Perceptron, Dropout (JMLR), AlexNet
+(NeurIPS) PDFs go in `data/raw/manual/`, then `rag.ingest files data/raw/manual/`. Planned:
+rerun ingest at ~200 papers before Stage 2. Next: Stage 1 step 6 — chunker v2 (paragraph-packed,
+≤ 350 embedding tokens, never crosses sections, offsets + page ranges from
+`Section.paragraphs`, captions as `caption` chunks, abstract as one chunk, content-hash ids,
+`chunker_version`). Do not start Phase 16.
 
 ### Phase 7 close-out (2026-09-20)
 

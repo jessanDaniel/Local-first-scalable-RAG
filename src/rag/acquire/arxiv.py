@@ -17,7 +17,7 @@ import requests
 
 from rag.config import Settings, get_settings
 from rag.llm.http import backoff_seconds
-from rag.models import Paper
+from rag.models import Document, make_doc_id
 
 ATOM = "{http://www.w3.org/2005/Atom}"
 ARXIV = "{http://arxiv.org/schemas/atom}"
@@ -47,32 +47,42 @@ def read_id_file(path: Path) -> list[str]:
     return ids
 
 
-def parse_feed(atom_xml: str) -> list[Paper]:
-    """arXiv API Atom feed -> Papers (parse_status 'pending', nothing parsed yet)."""
+def parse_feed(atom_xml: str) -> list[Document]:
+    """arXiv API Atom feed -> Documents (parse_status 'pending', nothing parsed yet).
+
+    doc_id is "arxiv:<id>"; arXiv-only fields (id, version, categories, last update)
+    go in metadata."""
     root = ET.fromstring(atom_xml)
-    papers = []
+    documents = []
     for entry in root.findall(f"{ATOM}entry"):
         entry_id = (entry.findtext(f"{ATOM}id") or "").strip()
         match = ID_WITH_VERSION.search(entry_id)
         if not match:
             # The API answers an unknown id with an entry whose id is the API error page.
             raise ArxivError(f"arXiv returned an error entry: {_text(entry, 'summary') or entry_id}")
+        arxiv_id = match.group("id")
         primary = entry.find(f"{ARXIV}primary_category")
-        papers.append(
-            Paper(
-                arxiv_id=match.group("id"),
-                version=int(match.group("version")),
+        updated = _date(entry.findtext(f"{ATOM}updated"))
+        documents.append(
+            Document(
+                doc_id=make_doc_id("arxiv", arxiv_id),
+                source="arxiv",
                 title=_text(entry, "title"),
                 authors=[_text(author, "name") for author in entry.findall(f"{ATOM}author")],
                 abstract=_text(entry, "summary"),
-                categories=[c.get("term") for c in entry.findall(f"{ATOM}category")],
-                primary_category=primary.get("term") if primary is not None else "",
                 published=_date(entry.findtext(f"{ATOM}published")),
-                updated=_date(entry.findtext(f"{ATOM}updated")),
+                source_uri=f"https://arxiv.org/abs/{arxiv_id}",
                 source_format="pdf",
+                metadata={
+                    "arxiv_id": arxiv_id,
+                    "version": int(match.group("version")),
+                    "categories": [c.get("term") for c in entry.findall(f"{ATOM}category")],
+                    "primary_category": primary.get("term") if primary is not None else "",
+                    "updated": updated.isoformat() if updated else None,
+                },
             )
         )
-    return papers
+    return documents
 
 
 def _text(element: ET.Element, tag: str) -> str:
@@ -90,32 +100,33 @@ class ArxivClient:
         self.session.headers["User-Agent"] = self.settings.http_user_agent
         self._last_request = 0.0
 
-    def fetch_metadata(self, arxiv_ids: list[str]) -> list[Paper]:
-        """Metadata for the given ids, in the same order. Fails if any id is unknown."""
-        papers: list[Paper] = []
+    def fetch_metadata(self, arxiv_ids: list[str]) -> list[Document]:
+        """Documents for the given arXiv ids, in the same order. Fails if any id is unknown."""
+        documents: list[Document] = []
         for start in range(0, len(arxiv_ids), 100):
             batch = arxiv_ids[start : start + 100]
             response = self._get(
                 self.settings.arxiv_api_url,
                 params={"id_list": ",".join(batch), "max_results": len(batch)},
             )
-            papers.extend(parse_feed(response.text))
-        by_id = {paper.arxiv_id: paper for paper in papers}
+            documents.extend(parse_feed(response.text))
+        by_id = {document.metadata["arxiv_id"]: document for document in documents}
         missing = [arxiv_id for arxiv_id in arxiv_ids if arxiv_id not in by_id]
         if missing:
             raise ArxivError(f"arXiv returned no metadata for: {', '.join(missing)}")
         return [by_id[arxiv_id] for arxiv_id in arxiv_ids]
 
-    def download_pdf(self, paper: Paper, pdf_dir: Path) -> tuple[Path, str, bool]:
-        """Save the paper's PDF as <pdf_dir>/<arxiv_id>.pdf.
+    def download_pdf(self, document: Document, pdf_dir: Path) -> tuple[Path, str, bool]:
+        """Save the document's PDF as <pdf_dir>/<arxiv id>.pdf.
 
         Returns (path, sha256, downloaded). An existing file is reused, not fetched again.
         """
-        path = pdf_dir / f"{paper.arxiv_id.replace('/', '_')}.pdf"
+        arxiv_id = document.metadata["arxiv_id"]
+        path = pdf_dir / f"{arxiv_id.replace('/', '_')}.pdf"
         if path.exists() and path.stat().st_size > 0:
             return path, _sha256(path.read_bytes()), False
 
-        url = f"{self.settings.arxiv_pdf_url}/{paper.arxiv_id}v{paper.version}"
+        url = f"{self.settings.arxiv_pdf_url}/{arxiv_id}v{document.metadata['version']}"
         response = self._get(url)
         if not response.content.startswith(b"%PDF"):
             raise ArxivError(f"{url} did not return a PDF (content-type {response.headers.get('content-type')})")

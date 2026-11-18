@@ -1,10 +1,10 @@
-"""SQLite store: the source of truth for papers, sections and chunks.
+"""SQLite store: the source of truth for documents, sections and chunks.
 
 Search indexes (FAISS, Tantivy) only hold chunk ids. Text, metadata and
 citation data always come from here, so any index can be deleted and rebuilt.
 
-Writes for one paper replace that paper's previous rows inside one
-transaction, so re-running parse or chunk on a paper is safe.
+Writes for one document replace that document's previous rows inside one
+transaction, so re-running parse or chunk on a document is safe.
 """
 
 import json
@@ -12,34 +12,34 @@ import sqlite3
 from datetime import date
 from pathlib import Path
 
-from rag.models import Chunk, Paper, Paragraph, ParseStatus, Section
+from rag.models import Chunk, Document, Paragraph, ParseStatus, Section
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 SCHEMA = """
-CREATE TABLE IF NOT EXISTS papers (
-    arxiv_id          TEXT PRIMARY KEY,
-    version           INTEGER NOT NULL,
+CREATE TABLE IF NOT EXISTS documents (
+    doc_id            TEXT PRIMARY KEY,
+    source            TEXT NOT NULL CHECK (source IN ('arxiv', 'file')),
     title             TEXT NOT NULL,
-    authors_json      TEXT NOT NULL,
-    abstract          TEXT NOT NULL,
-    categories_json   TEXT NOT NULL,
-    primary_category  TEXT NOT NULL,
-    published         TEXT NOT NULL,
-    updated           TEXT,
+    authors_json      TEXT NOT NULL DEFAULT '[]',
+    abstract          TEXT NOT NULL DEFAULT '',
+    published         TEXT,
+    source_uri        TEXT,
     source_format     TEXT CHECK (source_format IN ('html', 'pdf')),
     source_sha256     TEXT,
+    metadata_json     TEXT NOT NULL DEFAULT '{}',
     parser            TEXT,
     parse_status      TEXT NOT NULL DEFAULT 'pending'
                       CHECK (parse_status IN ('pending', 'ok', 'suspect', 'failed')),
     parse_error       TEXT,
     created_at        TEXT NOT NULL DEFAULT (datetime('now')),
-    updated_at        TEXT NOT NULL DEFAULT (datetime('now'))
+    updated_at        TEXT NOT NULL DEFAULT (datetime('now')),
+    CHECK (doc_id LIKE source || ':_%')
 );
 
 CREATE TABLE IF NOT EXISTS sections (
     section_id  TEXT PRIMARY KEY,
-    arxiv_id    TEXT NOT NULL REFERENCES papers(arxiv_id) ON DELETE CASCADE,
+    doc_id      TEXT NOT NULL REFERENCES documents(doc_id) ON DELETE CASCADE,
     ord         INTEGER NOT NULL,
     heading     TEXT NOT NULL,
     level       INTEGER NOT NULL,
@@ -48,12 +48,12 @@ CREATE TABLE IF NOT EXISTS sections (
     paragraphs_json TEXT NOT NULL DEFAULT '[]',
     anchor      TEXT,
     page_start  INTEGER,
-    UNIQUE (arxiv_id, ord)
+    UNIQUE (doc_id, ord)
 );
 
 CREATE TABLE IF NOT EXISTS chunks (
     chunk_id         TEXT PRIMARY KEY,
-    arxiv_id         TEXT NOT NULL REFERENCES papers(arxiv_id) ON DELETE CASCADE,
+    doc_id           TEXT NOT NULL REFERENCES documents(doc_id) ON DELETE CASCADE,
     section_id       TEXT NOT NULL REFERENCES sections(section_id) ON DELETE CASCADE,
     section_ord      INTEGER NOT NULL,
     ord              INTEGER NOT NULL,
@@ -65,13 +65,14 @@ CREATE TABLE IF NOT EXISTS chunks (
     chunker_version  TEXT NOT NULL,
     page_start       INTEGER,
     page_end         INTEGER,
-    UNIQUE (arxiv_id, ord),
+    UNIQUE (doc_id, ord),
     CHECK (char_start >= 0 AND char_end > char_start)
 );
 
-CREATE INDEX IF NOT EXISTS idx_papers_status ON papers(parse_status);
-CREATE INDEX IF NOT EXISTS idx_sections_paper ON sections(arxiv_id);
-CREATE INDEX IF NOT EXISTS idx_chunks_paper ON chunks(arxiv_id);
+CREATE INDEX IF NOT EXISTS idx_documents_status ON documents(parse_status);
+CREATE INDEX IF NOT EXISTS idx_documents_source ON documents(source);
+CREATE INDEX IF NOT EXISTS idx_sections_doc ON sections(doc_id);
+CREATE INDEX IF NOT EXISTS idx_chunks_doc ON chunks(doc_id);
 CREATE INDEX IF NOT EXISTS idx_chunks_section ON chunks(section_id);
 
 CREATE TABLE IF NOT EXISTS index_builds (
@@ -100,7 +101,9 @@ def connect(db_path: Path) -> sqlite3.Connection:
     return conn
 
 
-# Each migration takes a database from version N to N + 1.
+# Each migration takes a database from version N to N + 1. Version 2 -> 3 (papers -> documents,
+# arxiv_id -> doc_id) has none on purpose: it was made while the database held only re-ingestable
+# data and no chunks or indexes, so the database is rebuilt instead (delete it, run ingest again).
 MIGRATIONS = {
     1: ["ALTER TABLE sections ADD COLUMN paragraphs_json TEXT NOT NULL DEFAULT '[]'"],
 }
@@ -112,6 +115,12 @@ def init_schema(conn: sqlite3.Connection) -> None:
         raise SchemaVersionError(
             f"database schema is version {current}, code expects {SCHEMA_VERSION}; "
             "this code is older than the database"
+        )
+    missing = [version for version in range(current, SCHEMA_VERSION) if current and version not in MIGRATIONS]
+    if missing:
+        raise SchemaVersionError(
+            f"database schema is version {current}, code expects {SCHEMA_VERSION}, and there is no "
+            f"migration from version {missing[0]}; delete the database file and run ingest again"
         )
     with conn:
         if current == 0:
@@ -129,99 +138,104 @@ def open_db(db_path: Path) -> sqlite3.Connection:
     return conn
 
 
-# --- papers -----------------------------------------------------------------
+# --- documents --------------------------------------------------------------
 
 
-def upsert_paper(conn: sqlite3.Connection, paper: Paper) -> None:
+def upsert_document(conn: sqlite3.Connection, document: Document) -> None:
     with conn:
         conn.execute(
             """
-            INSERT INTO papers (
-                arxiv_id, version, title, authors_json, abstract, categories_json,
-                primary_category, published, updated, source_format, source_sha256,
-                parser, parse_status, parse_error
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT (arxiv_id) DO UPDATE SET
-                version = excluded.version,
+            INSERT INTO documents (
+                doc_id, source, title, authors_json, abstract, published, source_uri,
+                source_format, source_sha256, metadata_json, parser, parse_status, parse_error
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT (doc_id) DO UPDATE SET
+                source = excluded.source,
                 title = excluded.title,
                 authors_json = excluded.authors_json,
                 abstract = excluded.abstract,
-                categories_json = excluded.categories_json,
-                primary_category = excluded.primary_category,
                 published = excluded.published,
-                updated = excluded.updated,
+                source_uri = excluded.source_uri,
                 source_format = excluded.source_format,
                 source_sha256 = excluded.source_sha256,
+                metadata_json = excluded.metadata_json,
                 parser = excluded.parser,
                 parse_status = excluded.parse_status,
                 parse_error = excluded.parse_error,
                 updated_at = datetime('now')
             """,
             (
-                paper.arxiv_id,
-                paper.version,
-                paper.title,
-                json.dumps(paper.authors),
-                paper.abstract,
-                json.dumps(paper.categories),
-                paper.primary_category,
-                paper.published.isoformat(),
-                paper.updated.isoformat() if paper.updated else None,
-                paper.source_format,
-                paper.source_sha256,
-                paper.parser,
-                paper.parse_status,
-                paper.parse_error,
+                document.doc_id,
+                document.source,
+                document.title,
+                json.dumps(document.authors),
+                document.abstract,
+                document.published.isoformat() if document.published else None,
+                document.source_uri,
+                document.source_format,
+                document.source_sha256,
+                json.dumps(document.metadata, sort_keys=True),
+                document.parser,
+                document.parse_status,
+                document.parse_error,
             ),
         )
 
 
 def set_parse_status(
     conn: sqlite3.Connection,
-    arxiv_id: str,
+    doc_id: str,
     status: ParseStatus,
     error: str | None = None,
 ) -> None:
     with conn:
         cursor = conn.execute(
             """
-            UPDATE papers SET parse_status = ?, parse_error = ?, updated_at = datetime('now')
-            WHERE arxiv_id = ?
+            UPDATE documents SET parse_status = ?, parse_error = ?, updated_at = datetime('now')
+            WHERE doc_id = ?
             """,
-            (status, error, arxiv_id),
+            (status, error, doc_id),
         )
     if cursor.rowcount == 0:
-        raise KeyError(f"no paper {arxiv_id}")
+        raise KeyError(f"no document {doc_id}")
 
 
-def get_paper(conn: sqlite3.Connection, arxiv_id: str) -> Paper | None:
-    row = conn.execute("SELECT * FROM papers WHERE arxiv_id = ?", (arxiv_id,)).fetchone()
-    return _paper_from_row(row) if row else None
+def get_document(conn: sqlite3.Connection, doc_id: str) -> Document | None:
+    row = conn.execute("SELECT * FROM documents WHERE doc_id = ?", (doc_id,)).fetchone()
+    return _document_from_row(row) if row else None
 
 
-def list_papers(conn: sqlite3.Connection, parse_status: ParseStatus | None = None) -> list[Paper]:
-    if parse_status is None:
-        rows = conn.execute("SELECT * FROM papers ORDER BY arxiv_id").fetchall()
-    else:
-        rows = conn.execute(
-            "SELECT * FROM papers WHERE parse_status = ? ORDER BY arxiv_id", (parse_status,)
-        ).fetchall()
-    return [_paper_from_row(row) for row in rows]
+def list_documents(
+    conn: sqlite3.Connection,
+    parse_status: ParseStatus | None = None,
+    source: str | None = None,
+) -> list[Document]:
+    query = "SELECT * FROM documents"
+    conditions, params = [], []
+    if parse_status is not None:
+        conditions.append("parse_status = ?")
+        params.append(parse_status)
+    if source is not None:
+        conditions.append("source = ?")
+        params.append(source)
+    if conditions:
+        query += " WHERE " + " AND ".join(conditions)
+    rows = conn.execute(query + " ORDER BY doc_id", params).fetchall()
+    return [_document_from_row(row) for row in rows]
 
 
-def _paper_from_row(row: sqlite3.Row) -> Paper:
-    return Paper(
-        arxiv_id=row["arxiv_id"],
-        version=row["version"],
+def _document_from_row(row: sqlite3.Row) -> Document:
+    return Document(
+        doc_id=row["doc_id"],
+        source=row["source"],
         title=row["title"],
         authors=json.loads(row["authors_json"]),
         abstract=row["abstract"],
-        categories=json.loads(row["categories_json"]),
-        primary_category=row["primary_category"],
-        published=date.fromisoformat(row["published"]),
-        updated=date.fromisoformat(row["updated"]) if row["updated"] else None,
+        published=date.fromisoformat(row["published"]) if row["published"] else None,
+        source_uri=row["source_uri"],
         source_format=row["source_format"],
         source_sha256=row["source_sha256"],
+        metadata=json.loads(row["metadata_json"]),
         parser=row["parser"],
         parse_status=row["parse_status"],
         parse_error=row["parse_error"],
@@ -231,23 +245,23 @@ def _paper_from_row(row: sqlite3.Row) -> Paper:
 # --- sections ---------------------------------------------------------------
 
 
-def replace_sections(conn: sqlite3.Connection, arxiv_id: str, sections: list[Section]) -> None:
-    """Replace a paper's sections. Its chunks are deleted too (they point at the old sections)."""
+def replace_sections(conn: sqlite3.Connection, doc_id: str, sections: list[Section]) -> None:
+    """Replace a document's sections. Its chunks are deleted too (they point at the old sections)."""
     for section in sections:
-        if section.arxiv_id != arxiv_id:
-            raise ValueError(f"section {section.section_id} does not belong to {arxiv_id}")
+        if section.doc_id != doc_id:
+            raise ValueError(f"section {section.section_id} does not belong to {doc_id}")
     with conn:
-        conn.execute("DELETE FROM chunks WHERE arxiv_id = ?", (arxiv_id,))
-        conn.execute("DELETE FROM sections WHERE arxiv_id = ?", (arxiv_id,))
+        conn.execute("DELETE FROM chunks WHERE doc_id = ?", (doc_id,))
+        conn.execute("DELETE FROM sections WHERE doc_id = ?", (doc_id,))
         conn.executemany(
             """
             INSERT INTO sections (
-                section_id, arxiv_id, ord, heading, level, path, text, paragraphs_json, anchor, page_start
+                section_id, doc_id, ord, heading, level, path, text, paragraphs_json, anchor, page_start
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             [
                 (
-                    s.section_id, s.arxiv_id, s.ord, s.heading, s.level, s.path, s.text,
+                    s.section_id, s.doc_id, s.ord, s.heading, s.level, s.path, s.text,
                     json.dumps([[p.char_start, p.char_end, p.page_start, p.page_end] for p in s.paragraphs]),
                     s.anchor, s.page_start,
                 )
@@ -256,13 +270,13 @@ def replace_sections(conn: sqlite3.Connection, arxiv_id: str, sections: list[Sec
         )
 
 
-def get_sections(conn: sqlite3.Connection, arxiv_id: str) -> list[Section]:
+def get_sections(conn: sqlite3.Connection, doc_id: str) -> list[Section]:
     rows = conn.execute(
-        "SELECT * FROM sections WHERE arxiv_id = ? ORDER BY ord", (arxiv_id,)
+        "SELECT * FROM sections WHERE doc_id = ? ORDER BY ord", (doc_id,)
     ).fetchall()
     return [
         Section(
-            arxiv_id=row["arxiv_id"],
+            doc_id=row["doc_id"],
             ord=row["ord"],
             heading=row["heading"],
             level=row["level"],
@@ -279,30 +293,30 @@ def get_sections(conn: sqlite3.Connection, arxiv_id: str) -> list[Section]:
 # --- chunks -----------------------------------------------------------------
 
 
-def replace_chunks(conn: sqlite3.Connection, arxiv_id: str, chunks: list[Chunk]) -> None:
-    """Replace a paper's chunks. Two chunks with the same text in the same section is an error:
+def replace_chunks(conn: sqlite3.Connection, doc_id: str, chunks: list[Chunk]) -> None:
+    """Replace a document's chunks. Two chunks with the same text in the same section is an error:
     they would get the same chunk_id, and the chunker should not emit duplicates."""
     seen: set[str] = set()
     for chunk in chunks:
-        if chunk.arxiv_id != arxiv_id:
-            raise ValueError(f"chunk {chunk.chunk_id} does not belong to {arxiv_id}")
+        if chunk.doc_id != doc_id:
+            raise ValueError(f"chunk {chunk.chunk_id} does not belong to {doc_id}")
         if chunk.chunk_id in seen:
             raise ValueError(
                 f"duplicate chunk text in section {chunk.section_id} (chunk_id {chunk.chunk_id})"
             )
         seen.add(chunk.chunk_id)
     with conn:
-        conn.execute("DELETE FROM chunks WHERE arxiv_id = ?", (arxiv_id,))
+        conn.execute("DELETE FROM chunks WHERE doc_id = ?", (doc_id,))
         conn.executemany(
             """
             INSERT INTO chunks (
-                chunk_id, arxiv_id, section_id, section_ord, ord, chunk_type, text,
+                chunk_id, doc_id, section_id, section_ord, ord, chunk_type, text,
                 char_start, char_end, n_tokens, chunker_version, page_start, page_end
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             [
                 (
-                    c.chunk_id, c.arxiv_id, c.section_id, c.section_ord, c.ord, c.chunk_type, c.text,
+                    c.chunk_id, c.doc_id, c.section_id, c.section_ord, c.ord, c.chunk_type, c.text,
                     c.char_start, c.char_end, c.n_tokens, c.chunker_version, c.page_start, c.page_end,
                 )
                 for c in chunks
@@ -310,9 +324,9 @@ def replace_chunks(conn: sqlite3.Connection, arxiv_id: str, chunks: list[Chunk])
         )
 
 
-def get_chunks(conn: sqlite3.Connection, arxiv_id: str) -> list[Chunk]:
+def get_chunks(conn: sqlite3.Connection, doc_id: str) -> list[Chunk]:
     rows = conn.execute(
-        "SELECT * FROM chunks WHERE arxiv_id = ? ORDER BY ord", (arxiv_id,)
+        "SELECT * FROM chunks WHERE doc_id = ? ORDER BY ord", (doc_id,)
     ).fetchall()
     return [_chunk_from_row(row) for row in rows]
 
@@ -336,7 +350,7 @@ def count_chunks(conn: sqlite3.Connection) -> int:
 
 def _chunk_from_row(row: sqlite3.Row) -> Chunk:
     chunk = Chunk(
-        arxiv_id=row["arxiv_id"],
+        doc_id=row["doc_id"],
         section_ord=row["section_ord"],
         ord=row["ord"],
         chunk_type=row["chunk_type"],

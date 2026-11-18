@@ -15,7 +15,7 @@ from pathlib import Path
 import pymupdf
 
 from rag.models import Section
-from rag.parse.base import ParsedPaper, ParseError, Parser, quality_issues
+from rag.parse.base import ParsedDocument, ParseError, Parser, quality_issues
 
 REFERENCES_HEADING = re.compile(r"^(references|bibliography)$", re.IGNORECASE)
 FALLBACK_ISSUE = "fallback parser: no section structure"
@@ -25,7 +25,7 @@ TEXT_BLOCK = 0
 class PyMuPDFParser(Parser):
     name = "pymupdf"
 
-    def parse(self, pdf_path: Path, arxiv_id: str) -> ParsedPaper:
+    def parse(self, pdf_path: Path, doc_id: str) -> ParsedDocument:
         try:
             document = pymupdf.open(pdf_path)
         except Exception as exc:  # PyMuPDF raises several unrelated types for bad files
@@ -34,6 +34,7 @@ class PyMuPDFParser(Parser):
         sections: list[Section] = []
         with document:
             n_pages = document.page_count
+            title = " ".join((document.metadata or {}).get("title", "").split())
             for page in document:
                 page_number = page.number + 1
                 paragraphs = []
@@ -50,22 +51,22 @@ class PyMuPDFParser(Parser):
                 if paragraphs:
                     path = f"Page {page_number}"
                     sections.append(
-                        Section.from_paragraphs(arxiv_id, len(sections), path, 1, path, paragraphs)
+                        Section.from_paragraphs(doc_id, len(sections), path, 1, path, paragraphs)
                     )
                 if reached_references:
                     break
 
         if not sections:
             raise ParseError(f"PyMuPDF found no text in {pdf_path.name} (scanned PDF?)")
-        paper = ParsedPaper(
-            arxiv_id=arxiv_id,
+        parsed = ParsedDocument(
+            doc_id=doc_id,
             parser=f"pymupdf-{pymupdf.VersionBind}",
-            title="",
+            title=title,
             authors=[],
             abstract="",
             sections=sections,
             n_pages=n_pages,
             n_references=0,
         )
-        paper.issues = [FALLBACK_ISSUE, *quality_issues(paper)]
-        return paper
+        parsed.issues = [FALLBACK_ISSUE, *quality_issues(parsed)]
+        return parsed

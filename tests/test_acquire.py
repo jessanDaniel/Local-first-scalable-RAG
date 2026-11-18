@@ -10,17 +10,22 @@ FIXTURES = Path(__file__).parent / "fixtures"
 
 def test_parse_feed():
     adam, old = parse_feed((FIXTURES / "arxiv_feed.xml").read_text())
-    assert adam.arxiv_id == "1412.6980"
-    assert adam.version == 9
+    assert (adam.doc_id, adam.source, adam.key) == ("arxiv:1412.6980", "arxiv", "1412.6980")
     assert adam.title == "Adam: A Method for Stochastic Optimization"
     assert adam.authors == ["Diederik P. Kingma", "Jimmy Ba"]
     assert adam.abstract == "We introduce Adam, an algorithm for first-order gradient-based optimization."
-    assert adam.categories == ["cs.LG", "cs.AI"]
-    assert adam.primary_category == "cs.LG"
-    assert (adam.published, adam.updated) == (date(2014, 12, 22), date(2017, 1, 30))
+    assert adam.published == date(2014, 12, 22)
+    assert adam.source_uri == "https://arxiv.org/abs/1412.6980"
     assert adam.source_format == "pdf"
     assert adam.parse_status == "pending"
-    assert (old.arxiv_id, old.version) == ("hep-th/9901001", 2)
+    assert adam.metadata == {
+        "arxiv_id": "1412.6980",
+        "version": 9,
+        "categories": ["cs.LG", "cs.AI"],
+        "primary_category": "cs.LG",
+        "updated": "2017-01-30",
+    }
+    assert (old.doc_id, old.metadata["version"]) == ("arxiv:hep-th/9901001", 2)
 
 
 def test_error_entry_raises():

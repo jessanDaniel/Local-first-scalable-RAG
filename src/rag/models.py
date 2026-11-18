@@ -1,4 +1,4 @@
-"""Domain objects shared by every stage: what a paper, a section and a chunk are.
+"""Domain objects shared by every stage: what a document, a section and a chunk are.
 
 SQLite (rag.store.db) is the source of truth for these. Search indexes only
 hold chunk ids and are rebuilt from the database.
@@ -12,35 +12,66 @@ citation point at an exact span and page.
 """
 
 import hashlib
+import re
 from dataclasses import dataclass, field
 from datetime import date
 from typing import Literal
 
 ChunkType = Literal["abstract", "body", "caption", "table"]
 ParseStatus = Literal["pending", "ok", "suspect", "failed"]
+SourceType = Literal["arxiv", "file"]
 SourceFormat = Literal["html", "pdf"]
 
 
 @dataclass
-class Paper:
-    arxiv_id: str  # without version suffix, e.g. "2106.09685"
-    version: int
+class Document:
+    """One ingested document, whatever it is: an arXiv paper, a local PDF, later a web page.
+
+    doc_id is "<source>:<key>" ("arxiv:1412.6980", "file:perceptron-1958"), so documents from
+    different sources never collide. Fields every source can fill live here; anything only
+    one source has (arXiv version and categories, ...) goes in `metadata`.
+    """
+
+    doc_id: str
+    source: SourceType
     title: str
-    authors: list[str]
-    abstract: str
-    categories: list[str]
-    primary_category: str
-    published: date
-    updated: date | None = None
+    authors: list[str] = field(default_factory=list)
+    abstract: str = ""  # the source's own summary, when it has one
+    published: date | None = None
+    source_uri: str | None = None  # where a reader opens it: arXiv abs URL, or the local file path
     source_format: SourceFormat | None = None
     source_sha256: str | None = None
+    metadata: dict = field(default_factory=dict)
     parser: str | None = None
     parse_status: ParseStatus = "pending"
     parse_error: str | None = None
 
+    def __post_init__(self) -> None:
+        if not self.doc_id.startswith(f"{self.source}:") or self.doc_id == f"{self.source}:":
+            raise ValueError(f"doc_id {self.doc_id!r} must look like '{self.source}:<key>'")
+
     @property
-    def url(self) -> str:
-        return f"https://arxiv.org/abs/{self.arxiv_id}"
+    def key(self) -> str:
+        """The part after "<source>:", e.g. the arXiv id."""
+        return self.doc_id.split(":", 1)[1]
+
+
+DOC_KEY = re.compile(r"[^a-z0-9._-]+")
+
+
+def doc_file_stem(doc_id: str) -> str:
+    """File-name-safe form of a doc_id for files written per document: "arxiv:1412.6980" -> "arxiv_1412.6980"."""
+    return doc_id.replace(":", "_").replace("/", "_")
+
+
+def make_doc_id(source: SourceType, key: str) -> str:
+    """Build a doc_id. arXiv keys are kept as is; other keys are slugged:
+    ("file", "The Perceptron (1958)") -> "file:the-perceptron-1958"."""
+    if source != "arxiv":
+        key = DOC_KEY.sub("-", key.lower()).strip("-.")
+    if not key:
+        raise ValueError("empty document key")
+    return f"{source}:{key}"
 
 
 @dataclass(frozen=True)
@@ -58,8 +89,8 @@ PARAGRAPH_SEPARATOR = "\n\n"
 
 @dataclass
 class Section:
-    arxiv_id: str
-    ord: int  # 0-based order within the paper
+    doc_id: str
+    ord: int  # 0-based order within the document
     heading: str
     level: int  # 1 = top-level section, 2 = subsection, ...
     path: str  # e.g. "3 Method > 3.2 Training"; used in chunk headers and citations
@@ -80,12 +111,12 @@ class Section:
 
     @property
     def section_id(self) -> str:
-        return section_id(self.arxiv_id, self.ord)
+        return section_id(self.doc_id, self.ord)
 
     @classmethod
     def from_paragraphs(
         cls,
-        arxiv_id: str,
+        doc_id: str,
         ord: int,
         heading: str,
         level: int,
@@ -104,7 +135,7 @@ class Section:
             position += len(text)
         pages = [span.page_start for span in spans if span.page_start is not None]
         return cls(
-            arxiv_id=arxiv_id,
+            doc_id=doc_id,
             ord=ord,
             heading=heading,
             level=level,
@@ -117,9 +148,9 @@ class Section:
 
 @dataclass
 class Chunk:
-    arxiv_id: str
+    doc_id: str
     section_ord: int
-    ord: int  # 0-based order within the paper
+    ord: int  # 0-based order within the document
     chunk_type: ChunkType
     text: str
     char_start: int
@@ -133,25 +164,25 @@ class Chunk:
     def __post_init__(self) -> None:
         if not 0 <= self.char_start < self.char_end:
             raise ValueError(
-                f"bad offsets for chunk {self.ord} of {self.arxiv_id}: "
+                f"bad offsets for chunk {self.ord} of {self.doc_id}: "
                 f"char_start={self.char_start}, char_end={self.char_end}"
             )
-        self.chunk_id = make_chunk_id(self.arxiv_id, self.section_ord, self.text)
+        self.chunk_id = make_chunk_id(self.doc_id, self.section_ord, self.text)
 
     @property
     def section_id(self) -> str:
-        return section_id(self.arxiv_id, self.section_ord)
+        return section_id(self.doc_id, self.section_ord)
 
 
-def section_id(arxiv_id: str, ord: int) -> str:
-    return f"{arxiv_id}:{ord}"
+def section_id(doc_id: str, ord: int) -> str:
+    return f"{doc_id}:{ord}"
 
 
-def make_chunk_id(arxiv_id: str, section_ord: int, text: str) -> str:
+def make_chunk_id(doc_id: str, section_ord: int, text: str) -> str:
     """Content-derived id: the same text in the same section always gets the same id.
 
-    Unlike the old `f"{doc}_{position}"`, re-chunking a paper does not shift
+    Unlike the old `f"{doc}_{position}"`, re-chunking a document does not shift
     the ids of chunks whose text did not change.
     """
-    digest = hashlib.sha1(f"{arxiv_id}|{section_ord}|{text}".encode())
+    digest = hashlib.sha1(f"{doc_id}|{section_ord}|{text}".encode())
     return digest.hexdigest()[:16]

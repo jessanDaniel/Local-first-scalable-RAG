@@ -5,7 +5,7 @@ import requests
 
 from rag.models import Section
 from rag.parse import grobid as grobid_module
-from rag.parse.base import ParsedPaper, ParseError, quality_issues
+from rag.parse.base import ParsedDocument, ParseError, quality_issues
 from rag.parse.grobid import GrobidParser
 from rag.parse.tei import _is_junk_heading, tei_to_parsed
 
@@ -13,15 +13,15 @@ FIXTURE = Path(__file__).parent / "fixtures" / "sample.tei.xml"
 
 
 @pytest.fixture(scope="module")
-def paper() -> ParsedPaper:
-    return tei_to_parsed(FIXTURE.read_text(), "2401.00001", parser="grobid-test")
+def paper() -> ParsedDocument:
+    return tei_to_parsed(FIXTURE.read_text(), "arxiv:2401.00001", parser="grobid-test")
 
 
-def paths(paper: ParsedPaper) -> list[str]:
+def paths(paper: ParsedDocument) -> list[str]:
     return [s.path for s in paper.sections]
 
 
-def section(paper: ParsedPaper, path: str) -> Section:
+def section(paper: ParsedDocument, path: str) -> Section:
     return next(s for s in paper.sections if s.path == path)
 
 
@@ -127,10 +127,10 @@ def test_fixture_parse_is_suspect_only_for_length(paper):
 
 def test_quality_gates_catch_garbled_and_empty_parses():
     garbled = Section.from_paragraphs("x", 1, "1 Intro", 1, "1 Intro", [("∂∑∫ ≈≠ 123 456 " * 100, 1, 1)])
-    paper = ParsedPaper("x", "test", "", [], "", [garbled], 1, 0)
+    paper = ParsedDocument("x", "test", "", [], "", [garbled], 1, 0)
     issues = quality_issues(paper)
     assert "no title" in issues
-    assert "no abstract" in issues
+    assert "no abstract" not in issues  # not a gate: most non-paper documents have no abstract
     assert any("body sections" in issue for issue in issues)
     assert any("letter ratio" in issue for issue in issues)
 

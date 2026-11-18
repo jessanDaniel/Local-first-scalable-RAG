@@ -132,11 +132,18 @@ Citations carry the page number: `[3] Hu et al. 2021 (2106.09685) §4.2, p.5`, l
 
 ### 2.3 Storage: SQLite is the source of truth; indexes are rebuildable
 
+Generic since step 5d (2026-11-18, schema v3): the store holds *documents*, not papers, so the
+same pipeline serves arXiv papers, local PDFs and later other sources. `doc_id` is
+`<source>:<key>` (`arxiv:1412.6980`, `file:perceptron-1958`); fields only one source has
+(arXiv version, categories) live in `metadata_json`. Research papers stay the first domain:
+GROBID and the TEI rules are the parser for scholarly PDFs; other formats get their own parser
+behind the same interface when a real need appears.
+
 ```text
-papers(arxiv_id PK, version, title, authors_json, abstract, categories, published, pdf_sha256,
-       parser, parse_status, ingested_at)
-sections(id PK, arxiv_id FK, ord, heading, level, page_start)
-chunks(chunk_id PK = sha1(arxiv_id|section|text), arxiv_id FK, section_id FK, ord,
+documents(doc_id PK, source [arxiv|file], title, authors_json, abstract, published, source_uri,
+          source_format, source_sha256, metadata_json, parser, parse_status, parse_error)
+sections(section_id PK, doc_id FK, ord, heading, level, path, text, paragraphs_json, page_start)
+chunks(chunk_id PK = sha1(doc_id|section|text), doc_id FK, section_id FK, ord,
        chunk_type [body|abstract|caption|table], text, char_start, char_end,
        page_start, page_end, n_tokens, chunker_version)
 index_builds(build_id PK, kind [dense|sparse], embedding_model, chunker_version, params_json,
@@ -488,7 +495,7 @@ spans, the same shape as `eval_questions.jsonl`. Then: ablations (dense vs BM25 
    backup, PyMuPDF fallback; arXiv HTML dropped as not general enough). The service runs as
    native processes.
 
-Progress: Stage 1 steps 1–5 done (5c: 10 papers ingested, all ok, 0 fallback; review in
+Progress: Stage 1 steps 1–5 done (5d: generic documents — `doc_id`, schema v3, `rag.ingest arxiv|files`; 5c: 10 papers ingested, all ok, 0 fallback; review in
 `experiments/stage1/seed10_parse_review.md`; 5b: 5b: `rag/parse/` parser interface + GROBID TEI → sections with pages; schema v2) (GROBID 0.8.2 native on the default JDK 17; see
 `experiments/stage1/grobid_feasibility.md`) (step 4: `rag/models.py` + SQLite store, schema v1; step 3: config, LLM factory, timeouts/retries, token counts, typed `Generation`).
 Earlier: (git repo; `src/rag/` installed package, no `sys.path`

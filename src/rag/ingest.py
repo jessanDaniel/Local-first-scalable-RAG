@@ -1,18 +1,25 @@
-"""Ingest papers: arXiv metadata -> PDF -> parse -> SQLite.
+"""Ingest documents: source -> PDF -> parse -> SQLite.
 
-    uv run python -m rag.ingest corpus/seed_ai_research.txt --limit 10 --report <csv>
+    uv run python -m rag.ingest arxiv corpus/seed_ai_research.txt [--limit N]
+    uv run python -m rag.ingest files data/raw/manual/            # or individual .pdf paths
 
-Per paper: metadata from arXiv (title, authors, abstract, dates are taken
-from here, not from the PDF), PDF download (skipped if already on disk),
-GROBID parse, PyMuPDF if GROBID fails, then the paper and its sections are
-written to the database with status ok / suspect / failed. Papers already
-parsed are skipped unless --reparse. Each parse is also dumped to
-data/parsed/<id>.json (and GROBID's TEI to <id>.tei.xml) for inspection.
+Two sources so far. `arxiv`: metadata from the arXiv API (title, authors,
+abstract, dates come from there, not from the PDF), PDF downloaded to
+data/raw/arxiv/. `files`: local PDFs, copied to data/raw/files/; title and
+authors come from the parse, or the file name when the parse has none.
+
+Every document then goes the same way: GROBID, PyMuPDF if GROBID fails,
+document + sections written to the database as ok / suspect / failed.
+Documents already parsed are skipped unless --reparse (a local file whose
+content changed is always parsed again). Each parse is also dumped to
+data/parsed/<doc>.json, and GROBID's TEI to <doc>.tei.xml, for inspection.
 """
 
 import argparse
 import csv
+import hashlib
 import json
+import shutil
 import sqlite3
 import statistics
 import sys
@@ -22,16 +29,19 @@ from pathlib import Path
 
 from rag.acquire.arxiv import ArxivClient, ArxivError, read_id_file
 from rag.config import Settings, get_settings
-from rag.models import Paper
-from rag.parse.base import ParsedPaper, ParseError, Parser, ParserUnavailableError
+from rag.models import Document, doc_file_stem, make_doc_id
+from rag.parse.base import ParsedDocument, ParseError, Parser, ParserUnavailableError
 from rag.parse.grobid import GrobidParser
 from rag.parse.pymupdf import PyMuPDFParser
 from rag.store import db
 
+# The PDF parser reads the body; this issue is covered by the source's metadata or the file name.
+METADATA_ISSUES = {"no title"}
+
 
 @dataclass
 class IngestResult:
-    arxiv_id: str
+    doc_id: str
     title: str
     status: str  # ok | suspect | failed | skipped
     parser: str
@@ -45,26 +55,30 @@ class IngestResult:
     issues: str
 
 
-def ingest_paper(
-    paper: Paper,
+def skipped(document: Document) -> IngestResult:
+    return IngestResult(
+        document.doc_id, document.title, "skipped", document.parser or "", False, False,
+        0.0, 0.0, None, 0, 0, f"already {document.parse_status}",
+    )
+
+
+def parse_and_store(
+    document: Document,
+    pdf_path: Path,
     conn: sqlite3.Connection,
-    client: ArxivClient,
     primary: Parser,
     fallback: Parser,
-    pdf_dir: Path,
     parsed_dir: Path,
+    downloaded: bool = False,
+    download_seconds: float = 0.0,
 ) -> IngestResult:
-    start = time.perf_counter()
-    pdf_path, sha256, downloaded = client.download_pdf(paper, pdf_dir)
-    download_seconds = time.perf_counter() - start
-
     start = time.perf_counter()
     used_fallback = False
     errors: list[str] = []
-    parsed: ParsedPaper | None = None
+    parsed: ParsedDocument | None = None
     for parser in (primary, fallback):
         try:
-            parsed = parser.parse(pdf_path, paper.arxiv_id)
+            parsed = parser.parse(pdf_path, document.doc_id)
             break
         except ParserUnavailableError:
             raise
@@ -74,36 +88,39 @@ def ingest_paper(
     parse_seconds = time.perf_counter() - start
 
     if parsed is None:
-        db.upsert_paper(conn, replace(paper, source_sha256=sha256, parse_status="failed", parse_error=" | ".join(errors)))
-        db.replace_sections(conn, paper.arxiv_id, [])
+        error = " | ".join(errors)
+        db.upsert_document(
+            conn, replace(document, title=document.title or pdf_path.stem, parse_status="failed", parse_error=error)
+        )
+        db.replace_sections(conn, document.doc_id, [])
         return IngestResult(
-            paper.arxiv_id, paper.title, "failed", "", used_fallback, downloaded,
-            download_seconds, parse_seconds, None, 0, 0, " | ".join(errors),
+            document.doc_id, document.title, "failed", "", used_fallback, downloaded,
+            download_seconds, parse_seconds, None, 0, 0, error,
         )
 
-    # The PDF parser only reads the body; metadata issues it reports are covered by arXiv.
-    issues = [i for i in parsed.issues if i not in ("no title", "no abstract")] + errors
+    issues = [i for i in parsed.issues if i not in METADATA_ISSUES] + errors
     status = "suspect" if issues else "ok"
-    db.upsert_paper(
-        conn,
-        replace(
-            paper,
-            source_sha256=sha256,
-            parser=parsed.parser,
-            parse_status=status,
-            parse_error="; ".join(issues) or None,
-        ),
+    document = replace(
+        document,
+        # Source metadata wins; the parse fills only what the source does not know.
+        title=document.title or parsed.title or pdf_path.stem,
+        authors=document.authors or parsed.authors,
+        abstract=document.abstract or parsed.abstract,
+        parser=parsed.parser,
+        parse_status=status,
+        parse_error="; ".join(issues) or None,
     )
-    db.replace_sections(conn, paper.arxiv_id, parsed.sections)
+    db.upsert_document(conn, document)
+    db.replace_sections(conn, document.doc_id, parsed.sections)
 
     parsed_dir.mkdir(parents=True, exist_ok=True)
-    (parsed_dir / f"{paper.arxiv_id}.json").write_text(
+    (parsed_dir / f"{doc_file_stem(document.doc_id)}.json").write_text(
         json.dumps(asdict(parsed) | {"status": status, "issues": issues}, indent=2, ensure_ascii=False),
         encoding="utf-8",
     )
     return IngestResult(
-        arxiv_id=paper.arxiv_id,
-        title=paper.title,
+        doc_id=document.doc_id,
+        title=document.title,
         status=status,
         parser=parsed.parser,
         used_fallback=used_fallback,
@@ -117,51 +134,110 @@ def ingest_paper(
     )
 
 
-def ingest(
-    arxiv_ids: list[str],
-    settings: Settings,
-    reparse: bool = False,
-) -> list[IngestResult]:
-    pdf_dir = settings.data_dir / "raw" / "pdf"
-    parsed_dir = settings.data_dir / "parsed"
-    conn = db.open_db(settings.db_path)
-    client = ArxivClient(settings)
-    primary = GrobidParser.from_settings(settings, tei_dir=parsed_dir)
-    fallback = PyMuPDFParser()
+class Ingestor:
+    """What every source shares: the database, the parsers, the output folders."""
 
-    results: list[IngestResult] = []
-    todo = []
-    for arxiv_id in arxiv_ids:
-        existing = db.get_paper(conn, arxiv_id)
-        if existing and existing.parse_status != "pending" and not reparse:
-            results.append(IngestResult(
-                arxiv_id, existing.title, "skipped", existing.parser or "", False, False,
-                0.0, 0.0, None, 0, 0, f"already {existing.parse_status}",
-            ))
-        else:
-            todo.append(arxiv_id)
-    if not todo:
-        return results
+    def __init__(self, settings: Settings, reparse: bool = False):
+        self.settings = settings
+        self.reparse = reparse
+        self.parsed_dir = settings.data_dir / "parsed"
+        self.conn = db.open_db(settings.db_path)
+        self.primary = GrobidParser.from_settings(settings, tei_dir=self.parsed_dir)
+        self.fallback = PyMuPDFParser()
+        self._checked_grobid = False
 
-    if not primary.is_alive():
-        raise SystemExit(f"GROBID is not running at {primary.base_url}; see AGENTS.md for the start command")
+    def close(self) -> None:
+        self.conn.close()
 
-    for paper in client.fetch_metadata(todo):
-        db.upsert_paper(conn, paper)  # recorded as pending before any download
-        result = ingest_paper(paper, conn, client, primary, fallback, pdf_dir, parsed_dir)
+    def already_parsed(self, doc_id: str, sha256: str | None = None) -> Document | None:
+        """The stored document when it can be skipped, else None."""
+        existing = db.get_document(self.conn, doc_id)
+        if existing is None or existing.parse_status == "pending" or self.reparse:
+            return None
+        if sha256 is not None and existing.source_sha256 != sha256:
+            return None  # the file changed since it was parsed
+        return existing
+
+    def parse(self, document: Document, pdf_path: Path, **timing) -> IngestResult:
+        if not self._checked_grobid:
+            if not self.primary.is_alive():
+                raise ParserUnavailableError(
+                    f"GROBID is not running at {self.primary.base_url}; see AGENTS.md for the start command"
+                )
+            self._checked_grobid = True
+        db.upsert_document(self.conn, replace(document, title=document.title or pdf_path.stem))
+        result = parse_and_store(
+            document, pdf_path, self.conn, self.primary, self.fallback, self.parsed_dir, **timing
+        )
         print(
-            f"{result.status:8} {result.arxiv_id:11} {result.parse_seconds:6.2f}s "
-            f"{result.n_sections:3} sections {result.body_words:6} words  {result.title[:60]}",
+            f"{result.status:8} {result.doc_id:26} {result.parse_seconds:6.2f}s "
+            f"{result.n_sections:3} sections {result.body_words:6} words  {result.title[:50]}",
             flush=True,
         )
-        results.append(result)
-    conn.close()
-    return results
+        return result
+
+    def ingest_arxiv(self, arxiv_ids: list[str]) -> list[IngestResult]:
+        results, todo = [], []
+        for arxiv_id in arxiv_ids:
+            existing = self.already_parsed(make_doc_id("arxiv", arxiv_id))
+            if existing:
+                results.append(skipped(existing))
+            else:
+                todo.append(arxiv_id)
+        if not todo:
+            return results
+
+        client = ArxivClient(self.settings)
+        pdf_dir = self.settings.data_dir / "raw" / "arxiv"
+        for document in client.fetch_metadata(todo):
+            start = time.perf_counter()
+            pdf_path, sha256, downloaded = client.download_pdf(document, pdf_dir)
+            document = replace(document, source_sha256=sha256)
+            results.append(self.parse(
+                document, pdf_path, downloaded=downloaded, download_seconds=time.perf_counter() - start,
+            ))
+        return results
+
+    def ingest_files(self, paths: list[Path]) -> list[IngestResult]:
+        files_dir = self.settings.data_dir / "raw" / "files"
+        results = []
+        for path in paths:
+            if path.suffix.lower() != ".pdf":
+                raise ValueError(f"{path}: only PDF files are supported so far")
+            sha256 = hashlib.sha256(path.read_bytes()).hexdigest()
+            doc_id = make_doc_id("file", path.stem)
+            original = str(path.resolve())
+
+            stored = db.get_document(self.conn, doc_id)
+            if stored is not None and stored.metadata.get("original_path") != original:
+                raise ValueError(
+                    f"{path}: {doc_id} is already used by {stored.metadata.get('original_path')}; rename this file"
+                )
+            existing = self.already_parsed(doc_id, sha256)
+            if existing:
+                results.append(skipped(existing))
+                continue
+
+            # Keep our own copy, so moving or deleting the original does not break citations.
+            files_dir.mkdir(parents=True, exist_ok=True)
+            copy = files_dir / f"{doc_file_stem(doc_id)}.pdf"
+            shutil.copyfile(path, copy)
+            document = Document(
+                doc_id=doc_id,
+                source="file",
+                title="",
+                source_uri=str(copy),
+                source_format="pdf",
+                source_sha256=sha256,
+                metadata={"original_path": original},
+            )
+            results.append(self.parse(document, copy))
+        return results
 
 
 def print_summary(results: list[IngestResult]) -> None:
     done = [r for r in results if r.status != "skipped"]
-    print(f"\n{len(results)} papers: " + ", ".join(
+    print(f"\n{len(results)} documents: " + ", ".join(
         f"{status} {sum(r.status == status for r in results)}"
         for status in ("ok", "suspect", "failed", "skipped")
         if any(r.status == status for r in results)
@@ -180,39 +256,63 @@ def print_summary(results: list[IngestResult]) -> None:
           f"{sum(r.download_seconds for r in done):.1f}s including throttling")
     for r in done:
         if r.issues:
-            print(f"  {r.arxiv_id}: {r.issues}")
+            print(f"  {r.doc_id}: {r.issues}")
+
+
+def write_report(results: list[IngestResult], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=list(asdict(results[0])))
+        writer.writeheader()
+        for r in results:
+            writer.writerow(asdict(r) | {
+                "download_seconds": round(r.download_seconds, 2),
+                "parse_seconds": round(r.parse_seconds, 2),
+            })
+    print(f"report: {path}")
+
+
+def pdf_paths(inputs: list[Path]) -> list[Path]:
+    paths = []
+    for item in inputs:
+        paths.extend(sorted(item.glob("*.pdf")) if item.is_dir() else [item])
+    return paths
 
 
 def main() -> int:
-    args = argparse.ArgumentParser(description="Ingest arXiv papers into the SQLite store.")
-    args.add_argument("id_file", type=Path, help="one arXiv id per line, '#' starts a comment")
-    args.add_argument("--limit", type=int, help="only the first N ids")
-    args.add_argument("--reparse", action="store_true", help="parse again even if already parsed")
-    args.add_argument("--report", type=Path, help="write per-paper results to this CSV")
+    args = argparse.ArgumentParser(description="Ingest documents into the SQLite store.")
+    sources = args.add_subparsers(dest="source", required=True)
+    arxiv_args = sources.add_parser("arxiv", help="arXiv papers listed in an id file")
+    arxiv_args.add_argument("id_file", type=Path, help="one arXiv id per line, '#' starts a comment")
+    arxiv_args.add_argument("--limit", type=int, help="only the first N ids")
+    files_args = sources.add_parser("files", help="local PDF files or folders of PDFs")
+    files_args.add_argument("paths", type=Path, nargs="+")
+    for sub in (arxiv_args, files_args):
+        sub.add_argument("--reparse", action="store_true", help="parse again even if already parsed")
+        sub.add_argument("--report", type=Path, help="write per-document results to this CSV")
     parsed_args = args.parse_args()
 
-    ids = read_id_file(parsed_args.id_file)[: parsed_args.limit]
+    ingestor = Ingestor(get_settings(), reparse=parsed_args.reparse)
     try:
-        results = ingest(ids, get_settings(), reparse=parsed_args.reparse)
+        if parsed_args.source == "arxiv":
+            results = ingestor.ingest_arxiv(read_id_file(parsed_args.id_file)[: parsed_args.limit])
+        else:
+            results = ingestor.ingest_files(pdf_paths(parsed_args.paths))
     except ArxivError as exc:
         print(f"arXiv error: {exc}")
         return 1
     except ParserUnavailableError as exc:
-        print(f"stopped: {exc}. Papers done so far are saved; rerun to continue.")
+        print(f"stopped: {exc}. Documents done so far are saved; rerun to continue.")
         return 1
-    print_summary(results)
+    except ValueError as exc:
+        print(f"error: {exc}")
+        return 1
+    finally:
+        ingestor.close()
 
-    if parsed_args.report:
-        parsed_args.report.parent.mkdir(parents=True, exist_ok=True)
-        with parsed_args.report.open("w", newline="", encoding="utf-8") as f:
-            writer = csv.DictWriter(f, fieldnames=list(asdict(results[0])))
-            writer.writeheader()
-            for r in results:
-                writer.writerow(asdict(r) | {
-                    "download_seconds": round(r.download_seconds, 2),
-                    "parse_seconds": round(r.parse_seconds, 2),
-                })
-        print(f"report: {parsed_args.report}")
+    print_summary(results)
+    if parsed_args.report and results:
+        write_report(results, parsed_args.report)
     return 0
 
 

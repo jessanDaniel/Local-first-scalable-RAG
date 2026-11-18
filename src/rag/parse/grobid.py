@@ -15,7 +15,8 @@ import requests
 
 from rag.config import Settings, get_settings
 from rag.llm.http import backoff_seconds
-from rag.parse.base import ParsedPaper, ParseError, Parser, ParserUnavailableError
+from rag.models import doc_file_stem
+from rag.parse.base import ParsedDocument, ParseError, Parser, ParserUnavailableError
 from rag.parse.tei import tei_to_parsed
 
 CONNECT_TIMEOUT_SECONDS = 5.0
@@ -103,9 +104,9 @@ class GrobidParser(Parser):
 
         raise AssertionError("unreachable: the last attempt always returns or raises")
 
-    def parse(self, pdf_path: Path, arxiv_id: str) -> ParsedPaper:
+    def parse(self, pdf_path: Path, doc_id: str) -> ParsedDocument:
         tei = self.process_pdf(pdf_path)
         if self.tei_dir is not None:
             self.tei_dir.mkdir(parents=True, exist_ok=True)
-            (self.tei_dir / f"{arxiv_id}.tei.xml").write_text(tei, encoding="utf-8")
-        return tei_to_parsed(tei, arxiv_id, parser=f"grobid-{self.version}")
+            (self.tei_dir / f"{doc_file_stem(doc_id)}.tei.xml").write_text(tei, encoding="utf-8")
+        return tei_to_parsed(tei, doc_id, parser=f"grobid-{self.version}")

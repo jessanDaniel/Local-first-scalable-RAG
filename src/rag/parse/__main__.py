@@ -2,8 +2,8 @@
 
     uv run python -m rag.parse data/raw/pdf/2305.14314.pdf
 
-Writes data/parsed/<id>.tei.xml (GROBID's raw output) and data/parsed/<id>.json
-(the ParsedPaper), then prints the section tree. GROBID must be running.
+Writes data/parsed/<doc>.tei.xml (GROBID's raw output) and data/parsed/<doc>.json
+(the ParsedDocument), then prints the section tree. GROBID must be running.
 """
 
 import argparse
@@ -14,6 +14,7 @@ from dataclasses import asdict
 from pathlib import Path
 
 from rag.config import get_settings
+from rag.models import doc_file_stem, make_doc_id
 from rag.parse.base import ParseError, print_parse_debug
 from rag.parse.grobid import GrobidParser
 from rag.parse.tei import tei_to_parsed
@@ -22,11 +23,12 @@ from rag.parse.tei import tei_to_parsed
 def main() -> int:
     args = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     args.add_argument("pdf", type=Path)
-    args.add_argument("--arxiv-id", help="defaults to the PDF file name without .pdf")
+    args.add_argument("--doc-id", help='defaults to "file:<pdf name without .pdf>"')
     parsed_args = args.parse_args()
 
     pdf_path: Path = parsed_args.pdf
-    arxiv_id = parsed_args.arxiv_id or pdf_path.stem
+    doc_id = parsed_args.doc_id or make_doc_id("file", pdf_path.stem)
+    stem = doc_file_stem(doc_id)
     out_dir = get_settings().data_dir / "parsed"
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -43,14 +45,14 @@ def main() -> int:
         return 1
     elapsed = time.perf_counter() - start
 
-    paper = tei_to_parsed(tei, arxiv_id, parser=f"grobid-{parser.version}")
-    (out_dir / f"{arxiv_id}.tei.xml").write_text(tei, encoding="utf-8")
-    (out_dir / f"{arxiv_id}.json").write_text(
-        json.dumps(asdict(paper) | {"status": paper.status}, indent=2, ensure_ascii=False),
+    parsed = tei_to_parsed(tei, doc_id, parser=f"grobid-{parser.version}")
+    (out_dir / f"{stem}.tei.xml").write_text(tei, encoding="utf-8")
+    (out_dir / f"{stem}.json").write_text(
+        json.dumps(asdict(parsed) | {"status": parsed.status}, indent=2, ensure_ascii=False),
         encoding="utf-8",
     )
-    print_parse_debug(paper)
-    print(f"\nGROBID time: {elapsed:.2f}s   saved: {out_dir / arxiv_id}.tei.xml, .json")
+    print_parse_debug(parsed)
+    print(f"\nGROBID time: {elapsed:.2f}s   saved: {out_dir / stem}.tei.xml, .json")
     return 0
 
 

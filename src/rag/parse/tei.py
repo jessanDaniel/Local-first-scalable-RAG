@@ -1,4 +1,4 @@
-"""GROBID TEI XML -> ParsedPaper. No network: works on a saved TEI file.
+"""GROBID TEI XML -> ParsedDocument. No network: works on a saved TEI file.
 
 The rules come from parsing QLoRA (experiments/stage1/grobid_feasibility.md):
 
@@ -29,7 +29,7 @@ from rag.parse.base import (
     ABSTRACT_PATH,
     APPENDIX_PATH,
     CAPTIONS_PATH,
-    ParsedPaper,
+    ParsedDocument,
     quality_issues,
 )
 
@@ -46,7 +46,7 @@ MIN_SECTIONS_BEFORE_BODY_APPENDIX = 2
 JUNK_HEADING_MAX_WORDS = 12
 
 
-def tei_to_parsed(tei_xml: str, arxiv_id: str, parser: str) -> ParsedPaper:
+def tei_to_parsed(tei_xml: str, doc_id: str, parser: str) -> ParsedDocument:
     root = ET.fromstring(tei_xml)
     header = root.find(f"{TEI}teiHeader")
     body = root.find(f"{TEI}text/{TEI}body")
@@ -72,11 +72,11 @@ def tei_to_parsed(tei_xml: str, arxiv_id: str, parser: str) -> ParsedPaper:
         drafts.append(_Draft(CAPTIONS_PATH, 1, CAPTIONS_PATH, captions))
 
     sections = [
-        Section.from_paragraphs(arxiv_id, ord, d.heading, d.level, d.path, d.paragraphs)
+        Section.from_paragraphs(doc_id, ord, d.heading, d.level, d.path, d.paragraphs)
         for ord, d in enumerate(d for d in drafts if d.paragraphs)
     ]
-    paper = ParsedPaper(
-        arxiv_id=arxiv_id,
+    parsed = ParsedDocument(
+        doc_id=doc_id,
         parser=parser,
         title=_title(header),
         authors=_authors(header),
@@ -85,8 +85,8 @@ def tei_to_parsed(tei_xml: str, arxiv_id: str, parser: str) -> ParsedPaper:
         n_pages=_page_count(root),
         n_references=len(root.findall(f".//{TEI}back//{TEI}listBibl/{TEI}biblStruct")),
     )
-    paper.issues = quality_issues(paper)
-    return paper
+    parsed.issues = quality_issues(parsed)
+    return parsed
 
 
 # --- text helpers -----------------------------------------------------------
