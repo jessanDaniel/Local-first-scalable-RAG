@@ -26,6 +26,10 @@ class ParseError(RuntimeError):
     """The parser could not produce any output for this PDF."""
 
 
+class ParserUnavailableError(ParseError):
+    """The parser's service is down. Not this PDF's fault: stop instead of falling back."""
+
+
 @dataclass
 class ParsedPaper:
     arxiv_id: str

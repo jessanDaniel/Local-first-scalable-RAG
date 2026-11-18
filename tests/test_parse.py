@@ -7,7 +7,7 @@ from rag.models import Section
 from rag.parse import grobid as grobid_module
 from rag.parse.base import ParsedPaper, ParseError, quality_issues
 from rag.parse.grobid import GrobidParser
-from rag.parse.tei import tei_to_parsed
+from rag.parse.tei import _is_junk_heading, tei_to_parsed
 
 FIXTURE = Path(__file__).parent / "fixtures" / "sample.tei.xml"
 
@@ -42,8 +42,8 @@ def test_section_tree(paper):
         "3 Method > Double Quantization",
         "5.1 Setup",
         "5.2 Results",
-        "5.2 Results > Guanaco:",
         "6 Conclusion",
+        "Appendix > B Proofs Left in the Body",
         "Appendix > A Extra Experiments",
         "Appendix > A Extra Experiments > Data Details",
         "Appendix > B.2 Hyperparameters",
@@ -66,6 +66,29 @@ def test_inline_refs_and_formulas(paper):
     assert intro.text == "Adapters cut the number of trainable parameters (see Table 1)."
     method = section(paper, "3 Method")
     assert method.text == "We insert rank r matrices.\n\nW = W0 + BA (1)"
+
+
+def test_junk_headings_continue_previous_section(paper):
+    assert section(paper, "5.2 Results").text == (
+        "Adapters match full finetuning.\n\nA chat line that GROBID read as a heading."
+    )
+    assert section(paper, "6 Conclusion").text == "Small is enough.\n\nAlgorithm box text."
+    assert section(paper, "Appendix > B Proofs Left in the Body").text == (
+        "Proof of the bound.\n\nFigure fragment."
+    )
+
+
+@pytest.mark.parametrize(
+    ("title", "junk"),
+    [
+        ("Guanaco:", True), ("end for", True), ("(middle).", True), ("2.", True),
+        ("If you have any other questions or if there's anything else I can help with today", True),
+        ("Double Quantization", False), ("Model", False), ("PASCAL VOC", False),
+        ("Label Smoothing", False), ("Skip-gram", False),
+    ],
+)
+def test_junk_heading_rule(title, junk):
+    assert _is_junk_heading(title) is junk
 
 
 def test_headless_div_continues_previous_section(paper):

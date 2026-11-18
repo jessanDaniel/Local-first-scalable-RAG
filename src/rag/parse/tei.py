@@ -4,12 +4,16 @@ The rules come from parsing QLoRA (experiments/stage1/grobid_feasibility.md):
 
 - Numbered headings ("3", "5.1") form the section tree. A parent that GROBID
   did not emit (5.1 with no "5") is simply left out of the path.
-- An unnumbered heading becomes a child of the last numbered section. Real
-  subsections ("Double Quantization") and false headings (chat transcripts
-  read as "Guanaco:") both end up inside the right section, never top-level.
-- A div with no heading continues the previous section.
+- An unnumbered heading becomes a child of the last numbered section
+  ("3 QLORA Finetuning > Double Quantization"), never top-level.
+- A heading GROBID made out of other text ("Guanaco:" from a chat transcript,
+  "end for" from an algorithm box, "(middle)." from a figure) is dropped and its
+  text continues the previous section. Same for a div with no heading.
 - Appendix headings carry their number in the text ("B.2 Hyperparameters");
-  their paths start with "Appendix".
+  their paths start with "Appendix". GROBID sometimes leaves the appendix in
+  <body>: a lettered heading ("A Extended derivations") after at least two
+  numbered sections switches the rest of the body to appendix paths.
+  (Checked on the first 10 papers: experiments/stage1/seed10_parse_review.md.)
 - Acknowledgements, funding and references are not body text.
 - A figure or table counts as a caption only if it is labelled "Figure N" or
   "Table N"; the rest (e.g. a chat example GROBID boxed as a figure) is dropped.
@@ -36,6 +40,10 @@ PATH_SEPARATOR = " > "
 BODY_NUMBER = re.compile(r"^(\d+(?:\.\d+)*)\.?\s+(\S.*)$")
 APPENDIX_NUMBER = re.compile(r"^([A-Z](?:\.\d+)*|\d+(?:\.\d+)*)\.?\s+(\S.*)$")
 CAPTION_LABEL = re.compile(r"^(fig\.?|figure|table)\s*\d+", re.IGNORECASE)
+# "A Extended derivations", "B.2 Hyperparameters", "C. ImageNet Localization"
+LETTERED_HEADING = re.compile(r"^[A-Z](?:\.\d+)*\.?\s+[A-Z0-9]")
+MIN_SECTIONS_BEFORE_BODY_APPENDIX = 2
+JUNK_HEADING_MAX_WORDS = 12
 
 
 def tei_to_parsed(tei_xml: str, arxiv_id: str, parser: str) -> ParsedPaper:
@@ -158,12 +166,27 @@ class _Draft:
     paragraphs: list[tuple[str, int | None, int | None]] = field(default_factory=list)
 
 
+def _is_junk_heading(title: str) -> bool:
+    """A heading GROBID made out of non-heading text: algorithm lines ("end for"),
+    speaker labels ("Guanaco:"), figure fragments ("(middle)."), stray numbers ("2."),
+    or a whole sentence."""
+    words = title.split()
+    return (
+        not title[0].isalnum()
+        or title[0].islower()
+        or title.endswith((":", "."))
+        or len(words) > JUNK_HEADING_MAX_WORDS
+        or not any(sum(c.isalpha() for c in word) >= 3 for word in words)
+    )
+
+
 class _SectionBuilder:
     def __init__(self, prefix: str | None, number_pattern: re.Pattern):
         self.prefix = prefix
         self.number_pattern = number_pattern
         self.numbered: list[tuple[str, int, str]] = []  # open numbered ancestors: (number, level, label)
         self.drafts: list[_Draft] = []
+        self.top_level_sections = 0
 
     def collect(self, container: ET.Element) -> None:
         for div in container.findall(f"{TEI}div"):
@@ -187,13 +210,23 @@ class _SectionBuilder:
             title = "Untitled"
 
         number = head.get("n").rstrip(".") if head is not None and head.get("n") else None
+        if number is None and self._starts_appendix_in_body(title):
+            # GROBID sometimes leaves the appendix in <body>: "A Extended derivations",
+            # "E Monte Carlo EM". From here on, this builder is producing appendix sections.
+            self.prefix = APPENDIX_PATH
+            self.number_pattern = APPENDIX_NUMBER
+            self.numbered = []
         if number is None:
             match = self.number_pattern.match(title)
             if match:
                 number, title = match.group(1), match.group(2)
+        if number is None and _is_junk_heading(title) and self.drafts:
+            return self.drafts[-1]
 
         if number is not None:
             level = number.count(".") + 1
+            if level == 1:
+                self.top_level_sections += 1
             self.numbered = [
                 (n, lvl, label) for n, lvl, label in self.numbered
                 if lvl < level and number.startswith(n + ".")
@@ -212,6 +245,13 @@ class _SectionBuilder:
         draft = _Draft(heading=label, level=level, path=PATH_SEPARATOR.join(parts))
         self.drafts.append(draft)
         return draft
+
+    def _starts_appendix_in_body(self, title: str) -> bool:
+        return (
+            self.prefix is None
+            and self.top_level_sections >= MIN_SECTIONS_BEFORE_BODY_APPENDIX
+            and LETTERED_HEADING.match(title) is not None
+        )
 
 
 # --- captions ---------------------------------------------------------------

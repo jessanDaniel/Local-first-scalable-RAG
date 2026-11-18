@@ -15,7 +15,7 @@ import requests
 
 from rag.config import Settings, get_settings
 from rag.llm.http import backoff_seconds
-from rag.parse.base import ParsedPaper, ParseError, Parser
+from rag.parse.base import ParsedPaper, ParseError, Parser, ParserUnavailableError
 from rag.parse.tei import tei_to_parsed
 
 CONNECT_TIMEOUT_SECONDS = 5.0
@@ -35,16 +35,23 @@ REQUEST_FIELDS = [
 class GrobidParser(Parser):
     name = "grobid"
 
-    def __init__(self, base_url: str, timeout_seconds: float, max_retries: int):
+    def __init__(
+        self,
+        base_url: str,
+        timeout_seconds: float,
+        max_retries: int,
+        tei_dir: Path | None = None,
+    ):
         self.base_url = base_url.rstrip("/")
         self.timeout_seconds = timeout_seconds
         self.max_retries = max_retries
+        self.tei_dir = tei_dir  # when set, parse() keeps GROBID's raw TEI here for inspection
         self._version: str | None = None
 
     @classmethod
-    def from_settings(cls, settings: Settings | None = None) -> "GrobidParser":
+    def from_settings(cls, settings: Settings | None = None, tei_dir: Path | None = None) -> "GrobidParser":
         settings = settings or get_settings()
-        return cls(settings.grobid_url, settings.grobid_timeout_seconds, settings.grobid_max_retries)
+        return cls(settings.grobid_url, settings.grobid_timeout_seconds, settings.grobid_max_retries, tei_dir)
 
     def is_alive(self) -> bool:
         try:
@@ -60,7 +67,7 @@ class GrobidParser(Parser):
                 response = requests.get(f"{self.base_url}/api/version", timeout=CONNECT_TIMEOUT_SECONDS)
                 response.raise_for_status()
             except requests.RequestException as exc:
-                raise ParseError(f"GROBID not reachable at {self.base_url}: {exc}") from exc
+                raise ParserUnavailableError(f"GROBID not reachable at {self.base_url}: {exc}") from exc
             self._version = response.json()["version"]
         return self._version
 
@@ -79,7 +86,7 @@ class GrobidParser(Parser):
                     )
             except requests.ConnectionError as exc:
                 if is_last:
-                    raise ParseError(f"GROBID not reachable at {self.base_url}: {exc}") from exc
+                    raise ParserUnavailableError(f"GROBID not reachable at {self.base_url}: {exc}") from exc
                 time.sleep(backoff_seconds(attempt, None))
                 continue
             except requests.Timeout as exc:
@@ -97,4 +104,8 @@ class GrobidParser(Parser):
         raise AssertionError("unreachable: the last attempt always returns or raises")
 
     def parse(self, pdf_path: Path, arxiv_id: str) -> ParsedPaper:
-        return tei_to_parsed(self.process_pdf(pdf_path), arxiv_id, parser=f"grobid-{self.version}")
+        tei = self.process_pdf(pdf_path)
+        if self.tei_dir is not None:
+            self.tei_dir.mkdir(parents=True, exist_ok=True)
+            (self.tei_dir / f"{arxiv_id}.tei.xml").write_text(tei, encoding="utf-8")
+        return tei_to_parsed(tei, arxiv_id, parser=f"grobid-{self.version}")

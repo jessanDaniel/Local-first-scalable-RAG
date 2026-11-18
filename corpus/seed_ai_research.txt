@@ -1,0 +1,16 @@
+# First 10 papers for Stage 1 step 5c, chosen 2026-11-18.
+# Source: the "AI research" track on fanout.sh/papers, in its order, keeping only papers on
+# arXiv. Skipped for now (not on arXiv; to be added from their own PDFs later):
+#   The Perceptron (Rosenblatt 1958), Dropout (Srivastava et al., JMLR 2014),
+#   ImageNet Classification with Deep CNNs (Krizhevsky et al., NeurIPS 2012).
+# Format: one arXiv id per line; text after "#" is ignored.
+1412.6980   # Adam: A Method for Stochastic Optimization
+1301.3781   # Efficient Estimation of Word Representations in Vector Space
+1312.6114   # Auto-Encoding Variational Bayes
+1406.2661   # Generative Adversarial Nets
+1409.3215   # Sequence to Sequence Learning with Neural Networks
+1503.02531  # Distilling the Knowledge in a Neural Network
+2006.11239  # Denoising Diffusion Probabilistic Models
+1502.03167  # Batch Normalization
+1512.03385  # Deep Residual Learning for Image Recognition
+1706.03762  # Attention Is All You Need

@@ -24,6 +24,13 @@ class Settings(BaseSettings):
 
     data_dir: Path = PROJECT_ROOT / "data"
 
+    arxiv_api_url: str = "https://export.arxiv.org/api/query"
+    arxiv_pdf_url: str = "https://arxiv.org/pdf"
+    # arXiv asks for no more than one request every 3 seconds.
+    arxiv_delay_seconds: float = Field(default=3.0, ge=3.0)
+    # Generic on purpose: never put personal details (e.g. an email) in request headers.
+    http_user_agent: str = "rag-papers-research/0.1"
+
     grobid_url: str = "http://localhost:8070"
     grobid_timeout_seconds: float = Field(default=180.0, gt=0)
     grobid_max_retries: int = Field(default=3, ge=0)

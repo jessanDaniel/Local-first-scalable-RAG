@@ -101,10 +101,20 @@ replace writes). Step 5a done: GROBID 0.8.2 runs natively on Apple Silicon
 continue, appendix numbers from heading text, captions only when labelled Figure/Table, pages
 from coords), `grobid.py` (HTTP client, consolidation off, retries 503), `python -m rag.parse
 <pdf>` saves `data/parsed/<id>.tei.xml` + `.json`. `Section` now stores per-paragraph offsets +
-pages (`Paragraph`); DB schema v2 with a v1→v2 migration. 41 tests. Next: step 5c — arXiv
-metadata for ~200 cs.CL + cs.LG papers (2023+), throttled PDF download (generic User-Agent),
-parse each into SQLite (`upsert_paper`, `replace_sections`, `set_parse_status`), PyMuPDF
-fallback for GROBID failures, read 10 parses by hand, record fallback rate and seconds per paper. Do not start Phase 16.
+pages (`Paragraph`); DB schema v2 with a v1→v2 migration. Step 5c done (10 papers, not 200 — user's
+choice to start small): corpus `corpus/seed_ai_research.txt` = first arXiv papers of the "AI
+research" track on fanout.sh/papers (Adam, word2vec, VAE, GAN, Seq2Seq, Distillation, DDPM,
+BatchNorm, ResNet, Attention). `rag/acquire/arxiv.py` (API metadata, 3 s throttle, generic
+User-Agent, PDF download with sha256, skips existing), `rag/parse/pymupdf.py` (fallback, one
+section per page, always suspect), `rag/ingest.py` (`uv run python -m rag.ingest <id file>
+[--limit N] [--reparse] [--report csv]`; GROBID down stops the run instead of falling back).
+Result: 10 ok, 0 fallback, median 1.6 s/paper; by-hand review and two new TEI rules (appendix
+left in body, junk headings) in `experiments/stage1/seed10_parse_review.md`. 65 tests.
+Pending from the user: Perceptron, Dropout (JMLR), AlexNet (NeurIPS) PDFs, to be added by hand;
+they need non-arXiv paper ids first (schema keys on `arxiv_id`). Planned: rerun ingest at ~200
+papers before Stage 2. Next: Stage 1 step 6 — chunker v2 (paragraph-packed, ≤ 350 embedding
+tokens, never crosses sections, offsets + page ranges from `Section.paragraphs`, captions as
+`caption` chunks, abstract as one chunk, content-hash ids, `chunker_version`). Do not start Phase 16.
 
 ### Phase 7 close-out (2026-09-20)
 

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xmlns:arxiv="http://arxiv.org/schemas/atom">
+  <title>arXiv Query</title>
+  <entry>
+    <id>http://arxiv.org/abs/1412.6980v9</id>
+    <updated>2017-01-30T01:27:54Z</updated>
+    <published>2014-12-22T13:54:29Z</published>
+    <title>Adam: A Method for Stochastic
+      Optimization</title>
+    <summary>  We introduce Adam, an algorithm for first-order gradient-based optimization.
+    </summary>
+    <author><name>Diederik P. Kingma</name></author>
+    <author><name>Jimmy Ba</name></author>
+    <arxiv:primary_category term="cs.LG"/>
+    <category term="cs.LG"/>
+    <category term="cs.AI"/>
+  </entry>
+  <entry>
+    <id>http://arxiv.org/abs/hep-th/9901001v2</id>
+    <updated>1999-01-05T00:00:00Z</updated>
+    <published>1999-01-01T00:00:00Z</published>
+    <title>An old-style id</title>
+    <summary>Old ids have an archive prefix.</summary>
+    <author><name>A. Physicist</name></author>
+    <arxiv:primary_category term="hep-th"/>
+    <category term="hep-th"/>
+  </entry>
+</feed>

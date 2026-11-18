@@ -477,6 +477,8 @@ spans, the same shape as `eval_questions.jsonl`. Then: ablations (dense vs BM25 
 ## 9. Decisions (agreed 2026-11-17)
 
 1. **Corpus slice**: arXiv `cs.CL` + `cs.LG`, submitted 2023 or later, starting at 200 papers.
+   **Changed 2026-11-18:** start with 10 foundational papers from the "AI research" track on
+   fanout.sh/papers (`corpus/seed_ai_research.txt`); grow to ~200 before Stage 2.
 2. **Dense store**: FAISS index files. No Qdrant.
 3. **Embedding model**: `BAAI/bge-small-en-v1.5` (384 dims, 512-token limit).
 4. **Default local LLM**: `qwen2.5:7b-instruct` via Ollama. Groq stays optional.
@@ -486,7 +488,8 @@ spans, the same shape as `eval_questions.jsonl`. Then: ablations (dense vs BM25 
    backup, PyMuPDF fallback; arXiv HTML dropped as not general enough). The service runs as
    native processes.
 
-Progress: Stage 1 steps 1–4 done, step 5a–5b done (5b: `rag/parse/` parser interface + GROBID TEI → sections with pages; schema v2) (GROBID 0.8.2 native on the default JDK 17; see
+Progress: Stage 1 steps 1–5 done (5c: 10 papers ingested, all ok, 0 fallback; review in
+`experiments/stage1/seed10_parse_review.md`; 5b: 5b: `rag/parse/` parser interface + GROBID TEI → sections with pages; schema v2) (GROBID 0.8.2 native on the default JDK 17; see
 `experiments/stage1/grobid_feasibility.md`) (step 4: `rag/models.py` + SQLite store, schema v1; step 3: config, LLM factory, timeouts/retries, token counts, typed `Generation`).
 Earlier: (git repo; `src/rag/` installed package, no `sys.path`
 hacks; learning scripts in `experiments/learning/`; companion doc in `docs/archive/`).
