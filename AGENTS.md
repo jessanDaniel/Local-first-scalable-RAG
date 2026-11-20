@@ -84,6 +84,12 @@ has `experiments/learning/phase16_retrieval_eval.py` and `experiments/learning/p
 Recall@K, complete, distractor). `experiments/learning/phase16_retrieval_notes.md` was never written, and
 the plain-language walkthrough of those results is no longer a gate.
 
+**Scope (2026-11-20):** the product is a generic, production-grade RAG pipeline for a single
+Mac; research papers are only the first dataset. See `docs/production_plan.md` §0.1: eval v0
+before Stage 2, collections now, a second (txt/Markdown) corpus, guardrails, regression gate,
+index type chosen by measured recall (PQ only when size demands it), and a web UI in Stage 3.
+Order: step 9 → step 10 → collections + second corpus → eval v0 → Stage 2 → Stage 3 (API + UI).
+
 **Next up:** Production-grade RAG, following `docs/production_plan.md` (§9 decisions agreed
 2026-11-17: arXiv cs.CL + cs.LG 2023+, FAISS, `bge-small-en-v1.5`, `qwen2.5:7b-instruct`, no
 Docker; PDF is the primary source — GROBID run natively with JDK 17, Docling as backup,

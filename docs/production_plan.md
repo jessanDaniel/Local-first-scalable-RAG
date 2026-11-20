@@ -31,6 +31,44 @@ The build runs in five stages. Each one leaves a working system:
 | 4. Scale + index engineering | incremental ingest, index versions, quantization, load test | 25k–50k papers |
 | 5. Deployment + access control | native service (no Docker), API keys, private collections | same |
 
+### 0.1 Scope update (2026-11-20)
+
+**The product is the pipeline:** a generic, production-grade RAG engineered to run on a single
+Mac (24 GB, M4 Pro). Research papers are the first dataset and the owner's personal use case,
+not the scope. Changes that follow from this, in order:
+
+1. **Evaluation moves ahead of Stage 2** (was deferred to after the build, §8). After Stage 1
+   steps 9–10: **eval v0** — ~50 questions with gold chunk IDs, Recall@K / MRR / nDCG, a
+   `rag eval` command that saves every run for comparison. Every Stage 2 component (BM25, RRF,
+   reranker, HNSW) ships with an ablation row against it. Generation eval (does the cited source
+   support the sentence?) follows.
+2. **Collections in the schema now** (was Stage 5): `collection_id` on documents and chunks,
+   applied as a filter in every index. Needed for "search only these documents", private uploads
+   and access control later.
+3. **Prove it is generic with a second corpus:** a plain-text / Markdown parser behind `Parser`;
+   ingest the learning-track HR documents (`documents/*.txt`) as their own collection, reusing
+   the 30 Phase 15 questions as a second eval set.
+4. **Answer guardrails:** abstain when the best reranked score is under a threshold; a
+   post-generation citation-support check; retrieved text treated as untrusted (prompt
+   injection inside documents).
+5. **Regression gate:** `rag eval` before commits that change retrieval code or settings; a
+   Recall@K drop fails like a test.
+6. **Index type is a setting, chosen by measurement:** `flat | hnsw | hnsw_sq8 | ivfpq_refine`.
+   A build must reach recall@100 ≥ a threshold (e.g. 0.95) against `flat`. PQ is not a default:
+   below ~500k chunks (~12k papers) the exact index is faster and lossless on this Mac; PQ is
+   what lets the full cs.CL + cs.LG domain (~6M chunks, ~9 GB float32) fit beside the LLM.
+   Stage 4 publishes the memory / p95 / recall table (synthetic vectors for the large sizes).
+   FAISS runs on CPU (its GPU build is CUDA-only); an MPS exact-search variant is one row of that
+   benchmark.
+7. **A UI is part of the product** (was "only if you want one", Stage 3). A small web app over
+   the API: ask with streamed answers, clickable citations that open the PDF at the cited page,
+   the `--explain` trace per question (dense / BM25 / RRF / rerank ranks), collections and
+   uploads, and eval runs side by side. Built in Stage 3 after the API exists, served by the same
+   FastAPI process, no Node toolchain required.
+
+Order from here: step 9 (CLI) → step 10 (tooling) → collections + second corpus → eval v0 →
+Stage 2 → Stage 3 (API + UI) → Stage 4 → Stage 5.
+
 ---
 
 ## 1. What I found in the current code
@@ -426,7 +464,8 @@ brought each one in.
    optional and can come later.
 5. Latency budget, written down and then measured (starting targets on the M4 Pro):
    dense + sparse + RRF p95 < 50 ms; rerank(100) p95 < 400 ms; time to first token as measured.
-6. A small web UI only if you want one for demos. Not needed for the core.
+6. Web UI (part of the product since 2026-11-20, see §0.1 item 7): ask with streaming,
+   citations that open the PDF page, the per-stage trace, collections/uploads, eval runs.
 
 ### Stage 4: Scale + index engineering
 
