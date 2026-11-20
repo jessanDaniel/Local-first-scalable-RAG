@@ -29,7 +29,7 @@ from pathlib import Path
 
 from rag.acquire.arxiv import ArxivClient, ArxivError, read_id_file
 from rag.config import Settings, get_settings
-from rag.models import Document, doc_file_stem, make_doc_id
+from rag.models import DEFAULT_COLLECTION, Document, check_collection_id, doc_file_stem, make_doc_id
 from rag.parse.base import ParsedDocument, ParseError, Parser, ParserUnavailableError
 from rag.parse.grobid import GrobidParser
 from rag.parse.pymupdf import PyMuPDFParser
@@ -171,9 +171,10 @@ def store_parsed(
 class Ingestor:
     """What every source shares: the database, the parsers, the output folders."""
 
-    def __init__(self, settings: Settings, reparse: bool = False):
+    def __init__(self, settings: Settings, reparse: bool = False, collection: str = DEFAULT_COLLECTION):
         self.settings = settings
         self.reparse = reparse
+        self.collection = check_collection_id(collection)
         self.parsed_dir = settings.data_dir / "parsed"
         self.conn = db.open_db(settings.db_path)
         self.primary = GrobidParser.from_settings(settings, tei_dir=self.parsed_dir)
@@ -186,6 +187,9 @@ class Ingestor:
     def already_parsed(self, doc_id: str, sha256: str | None = None) -> Document | None:
         """The stored document when it can be skipped, else None."""
         existing = db.get_document(self.conn, doc_id)
+        if existing is not None and existing.collection_id != self.collection:
+            # One collection per document: moving one is a deliberate act, never a side effect.
+            raise ValueError(f"{doc_id} is already in collection {existing.collection_id!r}, not {self.collection!r}")
         if existing is None or existing.parse_status == "pending" or self.reparse:
             return None
         if sha256 is not None and existing.source_sha256 != sha256:
@@ -224,7 +228,7 @@ class Ingestor:
         for document in client.fetch_metadata(todo):
             start = time.perf_counter()
             pdf_path, sha256, downloaded = client.download_pdf(document, pdf_dir)
-            document = replace(document, source_sha256=sha256)
+            document = replace(document, source_sha256=sha256, collection_id=self.collection)
             results.append(
                 self.parse(
                     document,
@@ -301,6 +305,7 @@ class Ingestor:
                 source_format="pdf",
                 source_sha256=sha256,
                 metadata={"original_path": original},
+                collection_id=self.collection,
             )
             results.append(self.parse(document, copy))
         return results
@@ -359,8 +364,10 @@ def pdf_paths(inputs: list[Path]) -> list[Path]:
 
 
 def run(parsed_args) -> int:
-
-    ingestor = Ingestor(get_settings(), reparse=parsed_args.reparse)
+    collection = getattr(parsed_args, "collection", None)  # tei re-applies rules in place: no collection
+    ingestor = Ingestor(get_settings(), reparse=parsed_args.reparse, collection=collection or DEFAULT_COLLECTION)
+    if collection and db.ensure_collection(ingestor.conn, collection):
+        print(f"created collection {collection!r}")
     try:
         if parsed_args.source == "arxiv":
             results = ingestor.ingest_arxiv(read_id_file(parsed_args.id_file)[: parsed_args.limit])

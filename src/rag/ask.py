@@ -70,9 +70,12 @@ def run(parsed_args) -> int:
         settings.ask_context_tokens,
     )
     try:
-        answer = answerer.ask(parsed_args.question)
+        answer = answerer.ask(parsed_args.question, parsed_args.collections)
     except (ContextWindowError, LLMError) as exc:
         print(f"error: {exc}")
+        return 1
+    except KeyError as exc:  # unknown collection
+        print(f"error: {exc.args[0]}")
         return 1
     print_answer(answer, parsed_args.explain)
     return 0

@@ -20,7 +20,20 @@ from typing import Literal
 ChunkType = Literal["abstract", "body", "caption", "table"]
 ParseStatus = Literal["pending", "ok", "suspect", "failed"]
 SourceType = Literal["arxiv", "file"]
-SourceFormat = Literal["html", "pdf"]
+SourceFormat = Literal["html", "pdf", "txt", "md"]
+
+# A collection groups documents that are searched together (and, in Stage 5, share access rules).
+# Each document belongs to exactly one. Ids are slugs: "papers", "hr-demo".
+COLLECTION_ID = re.compile(r"[a-z0-9][a-z0-9-]{0,62}")
+DEFAULT_COLLECTION = "default"
+
+
+def check_collection_id(collection_id: str) -> str:
+    if not COLLECTION_ID.fullmatch(collection_id):
+        raise ValueError(
+            f"collection {collection_id!r}: use lowercase letters, digits and hyphens, starting with a letter or digit"
+        )
+    return collection_id
 
 
 @dataclass
@@ -45,10 +58,12 @@ class Document:
     parser: str | None = None
     parse_status: ParseStatus = "pending"
     parse_error: str | None = None
+    collection_id: str = DEFAULT_COLLECTION
 
     def __post_init__(self) -> None:
         if not self.doc_id.startswith(f"{self.source}:") or self.doc_id == f"{self.source}:":
             raise ValueError(f"doc_id {self.doc_id!r} must look like '{self.source}:<key>'")
+        check_collection_id(self.collection_id)
 
     @property
     def key(self) -> str:

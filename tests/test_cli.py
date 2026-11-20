@@ -19,14 +19,28 @@ from tests.test_dense import FakeEmbedder, WordCounter
     ("argv", "handler", "expected"),
     [
         (["status"], "rag.status:run", {"json": False}),
-        (["ingest", "arxiv", "ids.txt", "--limit", "3"], "rag.ingest:run", {"source": "arxiv", "limit": 3}),
-        (["ingest", "files", "a.pdf", "dir/", "--reparse"], "rag.ingest:run", {"source": "files", "reparse": True}),
+        (
+            ["ingest", "arxiv", "ids.txt", "--collection", "papers", "--limit", "3"],
+            "rag.ingest:run",
+            {"source": "arxiv", "limit": 3, "collection": "papers"},
+        ),
+        (
+            ["ingest", "files", "a.pdf", "dir/", "--collection", "hr-demo", "--reparse"],
+            "rag.ingest:run",
+            {"source": "files", "reparse": True, "collection": "hr-demo"},
+        ),
+        (["collections"], "rag.collections:run", {"action": "list"}),
         (["ingest", "tei"], "rag.ingest:run", {"source": "tei", "report": None}),
         (["parse", "x.pdf", "--doc-id", "file:x"], "rag.parse.__main__:run", {"doc_id": "file:x"}),
         (["chunk", "--show", "arxiv:1", "--limit", "5"], "rag.chunk.__main__:run", {"show": "arxiv:1", "limit": 5}),
         (["index", "build"], "rag.index.__main__:run", {"action": "build"}),
-        (["search", "q", "-k", "7", "--explain"], "rag.search:run", {"query": "q", "k": 7, "explain": True}),
-        (["ask", "why?"], "rag.ask:run", {"question": "why?", "explain": False}),
+        (["search", "q", "-k", "7", "--explain"], "rag.search:run", {"query": "q", "k": 7, "collections": None}),
+        (
+            ["search", "q", "--collection", "papers", "--collection", "hr-demo"],
+            "rag.search:run",
+            {"collections": ["papers", "hr-demo"]},
+        ),
+        (["ask", "why?", "--collection", "papers"], "rag.ask:run", {"question": "why?", "collections": ["papers"]}),
     ],
 )
 def test_every_command_parses_to_its_handler(argv, handler, expected):
@@ -35,7 +49,9 @@ def test_every_command_parses_to_its_handler(argv, handler, expected):
     assert {key: getattr(args, key) for key in expected} == expected
 
 
-@pytest.mark.parametrize("argv", [[], ["ingest"], ["index"], ["index", "drop"], ["search"]])
+@pytest.mark.parametrize(
+    "argv", [[], ["ingest"], ["index"], ["index", "drop"], ["search"], ["ingest", "arxiv", "ids.txt"]]
+)
 def test_incomplete_commands_are_rejected(argv):
     with pytest.raises(SystemExit) as exc:
         build_parser().parse_args(argv)
@@ -114,6 +130,7 @@ def test_status_on_an_empty_data_dir_suggests_ingest_and_creates_nothing(tmp_pat
     report = status.collect(settings_for(tmp_path), probe=False)
     assert report["database"] is None
     assert report["next"].startswith("rag ingest arxiv")
+    assert "--collection papers" in report["next"]
     assert list(tmp_path.iterdir()) == []
 
 
@@ -129,6 +146,7 @@ def test_status_walks_through_the_next_steps(tmp_path):
     add_documents(conn, chunk=True)
     report = status.collect(settings, probe=False)
     assert report["database"]["documents_by_source"] == {"arxiv": 1, "file": 1}
+    assert report["database"]["documents_by_collection"] == {"default": 2}
     assert report["dense_index"] == {"state": "missing"}
     assert report["next"] == "rag index build"
 
@@ -169,3 +187,16 @@ def test_status_suggests_starting_ollama_when_it_is_down(tmp_path, monkeypatch):
 def test_probes_report_a_closed_port_as_not_running():
     assert status.probe_grobid("http://127.0.0.1:9") == "not running"
     assert status.probe_ollama("http://127.0.0.1:9", "qwen2.5:7b-instruct") == "not running"
+
+
+def test_status_reports_an_old_schema_without_migrating_it(tmp_path):
+    from tests.test_store import make_v3_database
+
+    settings = settings_for(tmp_path)
+    make_v3_database(settings.db_path)
+    report = status.collect(settings, probe=False)
+    assert report["schema_mismatch"] == {"database": 3, "code": db.SCHEMA_VERSION}
+    assert report["next"].startswith("rag collections")
+    raw = db.open_readonly(settings.db_path)
+    assert db.schema_version(raw) == 3  # untouched
+    assert not (tmp_path / "archive").exists()

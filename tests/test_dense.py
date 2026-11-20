@@ -201,3 +201,52 @@ def test_stale_index_is_refused(conn, tmp_path):
 def test_no_index_yet(tmp_path):
     with pytest.raises(StaleIndexError, match="no dense index"):
         load_current(tmp_path / "indexes", "fake/bow-64", [])
+
+
+# --- collection filter --------------------------------------------------------
+
+
+def test_filter_runs_inside_faiss_so_a_small_subset_still_gets_its_full_top_k():
+    vectors = random_unit_vectors(100, 16)
+    ids = [f"c{i}" for i in range(100)]
+    index = DenseIndex.build(vectors, ids, manifest(100))
+    query = vectors[0]
+    allowed = ["c90", "c91", "c92", "c93", "c94"]  # far down the global ranking, most likely
+
+    hits = index.search(query, 3, allowed)
+    expected = sorted(allowed, key=lambda c: -float(vectors[int(c[1:])] @ query))[:3]
+    assert [chunk_id for chunk_id, _ in hits] == expected
+    assert len(index.search(query, 10, allowed)) == 5  # k larger than the subset returns the subset
+    assert index.search(query, 3, []) == []
+    assert index.search(query, 3, ["not-in-index"]) == []
+
+
+def test_search_by_collection_never_returns_other_collections(tmp_path):
+    connection = db.open_db(tmp_path / "rag.db")
+    chunker = Chunker(WordCounter(), 60)
+    docs = {
+        ("arxiv:1", "papers"): "Adam keeps moving averages of the gradient. Bias correction fixes zero starts.",
+        ("arxiv:2", "papers"): "Residual connections let very deep networks train.",
+        ("file:handbook", "hr-demo"): "Employees get fifteen vacation days. Bias in hiring is reported to HR.",
+    }
+    for (doc_id, collection), text in docs.items():
+        source = doc_id.split(":")[0]
+        db.upsert_document(
+            connection,
+            Document(doc_id=doc_id, source=source, title=doc_id, parse_status="ok", collection_id=collection),
+        )
+        sections = [Section.from_paragraphs(doc_id, 0, "1 S", 1, "1 S", [(text, 1, 1)])]
+        db.replace_sections(connection, doc_id, sections)
+        db.replace_chunks(connection, doc_id, chunker.chunk_document(sections))
+    embedder, _ = build(connection, tmp_path)
+    index = load_current(tmp_path / "indexes", embedder.model_name, db.all_chunk_ids(connection))
+    searcher = DenseSearcher(connection, index, embedder)
+
+    hr = searcher.search("bias correction", k=5, collections=["hr-demo"])
+    assert [h.chunk.doc_id for h in hr] == ["file:handbook"]
+    papers = searcher.search("bias correction", k=5, collections=["papers"])
+    assert {h.chunk.doc_id for h in papers} == {"arxiv:1", "arxiv:2"}
+    assert len(searcher.search("bias correction", k=5)) == 3  # no filter: everything
+    with pytest.raises(KeyError, match="no collection"):
+        searcher.search("bias", k=5, collections=["nope"])
+    connection.close()

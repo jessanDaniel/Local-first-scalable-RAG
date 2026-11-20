@@ -33,6 +33,7 @@ class DenseIndex:
         self.index = index
         self.chunk_ids = chunk_ids
         self.manifest = manifest
+        self.row_of = {chunk_id: row for row, chunk_id in enumerate(chunk_ids)}
 
     @classmethod
     def build(cls, vectors: np.ndarray, chunk_ids: list[str], manifest: DenseManifest) -> "DenseIndex":
@@ -43,12 +44,26 @@ class DenseIndex:
         index.add(vectors)
         return cls(index, list(chunk_ids), manifest)
 
-    def search(self, query_vector: np.ndarray, k: int) -> list[tuple[str, float]]:
-        """Top-k (chunk_id, score), best first. k larger than the index returns everything."""
+    def search(
+        self, query_vector: np.ndarray, k: int, allowed_chunk_ids: list[str] | None = None
+    ) -> list[tuple[str, float]]:
+        """Top-k (chunk_id, score), best first. k larger than the index returns everything.
+
+        allowed_chunk_ids restricts the search to those chunks (a collection filter). The filter is
+        applied inside FAISS, not to the results afterwards, so a small collection still gets its
+        full top-k instead of whatever survived from the global top-k.
+        """
         if k < 1:
             raise ValueError(f"k must be >= 1, got {k}")
         query = np.ascontiguousarray(query_vector, dtype=np.float32).reshape(1, -1)
-        scores, rows = self.index.search(query, min(k, self.index.ntotal))
+        if allowed_chunk_ids is None:
+            scores, rows = self.index.search(query, min(k, self.index.ntotal))
+        else:
+            allowed = np.array([self.row_of[c] for c in allowed_chunk_ids if c in self.row_of], dtype=np.int64)
+            if len(allowed) == 0:
+                return []
+            selector = faiss.IDSelectorBatch(allowed)
+            scores, rows = self.index.search(query, min(k, len(allowed)), params=faiss.SearchParameters(sel=selector))
         return [(self.chunk_ids[row], float(score)) for row, score in zip(rows[0], scores[0], strict=True) if row >= 0]
 
     def save(self, build_dir: Path) -> None:

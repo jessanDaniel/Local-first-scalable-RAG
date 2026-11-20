@@ -70,10 +70,14 @@ def collect(settings: Settings, probe: bool = True) -> dict:
     chunker = f"{CHUNKER_VERSION}-{settings.chunk_max_tokens}"
     report: dict = {"data_dir": str(settings.data_dir), "database": None, "chunker_setting": chunker}
     if settings.db_path.exists():
-        conn = db.open_db(settings.db_path)
+        conn = db.open_readonly(settings.db_path)
         try:
-            report["database"] = db.stats(conn)
-            report["dense_index"] = dense_index_report(settings, db.all_chunk_ids(conn))
+            version = db.schema_version(conn)
+            if version == db.SCHEMA_VERSION:
+                report["database"] = db.stats(conn)
+                report["dense_index"] = dense_index_report(settings, db.all_chunk_ids(conn))
+            else:
+                report["schema_mismatch"] = {"database": version, "code": db.SCHEMA_VERSION}
         finally:
             conn.close()
 
@@ -92,11 +96,17 @@ def collect(settings: Settings, probe: bool = True) -> dict:
 
 
 def next_step(report: dict) -> str:
+    mismatch = report.get("schema_mismatch")
+    if mismatch and mismatch["database"] < mismatch["code"]:
+        return "rag collections   (any command that opens the database migrates it; a backup is kept)"
+    if mismatch:
+        return "update the code: the database was made by a newer version"
     stats = report["database"]
     if not stats or not sum(stats["documents_by_status"].values()):
         grobid_down = report["grobid"].get("state", "running") != "running"  # not probed: assume fine
         start = "start GROBID (see AGENTS.md), then: " if grobid_down else ""
-        return f"{start}rag ingest arxiv {DEFAULT_SEED}   (or: rag ingest files <pdfs>)"
+        alternative = "(or: rag ingest files <paths> --collection NAME)"
+        return f"{start}rag ingest arxiv {DEFAULT_SEED} --collection papers   {alternative}"
     if stats["unchunked_documents"] or set(stats["chunks_by_chunker"]) - {report["chunker_setting"]}:
         return "rag chunk"
     if report["dense_index"]["state"] != "current":
@@ -109,7 +119,10 @@ def next_step(report: dict) -> str:
 def print_report(report: dict) -> None:
     rows = [("data", report["data_dir"])]
     stats = report["database"]
-    if stats is None:
+    mismatch = report.get("schema_mismatch")
+    if mismatch:
+        rows.append(("database", f"rag.db, schema v{mismatch['database']}; code expects v{mismatch['code']}"))
+    elif stats is None:
         rows.append(("database", "none yet (created by the first ingest)"))
     else:
         by_status = ", ".join(f"{k} {v}" for k, v in sorted(stats["documents_by_status"].items()))
@@ -117,6 +130,8 @@ def print_report(report: dict) -> None:
         n_docs = sum(stats["documents_by_status"].values())
         rows.append(("database", f"rag.db, schema v{stats['schema_version']}"))
         rows.append(("documents", f"{n_docs}" + (f" ({by_status}; sources: {by_source})" if n_docs else "")))
+        by_collection = ", ".join(f"{k} {v}" for k, v in sorted(stats["documents_by_collection"].items()))
+        rows.append(("collections", by_collection or "none"))
         rows.append(("sections", str(stats["sections"])))
         versions = ", ".join(stats["chunks_by_chunker"]) or "none"
         chunks = f"{stats['chunks']} (chunker {versions}; settings {report['chunker_setting']})"
@@ -138,7 +153,7 @@ def print_report(report: dict) -> None:
     rows.append(("LLM", f"{llm['provider']} {llm['model']}{where} - {llm.get('state', 'not probed')}"))
     rows.append(("next", report["next"]))
     for label, value in rows:
-        print(f"{label:10} {value}")
+        print(f"{label:11} {value}")
 
 
 def run(args) -> int:

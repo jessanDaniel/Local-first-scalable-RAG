@@ -60,9 +60,9 @@ class Answerer:
         self.max_sources = max_sources
         self.context_tokens = context_tokens
 
-    def ask(self, question: str) -> Answer:
+    def ask(self, question: str, collections: list[str] | None = None) -> Answer:
         start = time.perf_counter()
-        hits = self.searcher.search(question, self.retrieve_k)
+        hits = self.searcher.search(question, self.retrieve_k, collections)
         retrieved = time.perf_counter()
 
         sections: dict[tuple[str, int], str] = {}

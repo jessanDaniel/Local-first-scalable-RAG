@@ -168,6 +168,18 @@ def test_two_files_with_the_same_name_are_refused(ingestor, tmp_path):
         ingestor.ingest_files([write_pdf(tmp_path / "b" / "notes.pdf", ["B."])])
 
 
+def test_documents_land_in_the_chosen_collection_and_stay_there(ingestor, tmp_path):
+    original = write_pdf(tmp_path / "notes.pdf", ["Body text."])
+    ingestor.collection = "papers"
+    ingestor.ingest_files([original])
+    assert db.get_document(ingestor.conn, "file:notes").collection_id == "papers"
+
+    ingestor.collection = "hr-demo"  # same document, another collection: refused, not moved
+    with pytest.raises(ValueError, match="already in collection 'papers'"):
+        ingestor.ingest_files([original])
+    assert db.get_document(ingestor.conn, "file:notes").collection_id == "papers"
+
+
 def test_only_pdfs_are_accepted(ingestor, tmp_path):
     text_file = tmp_path / "notes.txt"
     text_file.write_text("plain text")

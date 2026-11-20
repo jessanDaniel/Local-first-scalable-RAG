@@ -134,7 +134,7 @@ class FakeSearcher:
     def __init__(self, hits):
         self.hits = hits
 
-    def search(self, query, k):
+    def search(self, query, k, collections=None):
         return self.hits[:k]
 
 

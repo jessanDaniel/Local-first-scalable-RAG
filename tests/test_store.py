@@ -1,5 +1,6 @@
 import sqlite3
 from datetime import date
+from pathlib import Path
 
 import pytest
 
@@ -244,3 +245,94 @@ def test_old_schema_without_migration_is_refused(tmp_path):
     raw.close()
     with pytest.raises(db.SchemaVersionError, match="delete the database file"):
         db.open_db(path)
+
+
+# --- collections (schema v4) ------------------------------------------------
+
+V3_SCHEMA = (Path(__file__).parent / "fixtures" / "schema_v3.sql").read_text()
+
+
+def make_v3_database(path) -> None:
+    """A version-3 database with one document, one section and one chunk, as the old code wrote it."""
+    raw = sqlite3.connect(path)
+    raw.executescript(V3_SCHEMA + "\nPRAGMA user_version = 3;")
+    raw.execute(
+        "INSERT INTO documents (doc_id, source, title, source_format, parse_status, metadata_json) "
+        "VALUES (?, 'arxiv', 'LoRA', 'pdf', 'ok', '{\"version\": 2}')",
+        (DOC,),
+    )
+    section = make_section()
+    raw.execute(
+        "INSERT INTO sections (section_id, doc_id, ord, heading, level, path, text) VALUES (?, ?, 0, 'h', 1, 'h', ?)",
+        (section.section_id, DOC, SECTION_TEXT),
+    )
+    chunk = make_chunk("LoRA freezes the pretrained weights.")
+    raw.execute(
+        "INSERT INTO chunks (chunk_id, doc_id, section_id, section_ord, ord, chunk_type, text, char_start, "
+        "char_end, n_tokens, chunker_version) VALUES (?, ?, ?, 0, 0, 'body', ?, ?, ?, 5, 'test-1')",
+        (chunk.chunk_id, DOC, section.section_id, chunk.text, chunk.char_start, chunk.char_end),
+    )
+    raw.commit()
+    raw.close()
+
+
+def test_v3_database_migrates_to_collections_without_losing_rows(tmp_path):
+    path = tmp_path / "rag.db"
+    make_v3_database(path)
+    conn = db.open_db(path)
+
+    assert conn.execute("PRAGMA user_version").fetchone()[0] == db.SCHEMA_VERSION
+    document = db.get_document(conn, DOC)
+    assert (document.collection_id, document.title, document.metadata) == ("papers", "LoRA", {"version": 2})
+    assert len(db.get_sections(conn, DOC)) == 1 and db.count_chunks(conn) == 1
+    assert [c["collection_id"] for c in db.list_collections(conn)] == ["papers"]
+    # Foreign keys still work after the table rebuild: deleting the document removes its rows.
+    with conn:
+        conn.execute("DELETE FROM documents WHERE doc_id = ?", (DOC,))
+    assert db.count_chunks(conn) == 0 and db.get_sections(conn, DOC) == []
+
+
+def test_failed_migration_leaves_the_v3_database_untouched(tmp_path, monkeypatch):
+    path = tmp_path / "rag.db"
+    make_v3_database(path)
+    monkeypatch.setitem(db.MIGRATIONS, 3, [*db.MIGRATIONS[3], "SELECT * FROM no_such_table"])
+    with pytest.raises(sqlite3.OperationalError):
+        db.open_db(path)
+    raw = sqlite3.connect(path)
+    assert raw.execute("PRAGMA user_version").fetchone()[0] == 3
+    assert raw.execute("SELECT COUNT(*) FROM chunks").fetchone()[0] == 1
+    assert "collections" not in {r[0] for r in raw.execute("SELECT name FROM sqlite_master")}
+
+
+def test_collections_group_documents_and_their_chunks(conn):
+    db.upsert_document(conn, make_document(collection_id="papers"))
+    db.replace_sections(conn, DOC, [make_section()])
+    db.replace_chunks(conn, DOC, [make_chunk("LoRA freezes the pretrained weights.")])
+    other = make_document(doc_id="file:handbook", source="file", title="Handbook", collection_id="hr-demo")
+    db.upsert_document(conn, other)
+
+    assert {c["collection_id"]: (c["n_documents"], c["n_chunks"]) for c in db.list_collections(conn)} == {
+        "papers": (1, 1),
+        "hr-demo": (1, 0),
+    }
+    assert len(db.chunk_ids_in_collections(conn, ["papers"])) == 1
+    assert db.chunk_ids_in_collections(conn, ["hr-demo"]) == []
+    assert [d.doc_id for d in db.list_documents(conn, collection_id="hr-demo")] == ["file:handbook"]
+    with pytest.raises(KeyError, match="no collection nope"):
+        db.chunk_ids_in_collections(conn, ["nope"])
+
+
+@pytest.mark.parametrize("bad", ["", "Papers", "hr demo", "-papers", "a/b"])
+def test_collection_ids_must_be_slugs(conn, bad):
+    with pytest.raises(ValueError, match="collection"):
+        db.ensure_collection(conn, bad)
+
+
+def test_migration_saves_a_backup_of_the_old_database_first(tmp_path):
+    path = tmp_path / "rag.db"
+    make_v3_database(path)
+    db.open_db(path).close()
+    [backup] = (tmp_path / "archive").glob("rag-v3-*.db")
+    old = sqlite3.connect(backup)
+    assert old.execute("PRAGMA user_version").fetchone()[0] == 3
+    assert old.execute("SELECT COUNT(*) FROM chunks").fetchone()[0] == 1

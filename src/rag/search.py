@@ -34,11 +34,13 @@ class DenseSearcher:
         self.embedder = embedder
         self.last_timings: dict[str, float] = {}
 
-    def search(self, query: str, k: int = 5) -> list[Hit]:
+    def search(self, query: str, k: int = 5, collections: list[str] | None = None) -> list[Hit]:
+        """Top-k hits; with `collections`, only chunks of documents in those collections."""
         start = time.perf_counter()
+        allowed = db.chunk_ids_in_collections(self.conn, collections) if collections else None
         vector = self.embedder.embed_query(query)
         embedded = time.perf_counter()
-        ranked = self.index.search(vector, k)
+        ranked = self.index.search(vector, k, allowed)
         searched = time.perf_counter()
         chunks = {c.chunk_id: c for c in db.get_chunks_by_ids(self.conn, [chunk_id for chunk_id, _ in ranked])}
         hits = []
@@ -94,7 +96,11 @@ def run(parsed_args) -> int:
         return 1
     embedder = Embedder(settings.embedding_model, settings.embedding_query_instruction, settings.embedding_batch_size)
     searcher = DenseSearcher(conn, index, embedder)
-    hits = searcher.search(parsed_args.query, parsed_args.k)
+    try:
+        hits = searcher.search(parsed_args.query, parsed_args.k, parsed_args.collections)
+    except KeyError as exc:
+        print(f"error: {exc.args[0]}")
+        return 1
     print_hits(parsed_args.query, hits, searcher, parsed_args.explain)
     return 0
 
