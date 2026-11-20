@@ -1,6 +1,6 @@
 """Search the indexed chunks, dense or BM25, with an explain view.
 
-    rag search "why divide attention scores by sqrt d_k" [-k 5] [--mode hybrid|dense|bm25] [--explain]
+    rag search "why divide attention scores by sqrt d_k" [-k 5] [--mode hybrid|rerank|dense|bm25] [--explain]
 
 Retrieval only: no prompt, no LLM. Each hit carries the chunk plus what a
 citation needs (document title, section path, pages, source link).
@@ -134,24 +134,98 @@ class HybridSearcher:
         self.last_timings: dict[str, float] = {}
         self.last_ranks: dict[str, dict[str, int | None]] = {}
 
-    def search(self, query: str, k: int = 5, collections: list[str] | None = None) -> list[Hit]:
+    def rank(self, query: str, n: int, allowed: list[str] | None) -> list[tuple[str, float]]:
+        """Top-n of the fused list as (chunk_id, RRF score), no SQLite fetch. Sets last_ranks."""
         from rag.fusion import rrf
 
-        allowed = db.chunk_ids_in_collections(self.conn, collections) if collections else None
         dense_ranked = self.dense.rank(query, self.candidates, allowed)
         bm25_ranked = self.bm25.rank(query, self.candidates, allowed)
         fuse_start = time.perf_counter()
-        fused = rrf({"dense": [c for c, _ in dense_ranked], "bm25": [c for c, _ in bm25_ranked]}, self.rrf_k)[:k]
-        fetch_start = time.perf_counter()
-        hits = make_hits(self.conn, [(f.chunk_id, f.score) for f in fused])
+        fused = rrf({"dense": [c for c, _ in dense_ranked], "bm25": [c for c, _ in bm25_ranked]}, self.rrf_k)[:n]
         self.last_ranks = {f.chunk_id: f.ranks for f in fused}
         self.last_timings = {
             **{f"dense_{name}": ms for name, ms in self.dense.last_timings.items()},
             "bm25_search_ms": self.bm25.last_timings["search_ms"],
-            "fuse_ms": (fetch_start - fuse_start) * 1000,
+            "fuse_ms": (time.perf_counter() - fuse_start) * 1000,
+        }
+        return [(f.chunk_id, f.score) for f in fused]
+
+    def search(self, query: str, k: int = 5, collections: list[str] | None = None) -> list[Hit]:
+        allowed = db.chunk_ids_in_collections(self.conn, collections) if collections else None
+        ranked = self.rank(query, k, allowed)
+        fetch_start = time.perf_counter()
+        hits = make_hits(self.conn, ranked)
+        self.last_timings["fetch_ms"] = (time.perf_counter() - fetch_start) * 1000
+        return hits
+
+
+class RerankingSearcher:
+    """Hybrid's top `candidates` -> cross-encoder scores every (question, chunk) pair -> the best
+    `keep` (or k, if smaller) by that score. Hit.score is the reranker's raw score.
+
+    If the reranker raises or runs past `timeout_seconds`, the fused order is used instead and
+    `last_fallback` says why: an answer is still produced, just without reranking."""
+
+    mode = "rerank"
+
+    def __init__(self, conn, hybrid: HybridSearcher, reranker, candidates: int, keep: int, timeout_seconds: float):
+        from concurrent.futures import ThreadPoolExecutor
+
+        self.conn = conn
+        self.hybrid = hybrid
+        self.reranker = reranker
+        self.candidates = candidates
+        self.keep = keep
+        self.timeout_seconds = timeout_seconds
+        self.executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="rerank")
+        self.last_timings: dict[str, float] = {}
+        self.last_ranks: dict[str, dict[str, int | None]] = {}
+        self.last_fallback: str | None = None
+
+    def search(self, query: str, k: int = 5, collections: list[str] | None = None) -> list[Hit]:
+        from concurrent.futures import TimeoutError as FutureTimeout
+
+        allowed = db.chunk_ids_in_collections(self.conn, collections) if collections else None
+        fused = self.hybrid.rank(query, self.candidates, allowed)
+        passages = db.passages(self.conn, [chunk_id for chunk_id, _ in fused])
+        rerank_start = time.perf_counter()
+        self.last_fallback = None
+        try:
+            future = self.executor.submit(
+                self.reranker.score,
+                query,
+                [(f"{passages[c][0]} | {passages[c][1]}", passages[c][2]) for c, _ in fused],
+            )
+            scores = future.result(timeout=self.timeout_seconds)
+        except FutureTimeout:
+            self.last_fallback = f"reranker took over {self.timeout_seconds:g} s: fused order used"
+        except Exception as exc:  # a broken reranker must not break search
+            self.last_fallback = f"reranker failed ({type(exc).__name__}: {exc}): fused order used"
+        rerank_ms = (time.perf_counter() - rerank_start) * 1000
+
+        fused_rank = {chunk_id: i for i, (chunk_id, _) in enumerate(fused, start=1)}
+        if self.last_fallback:
+            ranked = fused[: min(k, self.keep)]
+        else:
+            order = sorted(zip(fused, scores, strict=True), key=lambda x: (-x[1], fused_rank[x[0][0]]))
+            ranked = [(chunk_id, score) for (chunk_id, _), score in order[: min(k, self.keep)]]
+        self.last_ranks = {
+            chunk_id: {**self.hybrid.last_ranks[chunk_id], "fused": fused_rank[chunk_id], "rerank": i}
+            for i, (chunk_id, _) in enumerate(ranked, start=1)
+        }
+        fetch_start = time.perf_counter()
+        hits = make_hits(self.conn, ranked)
+        self.last_timings = {
+            **self.hybrid.last_timings,
+            "rerank_ms": rerank_ms,
             "fetch_ms": (time.perf_counter() - fetch_start) * 1000,
         }
         return hits
+
+
+def describe_ranks(ranks: dict[str, int | None]) -> str:
+    """{"dense": 4, "bm25": None, "fused": 2, "rerank": 1} -> "dense 4, bm25 -, fused 2, rerank 1"."""
+    return ", ".join(f"{name} {rank if rank is not None else '-'}" for name, rank in ranks.items())
 
 
 def print_hits(query: str, hits: list[Hit], searcher, explain: bool) -> None:
@@ -167,15 +241,24 @@ def print_hits(query: str, hits: list[Hit], searcher, explain: bool) -> None:
                 f"Index:      {manifest.build_id} ({manifest.index_type}, {manifest.n_chunks} chunks, "
                 f"chunker {manifest.chunker_version})"
             )
-        if searcher.mode == "hybrid":
+        hybrid = {"hybrid": searcher, "rerank": getattr(searcher, "hybrid", None)}.get(searcher.mode)
+        if hybrid is not None:
             print(
-                f"Fusion:     RRF k={searcher.rrf_k} over dense top {searcher.candidates} + BM25 top "
-                f"{searcher.candidates}; score = sum of 1/(k + rank)"
+                f"Fusion:     RRF k={hybrid.rrf_k} over dense top {hybrid.candidates} + BM25 top "
+                f"{hybrid.candidates}; score = sum of 1/(k + rank)"
             )
-        if searcher.mode in ("bm25", "hybrid"):
+        if searcher.mode == "rerank":
+            r = searcher.reranker
+            print(
+                f"Rerank:     {r.model_name} on {r.device}, fused top {searcher.candidates} -> best {searcher.keep}; "
+                f"score = raw cross-encoder logit; pairs over {r.max_tokens} tokens: {r.last_truncated}"
+            )
+            if searcher.last_fallback:
+                print(f"FALLBACK:   {searcher.last_fallback}")
+        if searcher.mode in ("bm25", "hybrid", "rerank"):
             from rag.index.tokenize import TOKENIZER_VERSION, query_terms
 
-            bm25 = searcher if searcher.mode == "bm25" else searcher.bm25
+            bm25 = searcher if searcher.mode == "bm25" else hybrid.bm25
             index = bm25.index
             print(f"Terms:      {', '.join(query_terms(query)) or '(none)'}")
             print(
@@ -193,10 +276,8 @@ def print_hits(query: str, hits: list[Hit], searcher, explain: bool) -> None:
         print(f"{hit.rank:>2}. {hit.score:.4f}  {hit.doc_title[:60]}  ({c.doc_id}, {pages})")
         print(f"    {hit.section_path[:100]}")
         if explain:
-            if searcher.mode == "hybrid":
-                ranks = searcher.last_ranks[c.chunk_id]
-                shown = {name: rank if rank is not None else "-" for name, rank in ranks.items()}
-                print(f"    dense rank {shown['dense']}, BM25 rank {shown['bm25']}")
+            if searcher.mode in ("hybrid", "rerank"):
+                print(f"    {describe_ranks(searcher.last_ranks[c.chunk_id])}")
             if searcher.mode == "bm25":
                 parts = [p for p in searcher.index.explain(query, c.chunk_id) if p.tf]
                 print("    " + "  ".join(f"{p.term}: tf {p.tf} × idf {p.idf:.2f} → {p.score:.2f}" for p in parts))
@@ -215,6 +296,19 @@ def make_searcher(conn, mode: str):
         settings = get_settings()
         dense = make_searcher(conn, "dense")
         return HybridSearcher(conn, dense, BM25Searcher.from_db(conn), settings.hybrid_candidates, settings.rrf_k)
+    if mode == "rerank":
+        from rag.rerank import Reranker
+
+        settings = get_settings()
+        reranker = Reranker(settings.rerank_model, settings.rerank_batch_size)
+        return RerankingSearcher(
+            conn,
+            make_searcher(conn, "hybrid"),
+            reranker,
+            settings.rerank_candidates,
+            settings.rerank_keep,
+            settings.rerank_timeout_seconds,
+        )
     from rag.embed.embedder import Embedder
     from rag.index.dense import load_current
 

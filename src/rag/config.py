@@ -66,9 +66,18 @@ class Settings(BaseSettings):
     # Answering: how many hits to retrieve, how many sources at most, and the token budget for
     # the sources block of the prompt.
     # Retrieval: which retriever `rag ask` uses, and the hybrid settings (Stage 2 step 14).
-    retrieval_mode: Literal["hybrid", "dense", "bm25"] = "hybrid"
+    retrieval_mode: Literal["hybrid", "rerank", "dense", "bm25"] = "hybrid"
     hybrid_candidates: int = Field(default=100, ge=1)  # each retriever's list size before fusion
     rrf_k: int = Field(default=60, ge=0)  # Reciprocal Rank Fusion constant (Cormack et al. 2009)
+    # Cross-encoder reranking (Stage 2 step 15), opt-in with --mode rerank: hybrid's top
+    # `rerank_candidates` are rescored and the best `rerank_keep` kept. Both models were approved by the
+    # user; bge measured better than ms-marco-MiniLM-L-6-v2 (papers Hit@5 37 vs 34, MRR 0.695 vs 0.661)
+    # but costs ~1.8 s per query, so retrieval_mode stays hybrid (experiments/stage2/rerank_step15.md).
+    rerank_model: str = "BAAI/bge-reranker-base"
+    rerank_candidates: int = Field(default=100, ge=1)
+    rerank_keep: int = Field(default=20, ge=1)
+    rerank_batch_size: int = Field(default=32, ge=1)
+    rerank_timeout_seconds: float = Field(default=10.0, gt=0)
 
     ask_retrieve_k: int = Field(default=10, ge=1)
     ask_max_sources: int = Field(default=8, ge=1)

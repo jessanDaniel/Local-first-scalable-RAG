@@ -1,6 +1,6 @@
 """Ask a question; get an answer with checked citations.
 
-    rag ask "why do transformers divide attention scores by sqrt(d_k)?" [--mode hybrid|dense|bm25] [--explain]
+    rag ask "why do transformers divide attention scores by sqrt(d_k)?" [--mode hybrid|rerank|dense|bm25] [--explain]
 
 Retrieval uses the RETRIEVAL_MODE setting (hybrid by default) unless --mode says otherwise.
 
@@ -16,7 +16,7 @@ from rag.config import get_settings
 from rag.index.current import StaleIndexError
 from rag.llm.factory import create_llm
 from rag.llm.interface import LLMError
-from rag.search import make_searcher
+from rag.search import describe_ranks, make_searcher
 from rag.store import db
 
 RULE = "=" * 78
@@ -28,10 +28,7 @@ def print_answer(answer: Answer, explain: bool, mode: str = "dense", ranks: dict
         used = {cid: s.n for s in answer.sources for cid in s.chunk_ids}
         for hit in answer.hits:
             where = f"-> [{used[hit.chunk.chunk_id]}]" if hit.chunk.chunk_id in used else "-> dropped"
-            origin = ""
-            if ranks and hit.chunk.chunk_id in ranks:
-                r = {name: rank if rank is not None else "-" for name, rank in ranks[hit.chunk.chunk_id].items()}
-                origin = f" (dense {r['dense']}, bm25 {r['bm25']})"
+            origin = f" ({describe_ranks(ranks[hit.chunk.chunk_id])})" if ranks and hit.chunk.chunk_id in ranks else ""
             print(f"{hit.rank:>2}. {hit.score:.4f} {where:12} {hit.doc_title[:40]} §{hit.section_path[:50]}{origin}")
         print(f"\n{RULE}\nEXACT PROMPT ({answer.prompt_tokens} tokens, counted before sending)\n{RULE}")
         print(f"[system]\n{answer.system_prompt}\n\n[user]\n{answer.user_prompt}")
@@ -83,6 +80,8 @@ def run(parsed_args) -> int:
         print(f"error: {exc.args[0]}")
         return 1
     print_answer(answer, parsed_args.explain, mode, getattr(searcher, "last_ranks", None))
+    if getattr(searcher, "last_fallback", None):
+        print(f"WARNING: {searcher.last_fallback}")
     return 0
 
 

@@ -295,3 +295,74 @@ def test_hybrid_keeps_a_chunk_only_bm25_finds(conn, tmp_path):
     hits = hybrid.search("shortcut connections residual", k=4)
     origins = {h.chunk.chunk_id: hybrid.last_ranks[h.chunk.chunk_id] for h in hits}
     assert any(r["dense"] is None and r["bm25"] is not None for r in origins.values())
+
+
+# --- reranking --------------------------------------------------------------------
+
+
+class FakeReranker:
+    """Scores a passage by how many times it says "residual"; can fail or be slow on request."""
+
+    model_name, device, max_tokens, last_truncated = "fake/reranker", "cpu", 512, 0
+
+    def __init__(self, error=None, delay=0.0):
+        self.error, self.delay = error, delay
+
+    def score(self, query, passages):
+        import time
+
+        time.sleep(self.delay)
+        if self.error:
+            raise self.error
+        return [float(text.lower().count("residual")) for _, text in passages]
+
+
+def reranking(conn, tmp_path, reranker, keep=20, timeout=5.0):
+    from rag.search import BM25Searcher, HybridSearcher, RerankingSearcher
+
+    embedder, _ = build(conn, tmp_path)
+    dense = DenseSearcher(conn, load_current(tmp_path / "indexes", embedder.model_name, conn), embedder)
+    hybrid = HybridSearcher(conn, dense, BM25Searcher.from_db(conn), candidates=10, rrf_k=60)
+    return RerankingSearcher(conn, hybrid, reranker, candidates=10, keep=keep, timeout_seconds=timeout)
+
+
+def test_reranker_reorders_the_fused_candidates(conn, tmp_path):
+    searcher = reranking(conn, tmp_path, FakeReranker())
+    hits = searcher.search("bias correction averages zero", k=4)
+    assert "residual" in hits[0].chunk.text.lower()  # the fake reranker's favourite wins
+    assert hits[0].score == 1.0 and searcher.last_fallback is None
+    ranks = searcher.last_ranks[hits[0].chunk.chunk_id]
+    assert set(ranks) == {"dense", "bm25", "fused", "rerank"} and ranks["rerank"] == 1
+    assert ranks["fused"] > 1  # it was not first before reranking
+    assert "rerank_ms" in searcher.last_timings
+
+
+def test_keep_limits_the_results(conn, tmp_path):
+    assert len(reranking(conn, tmp_path, FakeReranker(), keep=2).search("bias", k=10)) == 2
+
+
+@pytest.mark.parametrize(
+    ("reranker", "reason"),
+    [(FakeReranker(error=RuntimeError("MPS out of memory")), "failed"), (FakeReranker(delay=0.5), "took over")],
+)
+def test_reranker_failure_or_timeout_falls_back_to_the_fused_order(conn, tmp_path, reranker, reason):
+    searcher = reranking(conn, tmp_path, reranker, timeout=0.1)
+    hits = searcher.search("bias correction averages zero", k=3)
+    assert reason in searcher.last_fallback
+    assert [searcher.last_ranks[h.chunk.chunk_id]["fused"] for h in hits] == [1, 2, 3]
+
+
+def test_long_pairs_drop_the_header_before_anything_is_truncated():
+    from rag.rerank import Reranker
+
+    reranker = Reranker.__new__(Reranker)  # no model: a word-count "tokenizer" instead
+    reranker.max_tokens = 10
+    reranker.last_truncated = 0
+    reranker.pair_tokens = lambda query, passage: len(query.split()) + len(passage.split())
+    assert reranker.fit("q", "Title | 1 Intro", "short text") == "Title | 1 Intro\nshort text"
+    assert reranker.fit("q", "A very long title | Section 1 > Sub", "seven words of chunk text right here") == (
+        "seven words of chunk text right here"
+    )
+    assert reranker.last_truncated == 0
+    reranker.fit("q", "h", " ".join(["w"] * 20))
+    assert reranker.last_truncated == 1

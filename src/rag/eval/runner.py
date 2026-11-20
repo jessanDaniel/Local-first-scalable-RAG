@@ -11,6 +11,7 @@ configuration gives the same numbers on every run.
 import json
 import statistics
 import subprocess
+import time
 from collections import defaultdict
 from datetime import UTC, datetime
 from pathlib import Path
@@ -43,7 +44,9 @@ def score_questions(
     rows = []
     for question in questions:
         collections = [question.collection] if use_filter else None
+        start = time.perf_counter()
         hits = searcher.search(question.question, MAX_K, collections)
+        latency_ms = (time.perf_counter() - start) * 1000
         ranked = [hit.chunk.chunk_id for hit in hits]
         gold_ids = gold.get(question.id, [])
         gold_set = set(gold_ids)
@@ -58,6 +61,8 @@ def score_questions(
             "scores": [round(hit.score, 6) for hit in hits],
             "top1_doc": hits[0].chunk.doc_id if hits else None,
             "top1_score": round(hits[0].score, 6) if hits else None,
+            "latency_ms": round(latency_ms, 1),
+            "fallback": getattr(searcher, "last_fallback", None),
         }
         if question.answerable:
             row["first_rank"] = metrics.first_rank(ranked, gold_set)
@@ -100,7 +105,18 @@ def summarise(rows: list[dict]) -> dict:
         "no_gold": [r["id"] for r in rows if r["answerable"] and not r["gold"]],
         "unanswerable": {"n": len(unanswerable), "mean_top1_score": mean_top1(unanswerable)},
         "answerable_mean_top1_score": mean_top1(answerable),
+        "latency_ms": latency_summary(rows),
+        "fallbacks": sum(bool(r.get("fallback")) for r in rows),
     }
+
+
+def latency_summary(rows: list[dict]) -> dict | None:
+    """p50 / p95 / max search time per question (ms), all questions. Runs warm up first."""
+    times = sorted(r["latency_ms"] for r in rows if r.get("latency_ms") is not None)
+    if not times:
+        return None
+    pick = lambda q: times[min(len(times) - 1, int(round(q * (len(times) - 1))))]  # noqa: E731
+    return {"p50": pick(0.5), "p95": pick(0.95), "max": times[-1]}
 
 
 def new_run(set_name: str, config: dict, rows: list[dict], label: str | None = None) -> dict:
@@ -174,12 +190,17 @@ def print_run(run: dict) -> None:
         f"  {retriever}: index {c['index_build']} ({c['index_type']}, {c['n_chunks']} chunks), "
         f"chunker {c['chunker_version']}, filter {'on' if c['collection_filter'] else 'off'}, commit {c['git_commit']}"
     )
-    if retriever in ("dense", "hybrid"):
+    if retriever in ("dense", "hybrid", "rerank"):
         print(f"  {c['embedding_model']}, query instruction: {c['query_instruction']!r}")
-    if retriever in ("bm25", "hybrid"):
+    if retriever in ("bm25", "hybrid", "rerank"):
         print(f"  BM25 k1={c['bm25_k1']}, b={c['bm25_b']}, tokenizer {c['tokenizer']}")
-    if retriever == "hybrid":
+    if retriever in ("hybrid", "rerank"):
         print(f"  RRF k={c['rrf_k']}, {c['hybrid_candidates']} candidates from each retriever")
+    if retriever == "rerank":
+        print(
+            f"  reranker {c['rerank_model']} on {c['rerank_device']}: "
+            f"fused top {c['rerank_candidates']} -> best {c['rerank_keep']}"
+        )
     overall = s["overall"]
     print(f"\n  answerable questions: {overall['n']}")
     for metric in METRIC_ROWS:
@@ -192,6 +213,13 @@ def print_run(run: dict) -> None:
         f"\n  mean top-1 score: answerable {s['answerable_mean_top1_score']}, unanswerable {u['mean_top1_score']} "
         f"({u['n']} questions)"
     )
+    if s.get("latency_ms"):
+        lat = s["latency_ms"]
+        print(
+            f"  search latency per question: p50 {lat['p50']:.0f} ms, p95 {lat['p95']:.0f} ms, max {lat['max']:.0f} ms"
+        )
+    if s.get("fallbacks"):
+        print(f"  WARNING: reranker fell back to the fused order on {s['fallbacks']} questions")
     if s["no_gold"]:
         print(f"  WARNING: no gold chunk found for {', '.join(s['no_gold'])} (run `rag eval check`)")
     misses = [q for q in run["questions"] if q["answerable"] and (q["first_rank"] or 99) > 5]
@@ -223,6 +251,10 @@ def compare_runs(a: dict, b: dict) -> list[str]:
             delta = f"{vb - va:+.3f}"
         lines.append(f"{metric:10} {fmt(metric, va, sa['n']):>14} {fmt(metric, vb, sb['n']):>14} {delta:>8}")
 
+    la, lb = a["summary"].get("latency_ms"), b["summary"].get("latency_ms")
+    if la and lb:
+        for key in ("p50", "p95"):
+            lines.append(f"{'latency ' + key:10} {la[key]:>11.0f} ms {lb[key]:>11.0f} ms {lb[key] - la[key]:>+6.0f} ms")
     ranks_a = {q["id"]: q.get("first_rank") for q in a["questions"] if q["answerable"]}
     flips = []
     for q in b["questions"]:

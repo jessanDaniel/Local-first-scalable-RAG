@@ -197,8 +197,15 @@ the paper's wording (overlap > 0.5); dense is better on reworded ones. Notes:
 `--mode`/`--retriever` flags; `--explain` shows dense and BM25 rank per hit. Papers hybrid Hit@1
 22/40, Hit@5 33/40, MRR 0.675 (dense 18/29/0.574, BM25 21/34/0.659); hr-demo 24/24 at rank 1.
 Cost: answers only BM25 finds get pulled down a few places. Step-8 VAE and sqrt(d_k) failures
-now rank 1st. Notes: `experiments/stage2/hybrid_step14.md`. Next: step 15, cross-encoder
-reranker — pitch first, and ASK before adding the reranker model. Do not start Phase 16.
+now rank 1st. Notes: `experiments/stage2/hybrid_step14.md`. Step 15 done (both models
+approved by the user and downloaded, no new package): `src/rag/rerank.py` (`Reranker`, raw
+logits, header dropped before truncation), `RerankingSearcher` (hybrid top 100 → best 20,
+timeout/exception → fused order), `--mode rerank`, eval latency p50/p95. Papers: bge Hit@5 37/40
+MRR 0.695 but Hit@1 22 (same as hybrid), 1.8 s/query; MiniLM no gain, 0.3 s. bge fixes the
+BM25-only cases but breaks vae_reparam (1 → >20) and makes new rank-1 errors.
+`retrieval_mode` stays hybrid; `rerank_model` = bge for opt-in. Notes:
+`experiments/stage2/rerank_step15.md`. Stage 2 (on the current corpus) is done. Next: discuss
+with the user (Stage 3 API + UI, or more Stage 2 work) — pitch first. Do not start Phase 16.
 
 ### Phase 7 close-out (2026-09-20)
 

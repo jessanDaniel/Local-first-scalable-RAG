@@ -534,7 +534,7 @@ spans, the same shape as `eval_questions.jsonl`. Then: ablations (dense vs BM25 
    backup, PyMuPDF fallback; arXiv HTML dropped as not general enough). The service runs as
    native processes.
 
-Progress: Stage 2 step 14 done — hybrid (dense + BM25, RRF), papers MRR 0.675 vs dense 0.574, `rag ask` uses hybrid (`experiments/stage2/hybrid_step14.md`). Step 13 done — hand-written BM25, papers Hit@5 34/40 vs dense 29/40 (`experiments/stage2/bm25_step13.md`); HNSW + corpus growth moved to Stage 4. Eval v0 built (baseline papers Hit@5 28/40; `experiments/stage1/eval_v0.md`). Stage 1 complete, plus step 11 (collections, text/Markdown + `hr-demo`, title checks; see
+Progress: Stage 2 step 15 done — cross-encoder reranking opt-in (bge Hit@5 37/40, MRR 0.695, 1.8 s/query; default stays hybrid; `experiments/stage2/rerank_step15.md`). Step 14 done — hybrid (dense + BM25, RRF), papers MRR 0.675 vs dense 0.574, `rag ask` uses hybrid (`experiments/stage2/hybrid_step14.md`). Step 13 done — hand-written BM25, papers Hit@5 34/40 vs dense 29/40 (`experiments/stage2/bm25_step13.md`); HNSW + corpus growth moved to Stage 4. Eval v0 built (baseline papers Hit@5 28/40; `experiments/stage1/eval_v0.md`). Stage 1 complete, plus step 11 (collections, text/Markdown + `hr-demo`, title checks; see
 `experiments/stage1/collections_step11.md`); steps 1–10 (10: ruff config + `scripts/check.sh`, no hook yet; 9: one `rag` command with `status`, see
 `experiments/stage1/cli_step9.md`; 8: `rag.ask` cited answers, smoke check in
 `experiments/stage1/answer_seed10.md`; 7: bge-small embeddings + exact FAISS index, `rag.search`, see

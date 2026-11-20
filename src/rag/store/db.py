@@ -572,6 +572,22 @@ def index_inputs(conn: sqlite3.Connection) -> list[tuple[str, str, str]]:
     return [(row[0], row[1], row[2]) for row in rows]
 
 
+def passages(conn: sqlite3.Connection, chunk_ids: list[str]) -> dict[str, tuple[str, str, str]]:
+    """chunk_id -> (document title, section path, chunk text), for rerankers."""
+    if not chunk_ids:
+        return {}
+    marks = ", ".join("?" for _ in chunk_ids)
+    rows = conn.execute(
+        f"""
+        SELECT k.chunk_id, d.title, s.path, k.text FROM chunks k
+        JOIN documents d ON d.doc_id = k.doc_id JOIN sections s ON s.section_id = k.section_id
+        WHERE k.chunk_id IN ({marks})
+        """,
+        list(chunk_ids),
+    )
+    return {row[0]: (row[1], row[2], row[3]) for row in rows}
+
+
 def all_chunk_ids(conn: sqlite3.Connection) -> list[str]:
     return [row[0] for row in conn.execute("SELECT chunk_id FROM chunks ORDER BY doc_id, ord")]
 

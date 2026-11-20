@@ -62,6 +62,7 @@ def run_eval(args) -> int:
     first_gold = {qid: ids[0] for qid, ids in gold.items() if ids}
     texts = {c.chunk_id: c.text for c in db.get_chunks_by_ids(conn, list(first_gold.values()))}
     gold_texts = {qid: texts[cid] for qid, cid in first_gold.items()}
+    searcher.search("warm-up query, not scored", 5)  # load models and caches before anything is timed
     rows = score_questions(searcher, questions, gold, not args.no_filter, gold_texts)
 
     config = {"retriever": searcher.mode, **retriever_config(searcher, conn)}
@@ -83,6 +84,16 @@ def run_eval(args) -> int:
 
 def retriever_config(searcher, conn) -> dict:
     """What a run must record to be reproduced: the index and every setting that shapes the ranking."""
+    if searcher.mode == "rerank":
+        r = searcher.reranker
+        return {
+            **retriever_config(searcher.hybrid, conn),
+            "index_type": f"{retriever_config(searcher.hybrid, conn)['index_type']} + cross-encoder",
+            "rerank_model": r.model_name,
+            "rerank_device": r.device,
+            "rerank_candidates": searcher.candidates,
+            "rerank_keep": searcher.keep,
+        }
     if searcher.mode == "hybrid":
         dense = retriever_config(searcher.dense, conn)
         bm25 = retriever_config(searcher.bm25, conn)
