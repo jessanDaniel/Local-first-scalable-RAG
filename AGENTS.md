@@ -177,7 +177,14 @@ in `experiments/stage1/hr_quotes_vs_chunks_gold.jsonl`. (c) local-file titles ch
 (`rag/parse/title.py`): parser → PDF metadata → largest page-1 font → file name; 10/10 correct on
 the seed PDFs. The index now also fingerprints titles + section paths (a changed title makes it
 stale). Real DB: `papers` 10 docs / 400 chunks, `hr-demo` 2 / 29, index current. 194 tests.
-Next: eval v0 (§0.1 item 1) — pitch first. Do not start Phase 16.
+Eval v0 done (notes: `experiments/stage1/eval_v0.md`): sets in `eval/sets/` (`papers` 45
+questions drafted by Claude, 40 answerable; `hr-demo` 30 from Phase 15), gold stored as quotes and
+resolved to chunks at scoring time; `rag eval check|run|compare|list`, runs in `data/eval/runs/`,
+refs like `papers:latest~1`. Baseline papers Hit@1 18/40, Hit@5 28/40, MRR 0.569 (identifier
+questions weakest: exact numbers); hr-demo Hit@5 24/24. Reruns identical; no-instruction ablation
+-4 Hit@5. User is reviewing 10 questions in `eval/review_papers_sample.md` — apply their decisions,
+then rerun the baseline. 203 tests. Next after the review: Stage 2 (each component measured
+against the baseline with `rag eval compare`) — pitch first. Do not start Phase 16.
 
 ### Phase 7 close-out (2026-09-20)
 

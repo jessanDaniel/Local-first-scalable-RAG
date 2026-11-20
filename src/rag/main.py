@@ -10,6 +10,7 @@
     rag index build | list
     rag search "query" [-k 5] [--collection NAME ...] [--explain]
     rag ask "question" [--collection NAME ...] [--explain]
+    rag eval check|run --set papers   rag eval compare papers:latest~1 papers:latest   rag eval list
 
 `--data-dir DIR` (before the command) points everything at another data folder,
 e.g. a scratch copy. The `python -m rag.<module>` entry points still work and
@@ -69,6 +70,22 @@ def build_parser() -> argparse.ArgumentParser:
 
     collections = command("collections", "rag.collections:run", "list collections with document and chunk counts")
     collections.add_argument("action", nargs="?", choices=["list"], default="list")
+
+    evaluate = command("eval", "rag.eval.cli:run", "score retrieval on a question set, save and compare runs")
+    actions = evaluate.add_subparsers(dest="action", required=True, metavar="ACTION")
+    for name, help in (
+        ("check", "check that every gold quote is found in exactly one chunk"),
+        ("run", "run a question set through retrieval and save the run"),
+    ):
+        sub = actions.add_parser(name, help=help)
+        sub.add_argument("--set", required=True, help="set name in eval/sets/ (papers, hr-demo) or a .jsonl path")
+        if name == "run":
+            sub.add_argument("--label", help="short name added to the run id, e.g. baseline")
+            sub.add_argument("--no-filter", action="store_true", help="search all collections, not the question's")
+    compare = actions.add_parser("compare", help="compare two runs: metric deltas and questions that changed rank")
+    compare.add_argument("a", help="run id, path, or SET:latest~N (e.g. papers:latest~1)")
+    compare.add_argument("b", help="run id, path, or SET:latest")
+    actions.add_parser("list", help="saved runs with headline metrics")
 
     index = command("index", "rag.index.__main__:run", "build or list dense indexes")
     index.add_argument("action", choices=["build", "list"])
