@@ -1,6 +1,6 @@
 """Search the indexed chunks, dense or BM25, with an explain view.
 
-    rag search "why divide attention scores by sqrt d_k" [-k 5] [--mode dense|bm25] [--explain]
+    rag search "why divide attention scores by sqrt d_k" [-k 5] [--mode hybrid|dense|bm25] [--explain]
 
 Retrieval only: no prompt, no LLM. Each hit carries the chunk plus what a
 citation needs (document title, section path, pages, source link).
@@ -55,20 +55,25 @@ class DenseSearcher:
         self.embedder = embedder
         self.last_timings: dict[str, float] = {}
 
-    def search(self, query: str, k: int = 5, collections: list[str] | None = None) -> list[Hit]:
-        """Top-k hits; with `collections`, only chunks of documents in those collections."""
+    def rank(self, query: str, n: int, allowed: list[str] | None) -> list[tuple[str, float]]:
+        """Top-n (chunk_id, cosine) without fetching anything from SQLite."""
         start = time.perf_counter()
-        allowed = db.chunk_ids_in_collections(self.conn, collections) if collections else None
         vector = self.embedder.embed_query(query)
         embedded = time.perf_counter()
-        ranked = self.index.search(vector, k, allowed)
-        searched = time.perf_counter()
-        hits = make_hits(self.conn, ranked)
+        ranked = self.index.search(vector, n, allowed)
         self.last_timings = {
             "embed_query_ms": (embedded - start) * 1000,
-            "search_ms": (searched - embedded) * 1000,
-            "fetch_ms": (time.perf_counter() - searched) * 1000,
+            "search_ms": (time.perf_counter() - embedded) * 1000,
         }
+        return ranked
+
+    def search(self, query: str, k: int = 5, collections: list[str] | None = None) -> list[Hit]:
+        """Top-k hits; with `collections`, only chunks of documents in those collections."""
+        allowed = db.chunk_ids_in_collections(self.conn, collections) if collections else None
+        ranked = self.rank(query, k, allowed)
+        fetch_start = time.perf_counter()
+        hits = make_hits(self.conn, ranked)
+        self.last_timings["fetch_ms"] = (time.perf_counter() - fetch_start) * 1000
         return hits
 
 
@@ -97,15 +102,54 @@ class BM25Searcher:
         searcher.build_ms = (time.perf_counter() - start) * 1000
         return searcher
 
-    def search(self, query: str, k: int = 5, collections: list[str] | None = None) -> list[Hit]:
+    def rank(self, query: str, n: int, allowed: list[str] | None) -> list[tuple[str, float]]:
+        """Top-n (chunk_id, BM25 score) without fetching anything from SQLite."""
         start = time.perf_counter()
-        allowed = set(db.chunk_ids_in_collections(self.conn, collections)) if collections else None
-        ranked = self.index.search(query, k, allowed)
-        searched = time.perf_counter()
+        ranked = self.index.search(query, n, set(allowed) if allowed is not None else None)
+        self.last_timings = {"search_ms": (time.perf_counter() - start) * 1000}
+        return ranked
+
+    def search(self, query: str, k: int = 5, collections: list[str] | None = None) -> list[Hit]:
+        allowed = db.chunk_ids_in_collections(self.conn, collections) if collections else None
+        ranked = self.rank(query, k, allowed)
+        fetch_start = time.perf_counter()
         hits = make_hits(self.conn, ranked)
+        self.last_timings["fetch_ms"] = (time.perf_counter() - fetch_start) * 1000
+        return hits
+
+
+class HybridSearcher:
+    """Dense and BM25 each return their top `candidates`; RRF fuses the two lists; the top k of
+    the fused list become the hits. Hit.score is the fused RRF score. `last_ranks` records, for
+    every returned chunk, its rank in each list: which retriever brought it in."""
+
+    mode = "hybrid"
+
+    def __init__(self, conn, dense: DenseSearcher, bm25: BM25Searcher, candidates: int, rrf_k: int):
+        self.conn = conn
+        self.dense = dense
+        self.bm25 = bm25
+        self.candidates = candidates
+        self.rrf_k = rrf_k
+        self.last_timings: dict[str, float] = {}
+        self.last_ranks: dict[str, dict[str, int | None]] = {}
+
+    def search(self, query: str, k: int = 5, collections: list[str] | None = None) -> list[Hit]:
+        from rag.fusion import rrf
+
+        allowed = db.chunk_ids_in_collections(self.conn, collections) if collections else None
+        dense_ranked = self.dense.rank(query, self.candidates, allowed)
+        bm25_ranked = self.bm25.rank(query, self.candidates, allowed)
+        fuse_start = time.perf_counter()
+        fused = rrf({"dense": [c for c, _ in dense_ranked], "bm25": [c for c, _ in bm25_ranked]}, self.rrf_k)[:k]
+        fetch_start = time.perf_counter()
+        hits = make_hits(self.conn, [(f.chunk_id, f.score) for f in fused])
+        self.last_ranks = {f.chunk_id: f.ranks for f in fused}
         self.last_timings = {
-            "search_ms": (searched - start) * 1000,
-            "fetch_ms": (time.perf_counter() - searched) * 1000,
+            **{f"dense_{name}": ms for name, ms in self.dense.last_timings.items()},
+            "bm25_search_ms": self.bm25.last_timings["search_ms"],
+            "fuse_ms": (fetch_start - fuse_start) * 1000,
+            "fetch_ms": (time.perf_counter() - fetch_start) * 1000,
         }
         return hits
 
@@ -123,15 +167,21 @@ def print_hits(query: str, hits: list[Hit], searcher, explain: bool) -> None:
                 f"Index:      {manifest.build_id} ({manifest.index_type}, {manifest.n_chunks} chunks, "
                 f"chunker {manifest.chunker_version})"
             )
-        else:
+        if searcher.mode == "hybrid":
+            print(
+                f"Fusion:     RRF k={searcher.rrf_k} over dense top {searcher.candidates} + BM25 top "
+                f"{searcher.candidates}; score = sum of 1/(k + rank)"
+            )
+        if searcher.mode in ("bm25", "hybrid"):
             from rag.index.tokenize import TOKENIZER_VERSION, query_terms
 
-            index = searcher.index
+            bm25 = searcher if searcher.mode == "bm25" else searcher.bm25
+            index = bm25.index
             print(f"Terms:      {', '.join(query_terms(query)) or '(none)'}")
             print(
                 f"Index:      BM25 in memory, {index.n_chunks} chunks, {len(index.postings)} terms, "
                 f"avg length {index.avg_length:.0f} tokens, k1={index.k1}, b={index.b}, "
-                f"tokenizer {TOKENIZER_VERSION}, built in {searcher.build_ms:.0f} ms"
+                f"tokenizer {TOKENIZER_VERSION}, built in {bm25.build_ms:.0f} ms"
             )
         print("Timings:    " + ", ".join(f"{name} {ms:.1f}" for name, ms in searcher.last_timings.items()))
         print()
@@ -143,6 +193,10 @@ def print_hits(query: str, hits: list[Hit], searcher, explain: bool) -> None:
         print(f"{hit.rank:>2}. {hit.score:.4f}  {hit.doc_title[:60]}  ({c.doc_id}, {pages})")
         print(f"    {hit.section_path[:100]}")
         if explain:
+            if searcher.mode == "hybrid":
+                ranks = searcher.last_ranks[c.chunk_id]
+                shown = {name: rank if rank is not None else "-" for name, rank in ranks.items()}
+                print(f"    dense rank {shown['dense']}, BM25 rank {shown['bm25']}")
             if searcher.mode == "bm25":
                 parts = [p for p in searcher.index.explain(query, c.chunk_id) if p.tf]
                 print("    " + "  ".join(f"{p.term}: tf {p.tf} × idf {p.idf:.2f} → {p.score:.2f}" for p in parts))
@@ -157,6 +211,10 @@ def make_searcher(conn, mode: str):
     embedding model; BM25 builds its index from SQLite and loads nothing else."""
     if mode == "bm25":
         return BM25Searcher.from_db(conn)
+    if mode == "hybrid":
+        settings = get_settings()
+        dense = make_searcher(conn, "dense")
+        return HybridSearcher(conn, dense, BM25Searcher.from_db(conn), settings.hybrid_candidates, settings.rrf_k)
     from rag.embed.embedder import Embedder
     from rag.index.dense import load_current
 
@@ -172,7 +230,7 @@ def run(parsed_args) -> int:
     settings = get_settings()
     conn = db.open_db(settings.db_path)
     try:
-        searcher = make_searcher(conn, parsed_args.mode)
+        searcher = make_searcher(conn, parsed_args.mode or settings.retrieval_mode)
     except StaleIndexError as exc:
         print(exc)
         return 1

@@ -8,8 +8,8 @@
     rag parse paper.pdf                          # debug view: one PDF through GROBID
     rag chunk [--show DOC_ID [--limit N]]
     rag index build | list
-    rag search "query" [-k 5] [--mode dense|bm25] [--collection NAME ...] [--explain]
-    rag ask "question" [--collection NAME ...] [--explain]
+    rag search "query" [-k 5] [--mode hybrid|dense|bm25] [--collection NAME ...] [--explain]
+    rag ask "question" [--mode hybrid|dense|bm25] [--collection NAME ...] [--explain]
     rag eval check|run --set papers   rag eval compare papers:latest~1 papers:latest   rag eval list
 
 `--data-dir DIR` (before the command) points everything at another data folder,
@@ -82,7 +82,9 @@ def build_parser() -> argparse.ArgumentParser:
         if name == "run":
             sub.add_argument("--label", help="short name added to the run id, e.g. baseline")
             sub.add_argument("--no-filter", action="store_true", help="search all collections, not the question's")
-            sub.add_argument("--retriever", choices=["dense", "bm25"], default="dense", help="default: dense")
+            sub.add_argument(
+                "--retriever", choices=["hybrid", "dense", "bm25"], help="default: RETRIEVAL_MODE setting (hybrid)"
+            )
     compare = actions.add_parser("compare", help="compare two runs: metric deltas and questions that changed rank")
     compare.add_argument("a", help="run id, path, or SET:latest~N (e.g. papers:latest~1)")
     compare.add_argument("b", help="run id, path, or SET:latest")
@@ -94,7 +96,9 @@ def build_parser() -> argparse.ArgumentParser:
     search = command("search", "rag.search:run", "dense search over the current index (no LLM)")
     search.add_argument("query")
     search.add_argument("-k", type=int, default=5)
-    search.add_argument("--mode", choices=["dense", "bm25"], default="dense", help="retriever (default: dense)")
+    search.add_argument(
+        "--mode", choices=["hybrid", "dense", "bm25"], help="retriever (default: RETRIEVAL_MODE setting, hybrid)"
+    )
     search.add_argument(
         "--collection",
         action="append",
@@ -112,6 +116,9 @@ def build_parser() -> argparse.ArgumentParser:
         dest="collections",
         metavar="NAME",
         help="search only this collection (repeat for several; default: all)",
+    )
+    ask.add_argument(
+        "--mode", choices=["hybrid", "dense", "bm25"], help="retriever (default: RETRIEVAL_MODE setting, hybrid)"
     )
     ask.add_argument("--explain", action="store_true", help="show retrieval, the exact prompt, tokens, timings")
     return parser

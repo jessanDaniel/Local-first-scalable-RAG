@@ -263,3 +263,35 @@ def test_search_by_collection_never_returns_other_collections(tmp_path):
     with pytest.raises(KeyError, match="no collection"):
         searcher.search("bias", k=5, collections=["nope"])
     connection.close()
+
+
+# --- hybrid (dense + BM25 + RRF) ------------------------------------------------
+
+
+def test_hybrid_fuses_both_lists_and_records_where_each_hit_came_from(conn, tmp_path):
+    from rag.search import BM25Searcher, HybridSearcher
+
+    embedder, _ = build(conn, tmp_path)
+    dense = DenseSearcher(conn, load_current(tmp_path / "indexes", embedder.model_name, conn), embedder)
+    hybrid = HybridSearcher(conn, dense, BM25Searcher.from_db(conn), candidates=10, rrf_k=60)
+
+    hits = hybrid.search("bias correction averages zero", k=4)
+    assert hits[0].chunk.doc_id == "arxiv:1" and hits[0].section_path == "2 S"
+    top = hybrid.last_ranks[hits[0].chunk.chunk_id]
+    assert top == {"dense": 1, "bm25": 1}
+    assert hits[0].score == pytest.approx(2 / 61)
+    assert [h.rank for h in hits] == [1, 2, 3, 4]
+    assert all(set(r) == {"dense", "bm25"} for r in hybrid.last_ranks.values())
+    assert {"dense_embed_query_ms", "bm25_search_ms", "fuse_ms", "fetch_ms"} <= set(hybrid.last_timings)
+
+
+def test_hybrid_keeps_a_chunk_only_bm25_finds(conn, tmp_path):
+    from rag.search import BM25Searcher, HybridSearcher
+
+    embedder, _ = build(conn, tmp_path)
+    dense = DenseSearcher(conn, load_current(tmp_path / "indexes", embedder.model_name, conn), embedder)
+    # dense returns only its top 1; BM25 returns everything that matches
+    hybrid = HybridSearcher(conn, dense, BM25Searcher.from_db(conn), candidates=1, rrf_k=60)
+    hits = hybrid.search("shortcut connections residual", k=4)
+    origins = {h.chunk.chunk_id: hybrid.last_ranks[h.chunk.chunk_id] for h in hits}
+    assert any(r["dense"] is None and r["bm25"] is not None for r in origins.values())

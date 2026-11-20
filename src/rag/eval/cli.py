@@ -55,7 +55,7 @@ def run_eval(args) -> int:
         print(f"{len(broken)} quotes have no chunk: run `rag eval check --set {args.set}` first")
         return 1
     try:
-        searcher = make_searcher(conn, args.retriever)
+        searcher = make_searcher(conn, args.retriever or settings.retrieval_mode)
     except StaleIndexError as exc:
         print(exc)
         return 1
@@ -64,7 +64,7 @@ def run_eval(args) -> int:
     gold_texts = {qid: texts[cid] for qid, cid in first_gold.items()}
     rows = score_questions(searcher, questions, gold, not args.no_filter, gold_texts)
 
-    config = {"retriever": args.retriever, **retriever_config(searcher, conn)}
+    config = {"retriever": searcher.mode, **retriever_config(searcher, conn)}
     config |= {
         "collection_filter": not args.no_filter,
         "k": max(len(r["ranked"]) for r in rows),
@@ -83,6 +83,16 @@ def run_eval(args) -> int:
 
 def retriever_config(searcher, conn) -> dict:
     """What a run must record to be reproduced: the index and every setting that shapes the ranking."""
+    if searcher.mode == "hybrid":
+        dense = retriever_config(searcher.dense, conn)
+        bm25 = retriever_config(searcher.bm25, conn)
+        return {
+            **dense,
+            **{k: v for k, v in bm25.items() if k.startswith(("bm25", "tokenizer"))},
+            "index_type": f"{dense['index_type']} + BM25, RRF",
+            "rrf_k": searcher.rrf_k,
+            "hybrid_candidates": searcher.candidates,
+        }
     if searcher.mode == "dense":
         m = searcher.index.manifest
         return {

@@ -191,8 +191,14 @@ removed). Step 13 done: hand-written BM25 — `src/rag/index/tokenize.py` (terms
 `src/rag/search.py`, `rag search --mode bm25 --explain`, `rag eval run --retriever bm25`. Papers:
 BM25 Hit@5 34/40 vs dense 29/40, MRR 0.659 vs 0.574 — but the lead is only on questions that copy
 the paper's wording (overlap > 0.5); dense is better on reworded ones. Notes:
-`experiments/stage2/bm25_step13.md`. Next: step 14, hybrid (dense + BM25 → RRF) — pitch first.
-Do not start Phase 16.
+`experiments/stage2/bm25_step13.md`. Step 14 done: `src/rag/fusion.py` (RRF, k=60),
+`HybridSearcher` in `src/rag/search.py` (dense top 100 + BM25 top 100 → RRF), settings
+`retrieval_mode` (hybrid: default for ask/search/eval), `hybrid_candidates`, `rrf_k`;
+`--mode`/`--retriever` flags; `--explain` shows dense and BM25 rank per hit. Papers hybrid Hit@1
+22/40, Hit@5 33/40, MRR 0.675 (dense 18/29/0.574, BM25 21/34/0.659); hr-demo 24/24 at rank 1.
+Cost: answers only BM25 finds get pulled down a few places. Step-8 VAE and sqrt(d_k) failures
+now rank 1st. Notes: `experiments/stage2/hybrid_step14.md`. Next: step 15, cross-encoder
+reranker — pitch first, and ASK before adding the reranker model. Do not start Phase 16.
 
 ### Phase 7 close-out (2026-09-20)
 

@@ -1,6 +1,8 @@
 """Ask a question; get an answer with checked citations.
 
-    rag ask "why do transformers divide attention scores by sqrt(d_k)?" [--explain]
+    rag ask "why do transformers divide attention scores by sqrt(d_k)?" [--mode hybrid|dense|bm25] [--explain]
+
+Retrieval uses the RETRIEVAL_MODE setting (hybrid by default) unless --mode says otherwise.
 
 --explain prints every stage: retrieved chunks, how they became numbered sources,
 the exact prompt sent, model, token counts, timings, and each citation's check.
@@ -11,23 +13,26 @@ import sys
 from rag.answer.answerer import Answer, Answerer, ContextWindowError
 from rag.chunk.tokens import HFTokenCounter
 from rag.config import get_settings
-from rag.embed.embedder import Embedder
-from rag.index.dense import StaleIndexError, load_current
+from rag.index.current import StaleIndexError
 from rag.llm.factory import create_llm
 from rag.llm.interface import LLMError
-from rag.search import DenseSearcher
+from rag.search import make_searcher
 from rag.store import db
 
 RULE = "=" * 78
 
 
-def print_answer(answer: Answer, explain: bool) -> None:
+def print_answer(answer: Answer, explain: bool, mode: str = "dense", ranks: dict | None = None) -> None:
     if explain:
-        print(f"{RULE}\nRETRIEVAL ({len(answer.hits)} hits)\n{RULE}")
+        print(f"{RULE}\nRETRIEVAL ({mode}, {len(answer.hits)} hits)\n{RULE}")
         used = {cid: s.n for s in answer.sources for cid in s.chunk_ids}
         for hit in answer.hits:
             where = f"-> [{used[hit.chunk.chunk_id]}]" if hit.chunk.chunk_id in used else "-> dropped"
-            print(f"{hit.rank:>2}. {hit.score:.4f} {where:12} {hit.doc_title[:40]} §{hit.section_path[:50]}")
+            origin = ""
+            if ranks and hit.chunk.chunk_id in ranks:
+                r = {name: rank if rank is not None else "-" for name, rank in ranks[hit.chunk.chunk_id].items()}
+                origin = f" (dense {r['dense']}, bm25 {r['bm25']})"
+            print(f"{hit.rank:>2}. {hit.score:.4f} {where:12} {hit.doc_title[:40]} §{hit.section_path[:50]}{origin}")
         print(f"\n{RULE}\nEXACT PROMPT ({answer.prompt_tokens} tokens, counted before sending)\n{RULE}")
         print(f"[system]\n{answer.system_prompt}\n\n[user]\n{answer.user_prompt}")
         g = answer.generation
@@ -54,15 +59,15 @@ def run(parsed_args) -> int:
 
     settings = get_settings()
     conn = db.open_db(settings.db_path)
+    mode = parsed_args.mode or settings.retrieval_mode
     try:
-        index = load_current(settings.data_dir / "indexes" / "dense", settings.embedding_model, conn)
+        searcher = make_searcher(conn, mode)
     except StaleIndexError as exc:
         print(exc)
         return 1
-    embedder = Embedder(settings.embedding_model, settings.embedding_query_instruction, settings.embedding_batch_size)
     answerer = Answerer(
         conn,
-        DenseSearcher(conn, index, embedder),
+        searcher,
         create_llm(settings),
         HFTokenCounter(settings.llm_tokenizer),
         settings.ask_retrieve_k,
@@ -77,7 +82,7 @@ def run(parsed_args) -> int:
     except KeyError as exc:  # unknown collection
         print(f"error: {exc.args[0]}")
         return 1
-    print_answer(answer, parsed_args.explain)
+    print_answer(answer, parsed_args.explain, mode, getattr(searcher, "last_ranks", None))
     return 0
 
 
