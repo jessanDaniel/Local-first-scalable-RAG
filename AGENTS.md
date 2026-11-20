@@ -184,7 +184,14 @@ refs like `papers:latest~1`. Baseline papers Hit@1 18/40, Hit@5 28/40, MRR 0.569
 questions weakest: exact numbers); hr-demo Hit@5 24/24. Reruns identical; no-instruction ablation
 -4 Hit@5. User reviewed 10 questions (8 kept, 2 rewrites applied, see `eval/review_papers_sample.md`).
 **Stage 2 baseline run: `papers-20261120T080005Z-reviewed`** (Hit@5 29/40, MRR 0.574). 203 tests.
-Next: Stage 2 (each component measured against that run with `rag eval compare`) — pitch first.
+Stage 2 (on the current corpus; HNSW and corpus growth moved to Stage 4). Ask the user before
+adding ANY new dependency or component, even one the plan names (Tantivy was added by mistake and
+removed). Step 13 done: hand-written BM25 — `src/rag/index/tokenize.py` (terms, no stemming),
+`src/rag/index/bm25.py` (inverted index, IDF, k1=1.2 b=0.75, explain), `BM25Searcher` in
+`src/rag/search.py`, `rag search --mode bm25 --explain`, `rag eval run --retriever bm25`. Papers:
+BM25 Hit@5 34/40 vs dense 29/40, MRR 0.659 vs 0.574 — but the lead is only on questions that copy
+the paper's wording (overlap > 0.5); dense is better on reworded ones. Notes:
+`experiments/stage2/bm25_step13.md`. Next: step 14, hybrid (dense + BM25 → RRF) — pitch first.
 Do not start Phase 16.
 
 ### Phase 7 close-out (2026-09-20)

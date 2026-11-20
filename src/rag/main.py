@@ -8,7 +8,7 @@
     rag parse paper.pdf                          # debug view: one PDF through GROBID
     rag chunk [--show DOC_ID [--limit N]]
     rag index build | list
-    rag search "query" [-k 5] [--collection NAME ...] [--explain]
+    rag search "query" [-k 5] [--mode dense|bm25] [--collection NAME ...] [--explain]
     rag ask "question" [--collection NAME ...] [--explain]
     rag eval check|run --set papers   rag eval compare papers:latest~1 papers:latest   rag eval list
 
@@ -82,6 +82,7 @@ def build_parser() -> argparse.ArgumentParser:
         if name == "run":
             sub.add_argument("--label", help="short name added to the run id, e.g. baseline")
             sub.add_argument("--no-filter", action="store_true", help="search all collections, not the question's")
+            sub.add_argument("--retriever", choices=["dense", "bm25"], default="dense", help="default: dense")
     compare = actions.add_parser("compare", help="compare two runs: metric deltas and questions that changed rank")
     compare.add_argument("a", help="run id, path, or SET:latest~N (e.g. papers:latest~1)")
     compare.add_argument("b", help="run id, path, or SET:latest")
@@ -93,6 +94,7 @@ def build_parser() -> argparse.ArgumentParser:
     search = command("search", "rag.search:run", "dense search over the current index (no LLM)")
     search.add_argument("query")
     search.add_argument("-k", type=int, default=5)
+    search.add_argument("--mode", choices=["dense", "bm25"], default="dense", help="retriever (default: dense)")
     search.add_argument(
         "--collection",
         action="append",

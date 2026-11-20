@@ -169,11 +169,15 @@ def fmt(metric: str, value, n: int) -> str:
 def print_run(run: dict) -> None:
     s, c = run["summary"], run["config"]
     print(f"run {run['run_id']}")
+    retriever = c.get("retriever", "dense")
     print(
-        f"  index {c['index_build']} ({c['index_type']}, {c['n_chunks']} chunks), {c['embedding_model']}, "
+        f"  {retriever}: index {c['index_build']} ({c['index_type']}, {c['n_chunks']} chunks), "
         f"chunker {c['chunker_version']}, filter {'on' if c['collection_filter'] else 'off'}, commit {c['git_commit']}"
     )
-    print(f"  query instruction: {c['query_instruction']!r}")
+    if retriever == "dense":
+        print(f"  {c['embedding_model']}, query instruction: {c['query_instruction']!r}")
+    else:
+        print(f"  k1={c['bm25_k1']}, b={c['bm25_b']}, tokenizer {c['tokenizer']}")
     overall = s["overall"]
     print(f"\n  answerable questions: {overall['n']}")
     for metric in METRIC_ROWS:

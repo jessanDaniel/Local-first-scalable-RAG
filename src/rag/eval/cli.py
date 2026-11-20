@@ -40,10 +40,10 @@ def check(args) -> int:
 
 
 def run_eval(args) -> int:
-    from rag.embed.embedder import Embedder
-    from rag.eval.runner import git_commit, new_run, print_run, save_run, score_questions
-    from rag.index.dense import StaleIndexError, load_current
-    from rag.search import DenseSearcher
+    from rag.eval.runner import git_commit, score_questions
+    from rag.eval.sets import file_sha1
+    from rag.index.current import StaleIndexError
+    from rag.search import make_searcher
 
     settings = get_settings()
     path = set_path(args.set)
@@ -55,38 +55,56 @@ def run_eval(args) -> int:
         print(f"{len(broken)} quotes have no chunk: run `rag eval check --set {args.set}` first")
         return 1
     try:
-        index = load_current(settings.data_dir / "indexes" / "dense", settings.embedding_model, conn)
+        searcher = make_searcher(conn, args.retriever)
     except StaleIndexError as exc:
         print(exc)
         return 1
-    embedder = Embedder(settings.embedding_model, settings.embedding_query_instruction, settings.embedding_batch_size)
-    searcher = DenseSearcher(conn, index, embedder)
     first_gold = {qid: ids[0] for qid, ids in gold.items() if ids}
     texts = {c.chunk_id: c.text for c in db.get_chunks_by_ids(conn, list(first_gold.values()))}
     gold_texts = {qid: texts[cid] for qid, cid in first_gold.items()}
     rows = score_questions(searcher, questions, gold, not args.no_filter, gold_texts)
-    m = index.manifest
-    from rag.eval.sets import file_sha1
 
-    config = {
-        "retriever": "dense",
-        "index_build": m.build_id,
-        "index_type": m.index_type,
-        "n_chunks": m.n_chunks,
-        "embedding_model": m.embedding_model,
-        "query_instruction": settings.embedding_query_instruction,
-        "chunker_version": m.chunker_version,
+    config = {"retriever": args.retriever, **retriever_config(searcher, conn)}
+    config |= {
         "collection_filter": not args.no_filter,
         "k": max(len(r["ranked"]) for r in rows),
         "set_file": path.name,
         "set_sha1": file_sha1(path),
         "git_commit": git_commit(),
     }
+    from rag.eval.runner import new_run, print_run, save_run
+
     run = new_run(path.stem, config, rows, args.label)
     saved = save_run(run, runs_dir())
     print_run(run)
     print(f"\nsaved {saved}")
     return 0
+
+
+def retriever_config(searcher, conn) -> dict:
+    """What a run must record to be reproduced: the index and every setting that shapes the ranking."""
+    if searcher.mode == "dense":
+        m = searcher.index.manifest
+        return {
+            "index_build": m.build_id,
+            "index_type": m.index_type,
+            "n_chunks": m.n_chunks,
+            "embedding_model": m.embedding_model,
+            "query_instruction": searcher.embedder.query_instruction,
+            "chunker_version": m.chunker_version,
+        }
+    from rag.index.tokenize import TOKENIZER_VERSION
+
+    index = searcher.index
+    return {
+        "index_build": "in-memory",
+        "index_type": "BM25 (hand-written)",
+        "n_chunks": index.n_chunks,
+        "bm25_k1": index.k1,
+        "bm25_b": index.b,
+        "tokenizer": TOKENIZER_VERSION,
+        "chunker_version": ", ".join(db.stats(conn)["chunks_by_chunker"]),
+    }
 
 
 def compare(args) -> int:
