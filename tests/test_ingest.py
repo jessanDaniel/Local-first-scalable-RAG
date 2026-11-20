@@ -180,11 +180,31 @@ def test_documents_land_in_the_chosen_collection_and_stay_there(ingestor, tmp_pa
     assert db.get_document(ingestor.conn, "file:notes").collection_id == "papers"
 
 
-def test_only_pdfs_are_accepted(ingestor, tmp_path):
-    text_file = tmp_path / "notes.txt"
-    text_file.write_text("plain text")
-    with pytest.raises(ValueError, match="only PDF"):
-        ingestor.ingest_files([text_file])
+def test_unsupported_file_types_are_refused(ingestor, tmp_path):
+    docx = tmp_path / "notes.docx"
+    docx.write_bytes(b"PK")
+    with pytest.raises(ValueError, match="unsupported file type"):
+        ingestor.ingest_files([docx])
+
+
+def test_text_and_markdown_files_skip_grobid(ingestor, tmp_path):
+    ingestor._checked_grobid = False  # GROBID "not running": text must not need it
+    ingestor.primary = FakeParser("grobid", error=AssertionError("GROBID must not be called for text"))
+    notes = tmp_path / "notes.md"
+    notes.write_text("# Notes\n\n## Setup\n\nInstall it.\n\n## Use\n\nRun it.\n")
+    [result] = ingestor.ingest_files([notes])
+    stored = db.get_document(ingestor.conn, "file:notes")
+    assert (result.status, result.parser, stored.title, stored.source_format) == ("suspect", "text-v1", "Notes", "md")
+    assert Path(stored.source_uri).name == "file_notes.md"
+    assert [s.path for s in db.get_sections(ingestor.conn, "file:notes")] == ["Setup", "Use"]
+
+
+def test_folders_expand_to_supported_files(tmp_path):
+    from rag.ingest import document_paths
+
+    for name in ["b.pdf", "a.txt", "c.md", "skip.docx"]:
+        (tmp_path / name).write_text("x")
+    assert [p.name for p in document_paths([tmp_path])] == ["a.txt", "b.pdf", "c.md"]
 
 
 def test_reapply_tei_uses_saved_grobid_output(ingestor):

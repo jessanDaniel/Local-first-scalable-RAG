@@ -34,6 +34,7 @@ from rag.parse.base import ParsedDocument, ParseError, Parser, ParserUnavailable
 from rag.parse.grobid import GrobidParser
 from rag.parse.pymupdf import PyMuPDFParser
 from rag.parse.tei import tei_to_parsed
+from rag.parse.text import TEXT_SUFFIXES, TextParser
 from rag.store import db
 
 # The PDF parser reads the body; this issue is covered by the source's metadata or the file name.
@@ -78,7 +79,7 @@ def parse_and_store(
     pdf_path: Path,
     conn: sqlite3.Connection,
     primary: Parser,
-    fallback: Parser,
+    fallback: Parser | None,
     parsed_dir: Path,
     downloaded: bool = False,
     download_seconds: float = 0.0,
@@ -87,7 +88,7 @@ def parse_and_store(
     used_fallback = False
     errors: list[str] = []
     parsed: ParsedDocument | None = None
-    for parser in (primary, fallback):
+    for parser in [p for p in (primary, fallback) if p is not None]:
         try:
             parsed = parser.parse(pdf_path, document.doc_id)
             break
@@ -179,6 +180,7 @@ class Ingestor:
         self.conn = db.open_db(settings.db_path)
         self.primary = GrobidParser.from_settings(settings, tei_dir=self.parsed_dir)
         self.fallback = PyMuPDFParser()
+        self.text_parser = TextParser()
         self._checked_grobid = False
 
     def close(self) -> None:
@@ -197,20 +199,27 @@ class Ingestor:
         return existing
 
     def parse(self, document: Document, pdf_path: Path, **timing) -> IngestResult:
-        if not self._checked_grobid:
-            if not self.primary.is_alive():
-                raise ParserUnavailableError(
-                    f"GROBID is not running at {self.primary.base_url}; see AGENTS.md for the start command"
-                )
-            self._checked_grobid = True
+        if pdf_path.suffix.lower() in TEXT_SUFFIXES:
+            primary, fallback = self.text_parser, None  # no service needed, nothing to fall back to
+        else:
+            primary, fallback = self.primary, self.fallback
+            self._require_grobid()
         db.upsert_document(self.conn, replace(document, title=document.title or pdf_path.stem))
-        result = parse_and_store(document, pdf_path, self.conn, self.primary, self.fallback, self.parsed_dir, **timing)
+        result = parse_and_store(document, pdf_path, self.conn, primary, fallback, self.parsed_dir, **timing)
         print(
             f"{result.status:8} {result.doc_id:26} {result.parse_seconds:6.2f}s "
             f"{result.n_sections:3} sections {result.body_words:6} words  {result.title[:50]}",
             flush=True,
         )
         return result
+
+    def _require_grobid(self) -> None:
+        if not self._checked_grobid:
+            if not self.primary.is_alive():
+                raise ParserUnavailableError(
+                    f"GROBID is not running at {self.primary.base_url}; see AGENTS.md for the start command"
+                )
+            self._checked_grobid = True
 
     def ingest_arxiv(self, arxiv_ids: list[str]) -> list[IngestResult]:
         results, todo = [], []
@@ -277,8 +286,7 @@ class Ingestor:
         files_dir = self.settings.data_dir / "raw" / "files"
         results = []
         for path in paths:
-            if path.suffix.lower() != ".pdf":
-                raise ValueError(f"{path}: only PDF files are supported so far")
+            source_format = file_format(path)
             sha256 = hashlib.sha256(path.read_bytes()).hexdigest()
             doc_id = make_doc_id("file", path.stem)
             original = str(path.resolve())
@@ -295,14 +303,14 @@ class Ingestor:
 
             # Keep our own copy, so moving or deleting the original does not break citations.
             files_dir.mkdir(parents=True, exist_ok=True)
-            copy = files_dir / f"{doc_file_stem(doc_id)}.pdf"
+            copy = files_dir / f"{doc_file_stem(doc_id)}{path.suffix.lower()}"
             shutil.copyfile(path, copy)
             document = Document(
                 doc_id=doc_id,
                 source="file",
                 title="",
                 source_uri=str(copy),
-                source_format="pdf",
+                source_format=source_format,
                 source_sha256=sha256,
                 metadata={"original_path": original},
                 collection_id=self.collection,
@@ -356,10 +364,25 @@ def write_report(results: list[IngestResult], path: Path) -> None:
     print(f"report: {path}")
 
 
-def pdf_paths(inputs: list[Path]) -> list[Path]:
+def file_format(path: Path) -> str:
+    suffix = path.suffix.lower()
+    if suffix == ".pdf":
+        return "pdf"
+    if suffix in TEXT_SUFFIXES:
+        return TEXT_SUFFIXES[suffix]
+    supported = ", ".join([".pdf", *TEXT_SUFFIXES])
+    raise ValueError(f"{path}: unsupported file type (supported: {supported})")
+
+
+def document_paths(inputs: list[Path]) -> list[Path]:
+    """Files as given; folders expand to the supported files directly inside them."""
+    supported = {".pdf", *TEXT_SUFFIXES}
     paths = []
     for item in inputs:
-        paths.extend(sorted(item.glob("*.pdf")) if item.is_dir() else [item])
+        if item.is_dir():
+            paths.extend(sorted(p for p in item.iterdir() if p.suffix.lower() in supported))
+        else:
+            paths.append(item)
     return paths
 
 
@@ -372,7 +395,7 @@ def run(parsed_args) -> int:
         if parsed_args.source == "arxiv":
             results = ingestor.ingest_arxiv(read_id_file(parsed_args.id_file)[: parsed_args.limit])
         elif parsed_args.source == "files":
-            results = ingestor.ingest_files(pdf_paths(parsed_args.paths))
+            results = ingestor.ingest_files(document_paths(parsed_args.paths))
         else:
             results = ingestor.reapply_tei()
     except ArxivError as exc:

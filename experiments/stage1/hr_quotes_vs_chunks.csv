@@ -1,0 +1,42 @@
+id,kind,quote,status,chunk_ids
+policy_refund_window,source_quotes,within 30 days of purchase,one chunk,516bf6ba9d8f0f6d
+policy_refund_processing,source_quotes,Refunds are processed within 5-7 business days,one chunk,516bf6ba9d8f0f6d
+policy_exchange_window,source_quotes,Exchanges are permitted within 45 days of purchase,one chunk,e8fc027ee409d802
+policy_express_shipping,source_quotes,delivers within 2-3 business days,one chunk,c0dfb624ea44b3b0
+policy_warranty_base,source_quotes,1-year limited warranty,one chunk,d9c6871a3488387d
+policy_loyalty_rate,source_quotes,100 points per $5 discount,one chunk,c2aacb7d085455e2
+policy_cancel_hour,source_quotes,cancelled free of charge within 1 hour of placing the order,one chunk,957043693df4aa88
+handbook_late_arrivals,source_quotes,three late arrivals within a rolling 30-day window,one chunk,d21823c576e66345
+handbook_vacation_first_years,source_quotes,15 days of paid vacation in years one through three,one chunk,397dd439bd716705
+handbook_password_length,source_quotes,unique passwords of at least 14 characters,one chunk,19f4deb45c04fb87
+handbook_p1_ack,source_quotes,requires acknowledgment within 15 minutes,one chunk,6be37d59bafc7636
+handbook_learning_stipend,source_quotes,"annual learning stipend of 1,000 dollars",one chunk,08f37bfe079e9fa6
+policy_loyalty_25_and_expiry,source_quotes,1 point for every dollar spent,one chunk,c2aacb7d085455e2
+policy_loyalty_25_and_expiry,source_quotes,100 points per $5 discount,one chunk,c2aacb7d085455e2
+policy_loyalty_25_and_expiry,source_quotes,inactive for more than 12 months,one chunk,c2aacb7d085455e2
+policy_shipped_then_refund,source_quotes,"Once an order has shipped, it cannot be cancelled",one chunk,957043693df4aa88
+policy_shipped_then_refund,source_quotes,within 30 days of purchase,one chunk,516bf6ba9d8f0f6d
+handbook_absence_and_lateness,source_quotes,business days in advance for absences of three or more consecutive days,one chunk,d21823c576e66345
+handbook_absence_and_lateness,source_quotes,three late arrivals within a rolling 30-day window,one chunk,d21823c576e66345
+handbook_sev1_response,source_quotes,customer-facing status update within 30 minutes,one chunk,389627d812f300b7
+handbook_sev1_response,source_quotes,blameless postmortem within five business days,one chunk,389627d812f300b7
+handbook_international_travel,source_quotes,International travel requires VP approval,one chunk,634639801b9b8c86
+handbook_international_travel,source_quotes,temporary international assignment longer than 90 days must complete tax counseling,one chunk,634639801b9b8c86
+handbook_procurement_limits,source_quotes,"Purchases above 10,000 dollars require Legal review",one chunk,10fa28177e7e3e9e
+handbook_procurement_limits,source_quotes,personal gifts from vendors valued over 75 dollars,one chunk,10fa28177e7e3e9e
+policy_price_match_window,source_quotes,Price match requests must be submitted within 14 days of purchase,one chunk,e9a1295944764b0c
+policy_price_match_window,distractor_quotes,within 30 days of purchase,one chunk,516bf6ba9d8f0f6d
+policy_price_match_window,distractor_quotes,within 45 days of purchase,one chunk,e8fc027ee409d802
+policy_standard_shipping,source_quotes,Standard shipping takes 5-10 business days within the continental United States,one chunk,c0dfb624ea44b3b0
+policy_standard_shipping,distractor_quotes,delivers within 2-3 business days,one chunk,c0dfb624ea44b3b0
+policy_standard_shipping,distractor_quotes,may take 10-20 business days,one chunk,c0dfb624ea44b3b0
+handbook_vacation_years_four_to_seven,source_quotes,20 days in years four through seven,one chunk,397dd439bd716705
+handbook_vacation_years_four_to_seven,distractor_quotes,15 days of paid vacation in years one through three,one chunk,397dd439bd716705
+handbook_vacation_years_four_to_seven,distractor_quotes,25 days thereafter,one chunk,397dd439bd716705
+handbook_p2_ack,source_quotes,feature unavailable with a workaround and requires acknowledgment within one hour,one chunk,6be37d59bafc7636
+handbook_p2_ack,distractor_quotes,requires acknowledgment within 15 minutes,one chunk,6be37d59bafc7636
+handbook_p2_ack,distractor_quotes,requires acknowledgment within two business days,one chunk,6be37d59bafc7636
+handbook_part_time_hours,source_quotes,Part-time employees work fewer than 30 hours per week,one chunk,c8ab52eaf5682cfa
+handbook_part_time_hours,distractor_quotes,at least 40 hours per week,one chunk,c8ab52eaf5682cfa
+handbook_ic_notice,source_quotes,at least two weeks of notice for individual contributors,one chunk,0ad4b9e7dd0312de
+handbook_ic_notice,distractor_quotes,at least four weeks of notice for managers,one chunk,0ad4b9e7dd0312de
