@@ -85,3 +85,10 @@ These are set-design choices, so they're in the review sample.
   bring this down.
 - 40 questions: one question moving changes Hit@k by 2.5 points. Counts are reported next to
   percentages for that reason.
+
+## After the user's review (2026-11-20)
+
+The user reviewed 10 questions: 8 kept, 2 rewritten (#1 ddpm_reverse question, #7 kd_soft_targets
+quote). `compare` against the baseline: only ddpm_reverse moved (>20 → 5). **The reviewed run
+`papers-20261120T080005Z-reviewed` is the baseline for Stage 2:** Hit@1 18/40, Hit@5 29/40,
+Hit@10 32/40, Hit@20 38/40, MRR 0.574, nDCG@10 0.620.

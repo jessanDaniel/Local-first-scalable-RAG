@@ -182,9 +182,10 @@ questions drafted by Claude, 40 answerable; `hr-demo` 30 from Phase 15), gold st
 resolved to chunks at scoring time; `rag eval check|run|compare|list`, runs in `data/eval/runs/`,
 refs like `papers:latest~1`. Baseline papers Hit@1 18/40, Hit@5 28/40, MRR 0.569 (identifier
 questions weakest: exact numbers); hr-demo Hit@5 24/24. Reruns identical; no-instruction ablation
--4 Hit@5. User is reviewing 10 questions in `eval/review_papers_sample.md` — apply their decisions,
-then rerun the baseline. 203 tests. Next after the review: Stage 2 (each component measured
-against the baseline with `rag eval compare`) — pitch first. Do not start Phase 16.
+-4 Hit@5. User reviewed 10 questions (8 kept, 2 rewrites applied, see `eval/review_papers_sample.md`).
+**Stage 2 baseline run: `papers-20261120T080005Z-reviewed`** (Hit@5 29/40, MRR 0.574). 203 tests.
+Next: Stage 2 (each component measured against that run with `rag eval compare`) — pitch first.
+Do not start Phase 16.
 
 ### Phase 7 close-out (2026-09-20)
 

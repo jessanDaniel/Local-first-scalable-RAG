@@ -1,5 +1,17 @@
 # Review: 10 of the 45 paper questions
 
+**Reviewed by the user, 2026-11-20.** Rewrites #1 and #7 were left to Claude and are applied
+in `eval/sets/papers.jsonl`; everything else was kept as drafted, including no extra gold quotes
+for #2, #4 and #5 and no rewrite for #8.
+
+- #1 new question: "In a diffusion model, what is the learned process that turns noise back into
+  data, and what form does it take?" (same gold sentence). Rank >20 → 5.
+- #7 same question; the quote is now the full sentence up to the quotation marks. Same gold
+  chunk, rank unchanged.
+
+The reviewed baseline is `papers-20261120T080005Z-reviewed`: Hit@1 18/40, Hit@5 29/40,
+Hit@10 32/40, Hit@20 38/40, MRR 0.574, nDCG@10 0.620.
+
 Drafted by Claude; for the user to accept, rewrite or reject. The 10 were picked because they
 need a human decision: they miss badly, have a strict gold answer, copy the paper's wording, use
 a fragment quote, or have no answer in the corpus. They are not a random sample.
@@ -17,16 +29,16 @@ the 400 paper chunks. Mark each line **keep / rewrite / reject** (or edit
 
 | # | id | Rank | Overlap | Decision |
 |---|---|---|---|---|
-| 1 | ddpm_reverse | >20 | 0.14 | |
-| 2 | resnet_degradation | 10 | 0.50 | |
-| 3 | s2s_bleu | >20 | 0.82 | |
-| 4 | resnet_ensemble_error | >20 | 0.67 | |
-| 5 | bn_learning_rate | 13 | 0.83 | |
-| 6 | adam_name | 13 | 0.67 | |
-| 7 | kd_soft_targets | 1 | 0.43 | |
-| 8 | gan_nonsaturating | 3 | 0.71 | |
-| 9 | vae_kl_term | 4 | 0.45 | |
-| 10 | none_alexnet_optimizer | — | — | |
+| 1 | ddpm_reverse | >20 | 0.14 || rewrite (applied) |
+| 2 | resnet_degradation | 10 | 0.50 || keep |
+| 3 | s2s_bleu | >20 | 0.82 || keep |
+| 4 | resnet_ensemble_error | >20 | 0.67 || keep |
+| 5 | bn_learning_rate | 13 | 0.83 || keep |
+| 6 | adam_name | 13 | 0.67 || keep |
+| 7 | kd_soft_targets | 1 | 0.43 || rewrite (applied) |
+| 8 | gan_nonsaturating | 3 | 0.71 || keep |
+| 9 | vae_kl_term | 4 | 0.45 || keep |
+| 10 | none_alexnet_optimizer | — | — || keep |
 
 ---
 
