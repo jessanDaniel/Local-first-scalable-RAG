@@ -1,13 +1,12 @@
 """Chunk every parsed document into the database, then report what came out.
 
-    uv run python -m rag.chunk                       # all ok/suspect documents
-    uv run python -m rag.chunk --show arxiv:1706.03762 [--limit 20]
+    rag chunk                       # all ok/suspect documents
+    rag chunk --show arxiv:1706.03762 [--limit 20]
 
 Chunks are replaced per document, so rerunning is safe. --show is the debug
 view: each chunk's id, type, section path, pages, token count and text.
 """
 
-import argparse
 import statistics
 import sys
 import time
@@ -38,11 +37,7 @@ def show(conn, doc_id: str, limit: int | None) -> int:
     return 0
 
 
-def main() -> int:
-    args = argparse.ArgumentParser(description="Chunk parsed documents.")
-    args.add_argument("--show", metavar="DOC_ID", help="print one document's chunks instead")
-    args.add_argument("--limit", type=int, help="with --show: only the first N chunks")
-    parsed_args = args.parse_args()
+def run(parsed_args) -> int:
 
     settings = get_settings()
     conn = db.open_db(settings.db_path)
@@ -76,6 +71,12 @@ def main() -> int:
         print(f"  {low:>3}-{high - 1:<3} tokens: {n:5} ({n / len(all_tokens):.0%})")
     conn.close()
     return 0
+
+
+def main() -> int:
+    from rag.main import run_module
+
+    return run_module(['chunk'])
 
 
 if __name__ == "__main__":

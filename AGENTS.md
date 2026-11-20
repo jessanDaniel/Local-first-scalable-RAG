@@ -154,10 +154,15 @@ distractors ranked above the right chunk), "why do transformers…" wording cred
 to other sections (answer chunk ranked 8th of 8). Key lessons: a valid citation is not a correct
 one (needs a support check in the eval); temperature 0 is not fully reproducible under Ollama
 (run eval questions more than once). Notes: `experiments/stage1/answer_seed10.md`. 116 tests.
-Ollama is stopped (`brew services start ollama` before `rag.ask`). Next: Stage 1 step 9 — one
-`rag` CLI (`rag ingest arxiv|files|tei`, `rag chunk`, `rag index build|list`, `rag search`,
-`rag ask`) wrapping the existing `python -m` entry points; then step 10 (ruff config, pytest,
-pre-commit). Do not start Phase 16.
+Ollama is stopped (`brew services start ollama` before `rag ask`). Step 9 done: one `rag`
+command (`src/rag/main.py`) — `rag status [--json]`, `rag ingest arxiv|files|tei`, `rag parse`,
+`rag chunk`, `rag index build|list`, `rag search`, `rag ask`, global `--data-dir DIR`; commands
+load their code lazily (`--help` 0.7 s, `status` 0.3 s, no torch/FAISS). `rag status` shows
+counts, index current/stale, GROBID/LLM up or down, and the next command. `python -m rag.<x>`
+still works. End-to-end run in a scratch data dir passed. Found: titles of `ingest files` PDFs
+come out wrong (arXiv licence line / venue banner); fix with the second-corpus step. Notes:
+`experiments/stage1/cli_step9.md`. 139 tests. Next: step 10 (ruff config, pytest, pre-commit),
+then collections + second corpus (§0.1). Do not start Phase 16.
 
 ### Phase 7 close-out (2026-09-20)
 

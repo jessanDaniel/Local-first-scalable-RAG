@@ -403,3 +403,31 @@ def list_index_builds(conn: sqlite3.Connection, kind: str | None = None) -> list
 
 def all_chunk_ids(conn: sqlite3.Connection) -> list[str]:
     return [row[0] for row in conn.execute("SELECT chunk_id FROM chunks ORDER BY doc_id, ord")]
+
+
+# --- status -----------------------------------------------------------------
+
+
+def stats(conn: sqlite3.Connection) -> dict:
+    """Counts for `rag status`: documents by parse status and source, sections, chunks."""
+
+    def grouped(sql: str) -> dict[str, int]:
+        return {row[0]: row[1] for row in conn.execute(sql)}
+
+    return {
+        "schema_version": conn.execute("PRAGMA user_version").fetchone()[0],
+        "documents_by_status": grouped("SELECT parse_status, COUNT(*) FROM documents GROUP BY parse_status"),
+        "documents_by_source": grouped("SELECT source, COUNT(*) FROM documents GROUP BY source"),
+        "sections": conn.execute("SELECT COUNT(*) FROM sections").fetchone()[0],
+        "chunks": count_chunks(conn),
+        "chunks_by_chunker": grouped("SELECT chunker_version, COUNT(*) FROM chunks GROUP BY chunker_version"),
+        # Parsed documents with sections but no chunks: chunking has not been run since the parse.
+        "unchunked_documents": conn.execute(
+            """
+            SELECT COUNT(*) FROM documents d
+            WHERE d.parse_status IN ('ok', 'suspect')
+              AND EXISTS (SELECT 1 FROM sections s WHERE s.doc_id = d.doc_id)
+              AND NOT EXISTS (SELECT 1 FROM chunks c WHERE c.doc_id = d.doc_id)
+            """
+        ).fetchone()[0],
+    }

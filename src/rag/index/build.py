@@ -75,7 +75,7 @@ def build_dense_index(
         for chunk in db.get_chunks(conn, document.doc_id):
             rows.append((chunk, passage_text(document.title, paths[chunk.section_ord], chunk.text, counter)))
     if not rows:
-        raise ValueError("no chunks in the database: run `uv run python -m rag.chunk` first")
+        raise ValueError("no chunks in the database: run `rag chunk` first")
     versions = {chunk.chunker_version for chunk, _ in rows}
     if len(versions) != 1:
         raise ValueError(f"chunks come from several chunker versions {sorted(versions)}: rechunk first")

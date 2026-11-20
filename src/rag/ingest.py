@@ -1,8 +1,8 @@
 """Ingest documents: source -> PDF -> parse -> SQLite.
 
-    uv run python -m rag.ingest arxiv corpus/seed_ai_research.txt [--limit N]
-    uv run python -m rag.ingest files data/raw/manual/            # or individual .pdf paths
-    uv run python -m rag.ingest tei      # re-apply TEI rules to saved GROBID output, no GROBID
+    rag ingest arxiv corpus/seed_ai_research.txt [--limit N]
+    rag ingest files data/raw/manual/            # or individual .pdf paths
+    rag ingest tei      # re-apply TEI rules to saved GROBID output, no GROBID
 
 Two sources so far. `arxiv`: metadata from the arXiv API (title, authors,
 abstract, dates come from there, not from the PDF), PDF downloaded to
@@ -16,7 +16,6 @@ content changed is always parsed again). Each parse is also dumped to
 data/parsed/<doc>.json, and GROBID's TEI to <doc>.tei.xml, for inspection.
 """
 
-import argparse
 import csv
 import hashlib
 import json
@@ -319,21 +318,7 @@ def pdf_paths(inputs: list[Path]) -> list[Path]:
     return paths
 
 
-def main() -> int:
-    args = argparse.ArgumentParser(description="Ingest documents into the SQLite store.")
-    sources = args.add_subparsers(dest="source", required=True)
-    arxiv_args = sources.add_parser("arxiv", help="arXiv papers listed in an id file")
-    arxiv_args.add_argument("id_file", type=Path, help="one arXiv id per line, '#' starts a comment")
-    arxiv_args.add_argument("--limit", type=int, help="only the first N ids")
-    files_args = sources.add_parser("files", help="local PDF files or folders of PDFs")
-    files_args.add_argument("paths", type=Path, nargs="+")
-    tei_args = sources.add_parser(
-        "tei", help="re-apply the TEI rules to saved GROBID output (after editing rag/parse/tei.py)"
-    )
-    for sub in (arxiv_args, files_args, tei_args):
-        sub.add_argument("--reparse", action="store_true", help="parse again even if already parsed")
-        sub.add_argument("--report", type=Path, help="write per-document results to this CSV")
-    parsed_args = args.parse_args()
+def run(parsed_args) -> int:
 
     ingestor = Ingestor(get_settings(), reparse=parsed_args.reparse)
     try:
@@ -357,10 +342,16 @@ def main() -> int:
 
     print_summary(results)
     if any(r.status != "skipped" for r in results):
-        print("sections replaced: run `uv run python -m rag.chunk` to rebuild chunks")
+        print("sections replaced: run `rag chunk` to rebuild chunks")
     if parsed_args.report and results:
         write_report(results, parsed_args.report)
     return 0
+
+
+def main() -> int:
+    from rag.main import run_module
+
+    return run_module(['ingest'])
 
 
 if __name__ == "__main__":

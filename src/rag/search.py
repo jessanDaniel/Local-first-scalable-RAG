@@ -1,12 +1,11 @@
 """Dense search over the CURRENT index, with an explain view.
 
-    uv run python -m rag.search "why divide attention scores by sqrt d_k" [-k 5] [--explain]
+    rag search "why divide attention scores by sqrt d_k" [-k 5] [--explain]
 
 Retrieval only: no prompt, no LLM. Each hit carries the chunk plus what a
 citation needs (document title, section path, pages, source link).
 """
 
-import argparse
 import sys
 import time
 from dataclasses import dataclass
@@ -78,12 +77,7 @@ def print_hits(query: str, hits: list[Hit], searcher: DenseSearcher, explain: bo
             print()
 
 
-def main() -> int:
-    args = argparse.ArgumentParser(description="Dense search over the current index.")
-    args.add_argument("query")
-    args.add_argument("-k", type=int, default=5)
-    args.add_argument("--explain", action="store_true", help="show timings, settings and chunk text")
-    parsed_args = args.parse_args()
+def run(parsed_args) -> int:
 
     settings = get_settings()
     conn = db.open_db(settings.db_path)
@@ -99,6 +93,12 @@ def main() -> int:
     hits = searcher.search(parsed_args.query, parsed_args.k)
     print_hits(parsed_args.query, hits, searcher, parsed_args.explain)
     return 0
+
+
+def main() -> int:
+    from rag.main import run_module
+
+    return run_module(['search'])
 
 
 if __name__ == "__main__":

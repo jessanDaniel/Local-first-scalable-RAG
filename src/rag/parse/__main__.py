@@ -1,12 +1,11 @@
 """Debug view for the parse stage: one PDF through GROBID, with everything saved.
 
-    uv run python -m rag.parse data/raw/pdf/2305.14314.pdf
+    rag parse data/raw/arxiv/1706.03762.pdf
 
 Writes data/parsed/<doc>.tei.xml (GROBID's raw output) and data/parsed/<doc>.json
 (the ParsedDocument), then prints the section tree. GROBID must be running.
 """
 
-import argparse
 import json
 import sys
 import time
@@ -20,11 +19,7 @@ from rag.parse.grobid import GrobidParser
 from rag.parse.tei import tei_to_parsed
 
 
-def main() -> int:
-    args = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    args.add_argument("pdf", type=Path)
-    args.add_argument("--doc-id", help='defaults to "file:<pdf name without .pdf>"')
-    parsed_args = args.parse_args()
+def run(parsed_args) -> int:
 
     pdf_path: Path = parsed_args.pdf
     doc_id = parsed_args.doc_id or make_doc_id("file", pdf_path.stem)
@@ -54,6 +49,12 @@ def main() -> int:
     print_parse_debug(parsed)
     print(f"\nGROBID time: {elapsed:.2f}s   saved: {out_dir / stem}.tei.xml, .json")
     return 0
+
+
+def main() -> int:
+    from rag.main import run_module
+
+    return run_module(['parse'])
 
 
 if __name__ == "__main__":

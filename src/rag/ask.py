@@ -1,12 +1,11 @@
 """Ask a question; get an answer with checked citations.
 
-    uv run python -m rag.ask "why do transformers divide attention scores by sqrt(d_k)?" [--explain]
+    rag ask "why do transformers divide attention scores by sqrt(d_k)?" [--explain]
 
 --explain prints every stage: retrieved chunks, how they became numbered sources,
 the exact prompt sent, model, token counts, timings, and each citation's check.
 """
 
-import argparse
 import sys
 
 from rag.answer.answerer import Answer, Answerer, ContextWindowError
@@ -49,11 +48,7 @@ def print_answer(answer: Answer, explain: bool) -> None:
         print(f"WARNING: {warning}")
 
 
-def main() -> int:
-    args = argparse.ArgumentParser(description="Answer a question from the indexed documents, with citations.")
-    args.add_argument("question")
-    args.add_argument("--explain", action="store_true")
-    parsed_args = args.parse_args()
+def run(parsed_args) -> int:
 
     settings = get_settings()
     conn = db.open_db(settings.db_path)
@@ -81,6 +76,12 @@ def main() -> int:
         return 1
     print_answer(answer, parsed_args.explain)
     return 0
+
+
+def main() -> int:
+    from rag.main import run_module
+
+    return run_module(['ask'])
 
 
 if __name__ == "__main__":

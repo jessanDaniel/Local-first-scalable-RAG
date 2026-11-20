@@ -16,26 +16,14 @@ pages always come from SQLite. Layout:
 
 import json
 import os
-from dataclasses import asdict, dataclass
+from dataclasses import asdict
 from pathlib import Path
 
 import faiss
 import numpy as np
 
-
-class StaleIndexError(RuntimeError):
-    """The index was built from different chunks or a different model than the database now has."""
-
-
-@dataclass
-class DenseManifest:
-    build_id: str
-    embedding_model: str
-    chunker_version: str
-    dim: int
-    n_chunks: int
-    metric: str = "inner_product"
-    index_type: str = "IndexFlatIP"
+# Re-exported: callers import these from here.
+from rag.index.current import DenseManifest, StaleIndexError, check_current, current_build_dir  # noqa: F401
 
 
 class DenseIndex:
@@ -86,18 +74,5 @@ def set_current(indexes_dir: Path, build_id: str) -> None:
 
 def load_current(indexes_dir: Path, embedding_model: str, db_chunk_ids: list[str]) -> DenseIndex:
     """The CURRENT build, after checking it still matches the configured model and the database."""
-    pointer = indexes_dir / "CURRENT"
-    if not pointer.exists():
-        raise StaleIndexError("no dense index built yet: run `uv run python -m rag.index build`")
-    index = DenseIndex.load(indexes_dir / pointer.read_text().strip())
-    if index.manifest.embedding_model != embedding_model:
-        raise StaleIndexError(
-            f"index {index.manifest.build_id} was built with {index.manifest.embedding_model}, "
-            f"settings now say {embedding_model}: rebuild with `uv run python -m rag.index build`"
-        )
-    if set(index.chunk_ids) != set(db_chunk_ids):
-        raise StaleIndexError(
-            f"index {index.manifest.build_id} holds {len(index.chunk_ids)} chunks, the database has "
-            f"{len(db_chunk_ids)} different or changed ones: rebuild with `uv run python -m rag.index build`"
-        )
-    return index
+    check_current(indexes_dir, embedding_model, db_chunk_ids)
+    return DenseIndex.load(current_build_dir(indexes_dir))

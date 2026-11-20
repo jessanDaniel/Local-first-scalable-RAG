@@ -1,10 +1,9 @@
 """Build or list dense indexes.
 
-    uv run python -m rag.index build     # embed all chunks (cached), write a new build, make it CURRENT
-    uv run python -m rag.index list      # builds recorded in the database
+    rag index build     # embed all chunks (cached), write a new build, make it CURRENT
+    rag index list      # builds recorded in the database
 """
 
-import argparse
 import sys
 
 from rag.chunk.tokens import HFTokenCounter
@@ -14,10 +13,8 @@ from rag.index.build import EmbeddingCache, build_dense_index
 from rag.store import db
 
 
-def main() -> int:
-    args = argparse.ArgumentParser(description="Dense index builds.")
-    args.add_argument("command", choices=["build", "list"])
-    command = args.parse_args().command
+def run(args) -> int:
+    command = args.action
 
     settings = get_settings()
     conn = db.open_db(settings.db_path)
@@ -43,6 +40,12 @@ def main() -> int:
           + (f" ({rate:.0f} chunks/s)" if rate else ""))
     print(f"  total build: {result.build_seconds:.2f}s   index file: {result.index_bytes / 1024:.0f} KB")
     return 0
+
+
+def main() -> int:
+    from rag.main import run_module
+
+    return run_module(['index'])
 
 
 if __name__ == "__main__":
