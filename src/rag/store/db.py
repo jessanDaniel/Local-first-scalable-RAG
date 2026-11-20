@@ -560,6 +560,18 @@ def list_index_builds(conn: sqlite3.Connection, kind: str | None = None) -> list
     return [dict(row) | {"params": json.loads(row["params_json"])} for row in rows]
 
 
+def index_inputs(conn: sqlite3.Connection) -> list[tuple[str, str, str]]:
+    """(chunk_id, document title, section path) for every chunk: what an embedding header is made of."""
+    rows = conn.execute(
+        """
+        SELECT k.chunk_id, d.title, s.path FROM chunks k
+        JOIN documents d ON d.doc_id = k.doc_id JOIN sections s ON s.section_id = k.section_id
+        ORDER BY k.doc_id, k.ord
+        """
+    )
+    return [(row[0], row[1], row[2]) for row in rows]
+
+
 def all_chunk_ids(conn: sqlite3.Connection) -> list[str]:
     return [row[0] for row in conn.execute("SELECT chunk_id FROM chunks ORDER BY doc_id, ord")]
 

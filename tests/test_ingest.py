@@ -149,6 +149,19 @@ def test_local_file_is_copied_and_titled_from_the_parse(ingestor, tmp_path):
     assert stored.metadata["original_path"] == str(original.resolve())
 
 
+def test_a_bad_parser_title_is_replaced_and_the_document_flagged(ingestor, tmp_path):
+    ingestor.primary = FakeParser(
+        "grobid", result=lambda doc_id: good_parse(doc_id, "Published as a conference paper at ICLR 2015")
+    )
+    original = write_pdf(tmp_path / "adam.pdf", ["Body text."], title="Adam: A Method for Stochastic Optimization")
+    [result] = ingestor.ingest_files([original])
+    stored = db.get_document(ingestor.conn, "file:adam")
+    assert stored.title == "Adam: A Method for Stochastic Optimization"
+    assert stored.metadata["title_source"] == "pdf metadata"
+    assert stored.metadata["title_rejected"][0].startswith("parser title rejected (venue banner)")
+    assert (result.status, "title guessed from pdf metadata" in result.issues) == ("suspect", True)
+
+
 def test_local_file_is_skipped_until_it_changes(ingestor, tmp_path):
     original = write_pdf(tmp_path / "notes.pdf", ["Version one."])
     ingestor.ingest_files([original])

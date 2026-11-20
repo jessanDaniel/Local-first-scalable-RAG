@@ -16,6 +16,7 @@ import numpy as np
 
 from rag.chunk.tokens import TokenCounter
 from rag.embed.embedder import passage_text
+from rag.index.current import inputs_fingerprint
 from rag.index.dense import DenseIndex, DenseManifest, set_current
 from rag.store import db
 
@@ -92,7 +93,10 @@ def build_dense_index(
 
     build_id = "dense-" + datetime.now(UTC).strftime("%Y%m%dT%H%M%S%fZ")
     chunk_ids = [chunk.chunk_id for chunk, _ in rows]
-    manifest = DenseManifest(build_id, embedder.model_name, versions.pop(), embedder.dim, len(rows))
+    fingerprint = inputs_fingerprint(db.index_inputs(conn))
+    manifest = DenseManifest(
+        build_id, embedder.model_name, versions.pop(), embedder.dim, len(rows), inputs_fingerprint=fingerprint
+    )
     params = {
         "index_type": manifest.index_type,
         "dim": embedder.dim,

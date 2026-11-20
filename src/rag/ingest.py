@@ -32,9 +32,10 @@ from rag.config import Settings, get_settings
 from rag.models import DEFAULT_COLLECTION, Document, check_collection_id, doc_file_stem, make_doc_id
 from rag.parse.base import ParsedDocument, ParseError, Parser, ParserUnavailableError
 from rag.parse.grobid import GrobidParser
-from rag.parse.pymupdf import PyMuPDFParser
+from rag.parse.pymupdf import PyMuPDFParser, pdf_title_candidates
 from rag.parse.tei import tei_to_parsed
 from rag.parse.text import TEXT_SUFFIXES, TextParser
+from rag.parse.title import choose_title
 from rag.store import db
 
 # The PDF parser reads the body; this issue is covered by the source's metadata or the file name.
@@ -120,7 +121,7 @@ def parse_and_store(
             error,
         )
 
-    document, status, issues = store_parsed(conn, document, parsed, errors, parsed_dir, pdf_path.stem)
+    document, status, issues = store_parsed(conn, document, parsed, errors, parsed_dir, pdf_path)
     return IngestResult(
         doc_id=document.doc_id,
         title=document.title,
@@ -143,17 +144,27 @@ def store_parsed(
     parsed: ParsedDocument,
     errors: list[str],
     parsed_dir: Path,
-    fallback_title: str,
+    source_path: Path,
 ) -> tuple[Document, str, list[str]]:
     """Write a parse result: document row, its sections (old chunks go with them), JSON dump."""
     issues = [i for i in parsed.issues if i not in METADATA_ISSUES] + errors
+    metadata = dict(document.metadata)
+    if document.source == "file":
+        # No source metadata: the title is chosen from the parse, the PDF itself, then the file name.
+        title, title_source, rejected = pick_title(parsed, source_path)
+        metadata.update(title_source=title_source, title_rejected=rejected)
+        if title_source != "parser":
+            issues.append(f"title guessed from {title_source}")
+    else:
+        title = document.title or parsed.title or source_path.stem
     status = "suspect" if issues else "ok"
     document = replace(
         document,
         # Source metadata wins; the parse fills only what the source does not know.
-        title=document.title or parsed.title or fallback_title,
+        title=title,
         authors=document.authors or parsed.authors,
         abstract=document.abstract or parsed.abstract,
+        metadata=metadata,
         parser=parsed.parser,
         parse_status=status,
         parse_error="; ".join(issues) or None,
@@ -167,6 +178,15 @@ def store_parsed(
         encoding="utf-8",
     )
     return document, status, issues
+
+
+def pick_title(parsed: ParsedDocument, source_path: Path) -> tuple[str, str, list[str]]:
+    candidates = [("parser", parsed.title)]
+    if source_path.suffix.lower() == ".pdf":
+        from_pdf = pdf_title_candidates(source_path)
+        candidates += [("pdf metadata", from_pdf["pdf metadata"]), ("largest font", from_pdf["largest font"])]
+    candidates.append(("file name", source_path.stem))
+    return choose_title(candidates)
 
 
 class Ingestor:
@@ -263,7 +283,8 @@ class Ingestor:
                 continue
             start = time.perf_counter()
             parsed = tei_to_parsed(tei_path.read_text(encoding="utf-8"), document.doc_id, document.parser)
-            document, status, issues = store_parsed(self.conn, document, parsed, [], self.parsed_dir, document.title)
+            source_path = Path(document.source_uri) if document.source == "file" else tei_path
+            document, status, issues = store_parsed(self.conn, document, parsed, [], self.parsed_dir, source_path)
             results.append(
                 IngestResult(
                     document.doc_id,

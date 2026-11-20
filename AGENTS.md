@@ -167,8 +167,17 @@ W, I, B, UP; line length 120; `experiments/learning/` excluded; prompt files exe
 because wrapping would change the prompt), one mechanical format commit listed in
 `.git-blame-ignore-revs`, `zip(..., strict=True)` where lengths must match. Run
 `scripts/check.sh` (lint + format check + offline tests, ~2 s; `--fix` applies safe fixes)
-before every commit. Stage 1 is complete. Next: collections + second corpus (§0.1 items 2–3),
-including the wrong-title fix for `ingest files` PDFs. Do not start Phase 16.
+before every commit. Stage 1 is complete. Step 11 done (notes:
+`experiments/stage1/collections_step11.md`): (a) collections — schema v4 (v3 migrated, backup in
+`data/archive/`), every document in one collection, `rag ingest … --collection NAME` (required),
+`rag search|ask --collection NAME` (filter inside FAISS), `rag collections`; status is read-only.
+(b) `TextParser` for .txt/.md (`rag ingest files` takes pdf/txt/md); `documents/*.txt` ingested
+as collection `hr-demo` (29 chunks); all 41 Phase 15 quotes sit in one chunk each; gold chunk ids
+in `experiments/stage1/hr_quotes_vs_chunks_gold.jsonl`. (c) local-file titles checked
+(`rag/parse/title.py`): parser → PDF metadata → largest page-1 font → file name; 10/10 correct on
+the seed PDFs. The index now also fingerprints titles + section paths (a changed title makes it
+stale). Real DB: `papers` 10 docs / 400 chunks, `hr-demo` 2 / 29, index current. 194 tests.
+Next: eval v0 (§0.1 item 1) — pitch first. Do not start Phase 16.
 
 ### Phase 7 close-out (2026-09-20)
 

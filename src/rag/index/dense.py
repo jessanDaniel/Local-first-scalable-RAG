@@ -87,7 +87,7 @@ def set_current(indexes_dir: Path, build_id: str) -> None:
     os.replace(temporary, pointer)
 
 
-def load_current(indexes_dir: Path, embedding_model: str, db_chunk_ids: list[str]) -> DenseIndex:
+def load_current(indexes_dir: Path, embedding_model: str, conn) -> DenseIndex:
     """The CURRENT build, after checking it still matches the configured model and the database."""
-    check_current(indexes_dir, embedding_model, db_chunk_ids)
+    check_current(indexes_dir, embedding_model, conn)
     return DenseIndex.load(current_build_dir(indexes_dir))

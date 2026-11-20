@@ -176,7 +176,7 @@ def main() -> int:
 
     settings = get_settings()
     conn = db.open_db(settings.db_path)
-    index = load_current(settings.data_dir / "indexes" / "dense", settings.embedding_model, db.all_chunk_ids(conn))
+    index = load_current(settings.data_dir / "indexes" / "dense", settings.embedding_model, conn)
     embedder = Embedder(settings.embedding_model, settings.embedding_query_instruction, settings.embedding_batch_size)
     answerer = Answerer(
         conn,

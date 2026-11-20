@@ -180,7 +180,7 @@ def test_rebuild_reuses_cached_vectors(conn, tmp_path):
 
 def test_search_returns_the_matching_chunk_with_citation_fields(conn, tmp_path):
     embedder, _ = build(conn, tmp_path)
-    index = load_current(tmp_path / "indexes", embedder.model_name, db.all_chunk_ids(conn))
+    index = load_current(tmp_path / "indexes", embedder.model_name, conn)
     hits = DenseSearcher(conn, index, embedder).search("bias correction averages zero", k=2)
     top = hits[0]
     assert (top.rank, top.chunk.doc_id, top.doc_title, top.section_path) == (1, "arxiv:1", "Adam", "2 S")
@@ -191,16 +191,29 @@ def test_search_returns_the_matching_chunk_with_citation_fields(conn, tmp_path):
 def test_stale_index_is_refused(conn, tmp_path):
     embedder, _ = build(conn, tmp_path)
     with pytest.raises(StaleIndexError, match="settings now say"):
-        load_current(tmp_path / "indexes", "other/model", db.all_chunk_ids(conn))
+        load_current(tmp_path / "indexes", "other/model", conn)
     with conn:
         conn.execute("DELETE FROM documents WHERE doc_id = 'arxiv:2'")
     with pytest.raises(StaleIndexError, match="rebuild"):
-        load_current(tmp_path / "indexes", embedder.model_name, db.all_chunk_ids(conn))
+        load_current(tmp_path / "indexes", embedder.model_name, conn)
+
+
+def test_a_changed_title_makes_the_index_stale_even_with_the_same_chunks(conn, tmp_path):
+    from dataclasses import replace
+
+    embedder, _ = build(conn, tmp_path)
+    load_current(tmp_path / "indexes", embedder.model_name, conn)  # current
+    document = db.get_document(conn, "arxiv:1")
+    db.upsert_document(conn, replace(document, title="Adam: A Method for Stochastic Optimization"))
+    with pytest.raises(StaleIndexError, match="titles or section paths"):
+        load_current(tmp_path / "indexes", embedder.model_name, conn)
+    build(conn, tmp_path)  # rebuild: the changed header is embedded, the rest comes from the cache
+    load_current(tmp_path / "indexes", embedder.model_name, conn)
 
 
 def test_no_index_yet(tmp_path):
     with pytest.raises(StaleIndexError, match="no dense index"):
-        load_current(tmp_path / "indexes", "fake/bow-64", [])
+        load_current(tmp_path / "indexes", "fake/bow-64", db.open_db(tmp_path / "x.db"))
 
 
 # --- collection filter --------------------------------------------------------
@@ -239,7 +252,7 @@ def test_search_by_collection_never_returns_other_collections(tmp_path):
         db.replace_sections(connection, doc_id, sections)
         db.replace_chunks(connection, doc_id, chunker.chunk_document(sections))
     embedder, _ = build(connection, tmp_path)
-    index = load_current(tmp_path / "indexes", embedder.model_name, db.all_chunk_ids(connection))
+    index = load_current(tmp_path / "indexes", embedder.model_name, connection)
     searcher = DenseSearcher(connection, index, embedder)
 
     hr = searcher.search("bias correction", k=5, collections=["hr-demo"])

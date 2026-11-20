@@ -534,7 +534,8 @@ spans, the same shape as `eval_questions.jsonl`. Then: ablations (dense vs BM25 
    backup, PyMuPDF fallback; arXiv HTML dropped as not general enough). The service runs as
    native processes.
 
-Progress: Stage 1 complete, steps 1–10 (10: ruff config + `scripts/check.sh`, no hook yet; 9: one `rag` command with `status`, see
+Progress: Stage 1 complete, plus step 11 (collections, text/Markdown + `hr-demo`, title checks; see
+`experiments/stage1/collections_step11.md`); steps 1–10 (10: ruff config + `scripts/check.sh`, no hook yet; 9: one `rag` command with `status`, see
 `experiments/stage1/cli_step9.md`; 8: `rag.ask` cited answers, smoke check in
 `experiments/stage1/answer_seed10.md`; 7: bge-small embeddings + exact FAISS index, `rag.search`, see
 `experiments/stage1/dense_seed10.md`; 6: chunker v2-350, 400 chunks from 10 papers, see

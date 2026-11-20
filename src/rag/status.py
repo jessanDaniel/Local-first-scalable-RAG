@@ -13,7 +13,7 @@ import requests
 
 from rag.chunk.chunker import CHUNKER_VERSION
 from rag.config import Settings, get_settings
-from rag.index.current import current_build_dir, read_chunk_ids, read_manifest, stale_reason
+from rag.index.current import current_build_dir, database_state, read_chunk_ids, read_manifest, stale_reason
 from rag.main import DEFAULT_SEED
 from rag.store import db
 
@@ -49,12 +49,13 @@ def probe_ollama(base_url: str, model: str) -> str:
     return f"running, but model {model} is not pulled (ollama pull {model})"
 
 
-def dense_index_report(settings: Settings, db_chunk_ids: list[str]) -> dict:
+def dense_index_report(settings: Settings, conn) -> dict:
     build_dir = current_build_dir(settings.data_dir / "indexes" / "dense")
     if build_dir is None:
         return {"state": "missing"}
     manifest = read_manifest(build_dir)
-    reason = stale_reason(manifest, read_chunk_ids(build_dir), settings.embedding_model, db_chunk_ids)
+    db_chunk_ids, fingerprint = database_state(conn)
+    reason = stale_reason(manifest, read_chunk_ids(build_dir), settings.embedding_model, db_chunk_ids, fingerprint)
     return {
         "state": "stale" if reason else "current",
         "reason": reason,
@@ -75,7 +76,7 @@ def collect(settings: Settings, probe: bool = True) -> dict:
             version = db.schema_version(conn)
             if version == db.SCHEMA_VERSION:
                 report["database"] = db.stats(conn)
-                report["dense_index"] = dense_index_report(settings, db.all_chunk_ids(conn))
+                report["dense_index"] = dense_index_report(settings, conn)
             else:
                 report["schema_mismatch"] = {"database": version, "code": db.SCHEMA_VERSION}
         finally:

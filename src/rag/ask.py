@@ -55,7 +55,7 @@ def run(parsed_args) -> int:
     settings = get_settings()
     conn = db.open_db(settings.db_path)
     try:
-        index = load_current(settings.data_dir / "indexes" / "dense", settings.embedding_model, db.all_chunk_ids(conn))
+        index = load_current(settings.data_dir / "indexes" / "dense", settings.embedding_model, conn)
     except StaleIndexError as exc:
         print(exc)
         return 1

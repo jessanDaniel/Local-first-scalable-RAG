@@ -105,7 +105,7 @@ def main() -> None:
     print(f"embedded {len(rows)} chunks twice in {time.perf_counter() - start:.1f}s on {embedder.device}")
 
     # 1. FAISS vs NumPy on the stored index.
-    index = load_current(settings.data_dir / "indexes" / "dense", settings.embedding_model, db.all_chunk_ids(conn))
+    index = load_current(settings.data_dir / "indexes" / "dense", settings.embedding_model, conn)
     stored = np.stack([with_header[chunk_ids.index(cid)] for cid in index.chunk_ids])
     worst = 0.0
     for question, *_ in QUESTIONS:
