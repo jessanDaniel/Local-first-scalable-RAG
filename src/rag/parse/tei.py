@@ -231,8 +231,7 @@ class _SectionBuilder:
             if level == 1:
                 self.top_level_sections += 1
             self.numbered = [
-                (n, lvl, label) for n, lvl, label in self.numbered
-                if lvl < level and number.startswith(n + ".")
+                (n, lvl, label) for n, lvl, label in self.numbered if lvl < level and number.startswith(n + ".")
             ]
             label = f"{number} {title}"
             parts = [label for _, _, label in self.numbered] + [label]

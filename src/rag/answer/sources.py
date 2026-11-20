@@ -77,7 +77,7 @@ def merge_hits(hits: list[Hit], section_text: Callable[[str, int], str]) -> list
         for hit in section_hits:
             c = hit.chunk
             touches = current is not None and (
-                c.char_start <= current.end or not text[current.end:c.char_start].strip()
+                c.char_start <= current.end or not text[current.end : c.char_start].strip()
             )
             if touches:
                 current.end = max(current.end, c.char_end)
@@ -116,8 +116,10 @@ def assemble_sources(
             section_path=first.section_path,
             page_start=min(pages_start) if pages_start else None,
             page_end=max(pages_end) if pages_end else None,
-            text=section_text(group.doc_id, group.section_ord)[group.start:group.end],
-            chunk_ids=[h.chunk.chunk_id for h in sorted(group.hits, key=lambda h: (h.chunk.char_start, h.chunk.char_end))],
+            text=section_text(group.doc_id, group.section_ord)[group.start : group.end],
+            chunk_ids=[
+                h.chunk.chunk_id for h in sorted(group.hits, key=lambda h: (h.chunk.char_start, h.chunk.char_end))
+            ],
             best_rank=first.rank,
             best_score=first.score,
             source_uri=first.source_uri,

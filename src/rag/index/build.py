@@ -93,10 +93,13 @@ def build_dense_index(
     build_id = "dense-" + datetime.now(UTC).strftime("%Y%m%dT%H%M%S%fZ")
     chunk_ids = [chunk.chunk_id for chunk, _ in rows]
     manifest = DenseManifest(build_id, embedder.model_name, versions.pop(), embedder.dim, len(rows))
-    params = {"index_type": manifest.index_type, "dim": embedder.dim, "device": embedder.device,
-              "passage_format": "title | section path\\nchunk text"}
-    db.record_index_build(conn, build_id, "dense", embedder.model_name, manifest.chunker_version,
-                          params, len(rows))
+    params = {
+        "index_type": manifest.index_type,
+        "dim": embedder.dim,
+        "device": embedder.device,
+        "passage_format": "title | section path\\nchunk text",
+    }
+    db.record_index_build(conn, build_id, "dense", embedder.model_name, manifest.chunker_version, params, len(rows))
     try:
         index = DenseIndex.build(np.stack([cache.vectors[key] for key in keys]), chunk_ids, manifest)
         index.save(indexes_dir / build_id)

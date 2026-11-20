@@ -46,11 +46,15 @@ def stale_reason(
 ) -> str | None:
     """Why this build no longer matches the settings and the database, or None if it does."""
     if manifest.embedding_model != embedding_model:
-        return (f"index {manifest.build_id} was built with {manifest.embedding_model}, "
-                f"settings now say {embedding_model}: {REBUILD}")
+        return (
+            f"index {manifest.build_id} was built with {manifest.embedding_model}, "
+            f"settings now say {embedding_model}: {REBUILD}"
+        )
     if set(chunk_ids) != set(db_chunk_ids):
-        return (f"index {manifest.build_id} holds {len(chunk_ids)} chunks, the database has "
-                f"{len(db_chunk_ids)} different or changed ones: {REBUILD}")
+        return (
+            f"index {manifest.build_id} holds {len(chunk_ids)} chunks, the database has "
+            f"{len(db_chunk_ids)} different or changed ones: {REBUILD}"
+        )
     return None
 
 

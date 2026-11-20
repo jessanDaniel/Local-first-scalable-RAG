@@ -58,8 +58,18 @@ class IngestResult:
 
 def skipped(document: Document) -> IngestResult:
     return IngestResult(
-        document.doc_id, document.title, "skipped", document.parser or "", False, False,
-        0.0, 0.0, None, 0, 0, f"already {document.parse_status}",
+        document.doc_id,
+        document.title,
+        "skipped",
+        document.parser or "",
+        False,
+        False,
+        0.0,
+        0.0,
+        None,
+        0,
+        0,
+        f"already {document.parse_status}",
     )
 
 
@@ -95,8 +105,18 @@ def parse_and_store(
         )
         db.replace_sections(conn, document.doc_id, [])
         return IngestResult(
-            document.doc_id, document.title, "failed", "", used_fallback, downloaded,
-            download_seconds, parse_seconds, None, 0, 0, error,
+            document.doc_id,
+            document.title,
+            "failed",
+            "",
+            used_fallback,
+            downloaded,
+            download_seconds,
+            parse_seconds,
+            None,
+            0,
+            0,
+            error,
         )
 
     document, status, issues = store_parsed(conn, document, parsed, errors, parsed_dir, pdf_path.stem)
@@ -180,9 +200,7 @@ class Ingestor:
                 )
             self._checked_grobid = True
         db.upsert_document(self.conn, replace(document, title=document.title or pdf_path.stem))
-        result = parse_and_store(
-            document, pdf_path, self.conn, self.primary, self.fallback, self.parsed_dir, **timing
-        )
+        result = parse_and_store(document, pdf_path, self.conn, self.primary, self.fallback, self.parsed_dir, **timing)
         print(
             f"{result.status:8} {result.doc_id:26} {result.parse_seconds:6.2f}s "
             f"{result.n_sections:3} sections {result.body_words:6} words  {result.title[:50]}",
@@ -207,9 +225,14 @@ class Ingestor:
             start = time.perf_counter()
             pdf_path, sha256, downloaded = client.download_pdf(document, pdf_dir)
             document = replace(document, source_sha256=sha256)
-            results.append(self.parse(
-                document, pdf_path, downloaded=downloaded, download_seconds=time.perf_counter() - start,
-            ))
+            results.append(
+                self.parse(
+                    document,
+                    pdf_path,
+                    downloaded=downloaded,
+                    download_seconds=time.perf_counter() - start,
+                )
+            )
         return results
 
     def reapply_tei(self) -> list[IngestResult]:
@@ -227,14 +250,23 @@ class Ingestor:
                 continue
             start = time.perf_counter()
             parsed = tei_to_parsed(tei_path.read_text(encoding="utf-8"), document.doc_id, document.parser)
-            document, status, issues = store_parsed(
-                self.conn, document, parsed, [], self.parsed_dir, document.title
+            document, status, issues = store_parsed(self.conn, document, parsed, [], self.parsed_dir, document.title)
+            results.append(
+                IngestResult(
+                    document.doc_id,
+                    document.title,
+                    status,
+                    parsed.parser,
+                    False,
+                    False,
+                    0.0,
+                    time.perf_counter() - start,
+                    parsed.n_pages,
+                    len(parsed.body_sections),
+                    sum(len(s.text.split()) for s in parsed.body_sections),
+                    "; ".join(issues),
+                )
             )
-            results.append(IngestResult(
-                document.doc_id, document.title, status, parsed.parser, False, False, 0.0,
-                time.perf_counter() - start, parsed.n_pages, len(parsed.body_sections),
-                sum(len(s.text.split()) for s in parsed.body_sections), "; ".join(issues),
-            ))
         return results
 
     def ingest_files(self, paths: list[Path]) -> list[IngestResult]:
@@ -276,11 +308,14 @@ class Ingestor:
 
 def print_summary(results: list[IngestResult]) -> None:
     done = [r for r in results if r.status != "skipped"]
-    print(f"\n{len(results)} documents: " + ", ".join(
-        f"{status} {sum(r.status == status for r in results)}"
-        for status in ("ok", "suspect", "failed", "skipped")
-        if any(r.status == status for r in results)
-    ))
+    print(
+        f"\n{len(results)} documents: "
+        + ", ".join(
+            f"{status} {sum(r.status == status for r in results)}"
+            for status in ("ok", "suspect", "failed", "skipped")
+            if any(r.status == status for r in results)
+        )
+    )
     if not done:
         return
     fallback = sum(r.used_fallback for r in done)
@@ -291,8 +326,10 @@ def print_summary(results: list[IngestResult]) -> None:
             f"parse seconds: median {statistics.median(parse_times):.2f}, "
             f"max {max(parse_times):.2f}, total {sum(parse_times):.1f}"
         )
-    print(f"downloaded: {sum(r.downloaded for r in done)} new PDFs, "
-          f"{sum(r.download_seconds for r in done):.1f}s including throttling")
+    print(
+        f"downloaded: {sum(r.downloaded for r in done)} new PDFs, "
+        f"{sum(r.download_seconds for r in done):.1f}s including throttling"
+    )
     for r in done:
         if r.issues:
             print(f"  {r.doc_id}: {r.issues}")
@@ -304,10 +341,13 @@ def write_report(results: list[IngestResult], path: Path) -> None:
         writer = csv.DictWriter(f, fieldnames=list(asdict(results[0])))
         writer.writeheader()
         for r in results:
-            writer.writerow(asdict(r) | {
-                "download_seconds": round(r.download_seconds, 2),
-                "parse_seconds": round(r.parse_seconds, 2),
-            })
+            writer.writerow(
+                asdict(r)
+                | {
+                    "download_seconds": round(r.download_seconds, 2),
+                    "parse_seconds": round(r.parse_seconds, 2),
+                }
+            )
     print(f"report: {path}")
 
 
@@ -351,7 +391,7 @@ def run(parsed_args) -> int:
 def main() -> int:
     from rag.main import run_module
 
-    return run_module(['ingest'])
+    return run_module(["ingest"])
 
 
 if __name__ == "__main__":

@@ -75,18 +75,22 @@ def test_junk_headings_continue_previous_section(paper):
         "Adapters match full finetuning.\n\nA chat line that GROBID read as a heading."
     )
     assert section(paper, "6 Conclusion").text == "Small is enough.\n\nAlgorithm box text."
-    assert section(paper, "Appendix > B Proofs Left in the Body").text == (
-        "Proof of the bound.\n\nFigure fragment."
-    )
+    assert section(paper, "Appendix > B Proofs Left in the Body").text == ("Proof of the bound.\n\nFigure fragment.")
 
 
 @pytest.mark.parametrize(
     ("title", "junk"),
     [
-        ("Guanaco:", True), ("end for", True), ("(middle).", True), ("2.", True),
+        ("Guanaco:", True),
+        ("end for", True),
+        ("(middle).", True),
+        ("2.", True),
         ("If you have any other questions or if there's anything else I can help with today", True),
-        ("Double Quantization", False), ("Model", False), ("PASCAL VOC", False),
-        ("Label Smoothing", False), ("Skip-gram", False),
+        ("Double Quantization", False),
+        ("Model", False),
+        ("PASCAL VOC", False),
+        ("Label Smoothing", False),
+        ("Skip-gram", False),
     ],
 )
 def test_junk_heading_rule(title, junk):
@@ -114,7 +118,7 @@ def test_captions(paper):
 
 def test_paragraph_offsets_and_pages(paper):
     for s in paper.sections:
-        joined = "\n\n".join(s.text[p.char_start:p.char_end] for p in s.paragraphs)
+        joined = "\n\n".join(s.text[p.char_start : p.char_end] for p in s.paragraphs)
         assert joined == s.text
     model = section(paper, "1 Introduction > Model")
     assert (model.paragraphs[0].page_start, model.paragraphs[0].page_end) == (1, 2)

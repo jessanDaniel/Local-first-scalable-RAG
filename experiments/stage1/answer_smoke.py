@@ -66,7 +66,47 @@ UNANSWERABLE = [
     "What rank r did the LoRA paper use when adapting GPT-3?",
     "How many parameters does GPT-3 have?",
 ]
-STOPWORDS = {"the", "a", "an", "of", "to", "in", "and", "or", "for", "is", "are", "was", "were", "be", "by", "with", "on", "as", "that", "this", "it", "its", "at", "from", "we", "our", "which", "can", "not", "than", "these", "those", "their", "they", "has", "have", "each", "into", "such"}
+STOPWORDS = {
+    "the",
+    "a",
+    "an",
+    "of",
+    "to",
+    "in",
+    "and",
+    "or",
+    "for",
+    "is",
+    "are",
+    "was",
+    "were",
+    "be",
+    "by",
+    "with",
+    "on",
+    "as",
+    "that",
+    "this",
+    "it",
+    "its",
+    "at",
+    "from",
+    "we",
+    "our",
+    "which",
+    "can",
+    "not",
+    "than",
+    "these",
+    "those",
+    "their",
+    "they",
+    "has",
+    "have",
+    "each",
+    "into",
+    "such",
+}
 QUOTE = re.compile(r"[\"“]([^\"”]{20,})[\"”]")
 
 
@@ -90,14 +130,23 @@ def attribution(answer) -> dict:
         quote = match.group(1)
         if len(quote.split()) < 6:
             continue
-        nearby = text[max(0, match.start() - 40):match.end() + 40]
+        nearby = text[max(0, match.start() - 40) : match.end() + 40]
         credited = sorted({n for m in MARKER.finditer(nearby) for n in marker_numbers(m.group(1))})
         best, overlap = best_source(quote, answer.sources)
-        credited_overlap = max((len(words(quote) & words(by_n[n].text)) / max(1, len(words(quote)))
-                                for n in credited if n in by_n), default=0.0)
-        quotes.append({"quote": quote[:120], "credited": credited, "best_source": best,
-                       "best_overlap": round(overlap, 2), "credited_overlap": round(credited_overlap, 2),
-                       "misattributed": bool(credited) and best not in credited and overlap - credited_overlap > 0.2})
+        credited_overlap = max(
+            (len(words(quote) & words(by_n[n].text)) / max(1, len(words(quote))) for n in credited if n in by_n),
+            default=0.0,
+        )
+        quotes.append(
+            {
+                "quote": quote[:120],
+                "credited": credited,
+                "best_source": best,
+                "best_overlap": round(overlap, 2),
+                "credited_overlap": round(credited_overlap, 2),
+                "misattributed": bool(credited) and best not in credited and overlap - credited_overlap > 0.2,
+            }
+        )
     sentences = []
     for a, b in sentence_spans(text, 0, len(text)):
         sentence = text[a:b]
@@ -105,11 +154,16 @@ def attribution(answer) -> dict:
         if not cited:
             continue
         best, overlap = best_source(MARKER.sub("", sentence), answer.sources)
-        credited_overlap = max(len(words(sentence) & words(by_n[n].text)) / max(1, len(words(sentence)))
-                               for n in cited)
-        sentences.append({"cited": cited, "best_source": best, "best_overlap": round(overlap, 2),
-                          "credited_overlap": round(credited_overlap, 2),
-                          "suspect": best not in cited and overlap - credited_overlap > 0.25})
+        credited_overlap = max(len(words(sentence) & words(by_n[n].text)) / max(1, len(words(sentence))) for n in cited)
+        sentences.append(
+            {
+                "cited": cited,
+                "best_source": best,
+                "best_overlap": round(overlap, 2),
+                "credited_overlap": round(credited_overlap, 2),
+                "suspect": best not in cited and overlap - credited_overlap > 0.25,
+            }
+        )
     return {"quotes": quotes, "cited_sentences": sentences}
 
 
@@ -124,10 +178,16 @@ def main() -> int:
     conn = db.open_db(settings.db_path)
     index = load_current(settings.data_dir / "indexes" / "dense", settings.embedding_model, db.all_chunk_ids(conn))
     embedder = Embedder(settings.embedding_model, settings.embedding_query_instruction, settings.embedding_batch_size)
-    answerer = Answerer(conn, DenseSearcher(conn, index, embedder), create_llm(settings),
-                        HFTokenCounter(settings.llm_tokenizer), settings.ask_retrieve_k,
-                        settings.ask_max_sources, settings.ask_context_tokens,
-                        system_prompt=PROMPTS[parsed_args.prompt_variant])
+    answerer = Answerer(
+        conn,
+        DenseSearcher(conn, index, embedder),
+        create_llm(settings),
+        HFTokenCounter(settings.llm_tokenizer),
+        settings.ask_retrieve_k,
+        settings.ask_max_sources,
+        settings.ask_context_tokens,
+        system_prompt=PROMPTS[parsed_args.prompt_variant],
+    )
 
     cases = [(q, doc) for q, doc, _, _ in QUESTIONS] + EXTRA + [(q, None) for q in UNANSWERABLE]
     records = []
@@ -158,21 +218,27 @@ def main() -> int:
             "warnings": answer.warnings,
         }
         records.append(record)
-        print(f"{'?' if expected_doc is None else ('✓' if record['expected_doc_cited'] else '✗')} "
-              f"{record['generate_s']:5.1f}s cited {record['cited']} invalid {record['invalid']} "
-              f"misquoted {record['misattributed_quotes']} suspect {record['suspect_sentences']} | {question[:60]}",
-              flush=True)
+        print(
+            f"{'?' if expected_doc is None else ('✓' if record['expected_doc_cited'] else '✗')} "
+            f"{record['generate_s']:5.1f}s cited {record['cited']} invalid {record['invalid']} "
+            f"misquoted {record['misattributed_quotes']} suspect {record['suspect_sentences']} | {question[:60]}",
+            flush=True,
+        )
 
     with out.open("w") as f:
         for record in records:
             f.write(json.dumps(record, ensure_ascii=False) + "\n")
     answerable = [r for r in records if r["expected_doc"]]
-    print(f"\nexpected paper cited: {sum(r['expected_doc_cited'] for r in answerable)}/{len(answerable)} "
-          f"(in sources: {sum(r['expected_doc_in_sources'] for r in answerable)}/{len(answerable)})")
+    print(
+        f"\nexpected paper cited: {sum(r['expected_doc_cited'] for r in answerable)}/{len(answerable)} "
+        f"(in sources: {sum(r['expected_doc_in_sources'] for r in answerable)}/{len(answerable)})"
+    )
     print(f"answers with any invalid citation: {sum(bool(r['invalid']) for r in records)}/{len(records)}")
     print(f"answers with no citation: {sum(not r['cited'] for r in records)}/{len(records)}")
-    print(f"misattributed quotes: {sum(r['misattributed_quotes'] for r in records)}, "
-          f"suspect cited sentences: {sum(r['suspect_sentences'] for r in records)}")
+    print(
+        f"misattributed quotes: {sum(r['misattributed_quotes'] for r in records)}, "
+        f"suspect cited sentences: {sum(r['suspect_sentences'] for r in records)}"
+    )
     print(f"generation seconds: {', '.join(str(r['generate_s']) for r in records)}")
     total_sentences = sum(r["sentences"] for r in records)
     print(f"cited sentences: {sum(r['cited_sentences'] for r in records)}/{total_sentences}")

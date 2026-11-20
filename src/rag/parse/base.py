@@ -90,8 +90,12 @@ def print_parse_debug(document: ParsedDocument) -> None:
     body_words = sum(len(s.text.split()) for s in document.body_sections)
     print(f"Sections:   {len(document.sections)} ({len(document.body_sections)} body, {body_words} body words)")
     for s in document.sections:
-        pages = sorted({p.page_start for p in s.paragraphs if p.page_start is not None}
-                       | {p.page_end for p in s.paragraphs if p.page_end is not None})
+        pages = sorted(
+            {p.page_start for p in s.paragraphs if p.page_start is not None}
+            | {p.page_end for p in s.paragraphs if p.page_end is not None}
+        )
         page_range = f"p.{pages[0]}-{pages[-1]}" if pages else "p.?"
-        print(f"  {s.ord:>3} L{s.level} {page_range:>8} paras={len(s.paragraphs):>3} "
-              f"words={len(s.text.split()):>5}  {s.path[:80]}")
+        print(
+            f"  {s.ord:>3} L{s.level} {page_range:>8} paras={len(s.paragraphs):>3} "
+            f"words={len(s.text.split()):>5}  {s.path[:80]}"
+        )

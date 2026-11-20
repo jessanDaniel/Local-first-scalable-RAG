@@ -50,9 +50,7 @@ class PyMuPDFParser(Parser):
                         paragraphs.append((text, page_number, page_number))
                 if paragraphs:
                     path = f"Page {page_number}"
-                    sections.append(
-                        Section.from_paragraphs(doc_id, len(sections), path, 1, path, paragraphs)
-                    )
+                    sections.append(Section.from_paragraphs(doc_id, len(sections), path, 1, path, paragraphs))
                 if reached_references:
                     break
 

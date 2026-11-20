@@ -104,8 +104,7 @@ class Section:
         for paragraph in self.paragraphs:
             if not previous_end <= paragraph.char_start < paragraph.char_end <= len(self.text):
                 raise ValueError(
-                    f"paragraph offsets out of order or outside the text in section "
-                    f"{self.section_id}: {paragraph}"
+                    f"paragraph offsets out of order or outside the text in section {self.section_id}: {paragraph}"
                 )
             previous_end = paragraph.char_end
 

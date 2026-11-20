@@ -59,15 +59,21 @@ def print_hits(query: str, hits: list[Hit], searcher: DenseSearcher, explain: bo
     if explain:
         manifest = searcher.index.manifest
         print(f"Query:      {query}")
-        print(f"Embedded:   {searcher.embedder.query_instruction!r} + query  ({searcher.embedder.model_name}, "
-              f"{searcher.embedder.device})")
-        print(f"Index:      {manifest.build_id} ({manifest.index_type}, {manifest.n_chunks} chunks, "
-              f"chunker {manifest.chunker_version})")
+        print(
+            f"Embedded:   {searcher.embedder.query_instruction!r} + query  ({searcher.embedder.model_name}, "
+            f"{searcher.embedder.device})"
+        )
+        print(
+            f"Index:      {manifest.build_id} ({manifest.index_type}, {manifest.n_chunks} chunks, "
+            f"chunker {manifest.chunker_version})"
+        )
         print("Timings:    " + ", ".join(f"{name} {ms:.1f}" for name, ms in searcher.last_timings.items()))
         print()
     for hit in hits:
         c = hit.chunk
-        pages = f"p.{c.page_start}" + (f"-{c.page_end}" if c.page_end != c.page_start else "") if c.page_start else "p.?"
+        pages = (
+            f"p.{c.page_start}" + (f"-{c.page_end}" if c.page_end != c.page_start else "") if c.page_start else "p.?"
+        )
         print(f"{hit.rank:>2}. {hit.score:.4f}  {hit.doc_title[:60]}  ({c.doc_id}, {pages})")
         print(f"    {hit.section_path[:100]}")
         if explain:
@@ -82,13 +88,11 @@ def run(parsed_args) -> int:
     settings = get_settings()
     conn = db.open_db(settings.db_path)
     try:
-        index = load_current(settings.data_dir / "indexes" / "dense", settings.embedding_model,
-                             db.all_chunk_ids(conn))
+        index = load_current(settings.data_dir / "indexes" / "dense", settings.embedding_model, db.all_chunk_ids(conn))
     except StaleIndexError as exc:
         print(exc)
         return 1
-    embedder = Embedder(settings.embedding_model, settings.embedding_query_instruction,
-                        settings.embedding_batch_size)
+    embedder = Embedder(settings.embedding_model, settings.embedding_query_instruction, settings.embedding_batch_size)
     searcher = DenseSearcher(conn, index, embedder)
     hits = searcher.search(parsed_args.query, parsed_args.k)
     print_hits(parsed_args.query, hits, searcher, parsed_args.explain)
@@ -98,7 +102,7 @@ def run(parsed_args) -> int:
 def main() -> int:
     from rag.main import run_module
 
-    return run_module(['search'])
+    return run_module(["search"])
 
 
 if __name__ == "__main__":

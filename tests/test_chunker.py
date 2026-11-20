@@ -36,7 +36,7 @@ def test_every_chunk_is_an_exact_slice_of_its_section():
     chunks = chunker(8).chunk_document(sections)
     by_ord = {s.ord: s for s in sections}
     for chunk in chunks:
-        assert by_ord[chunk.section_ord].text[chunk.char_start:chunk.char_end] == chunk.text
+        assert by_ord[chunk.section_ord].text[chunk.char_start : chunk.char_end] == chunk.text
         assert chunk.n_tokens <= 8
     assert [c.ord for c in chunks] == list(range(len(chunks)))
 

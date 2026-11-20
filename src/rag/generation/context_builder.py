@@ -15,6 +15,7 @@ def build_context(chunks: list[ScoredChunk]) -> str:
     parts = [f"[{chunk.chunk_id}] {chunk.text}" for chunk in chunks]
     return "\n\n".join(parts)
 
+
 def build_prompt(question: str, chunks: list[ScoredChunk]) -> str:
     context = build_context(chunks)
     return PROMPT_TEMPLATE.format(context=context, question=question)

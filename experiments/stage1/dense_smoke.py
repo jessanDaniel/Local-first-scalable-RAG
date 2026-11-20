@@ -29,26 +29,61 @@ OUT = Path(__file__).with_name("dense_smoke.csv")
 
 # (question in our own words, doc_id, accepted section-path prefixes, accepted text phrases)
 QUESTIONS = [
-    ("why divide attention scores by the square root of the dimension",
-     "arxiv:1706.03762", [], ["grow large in magnitude"]),
-    ("correcting moving averages of the gradient that start at zero",
-     "arxiv:1412.6980", ["3 INITIALIZATION BIAS CORRECTION"], ["biased towards zero"]),
-    ("train a small network on the softened outputs of a big model",
-     "arxiv:1503.02531", ["2 Distillation"], ["soft targets"]),
-    ("how to backpropagate through random sampling of a latent variable",
-     "arxiv:1312.6114", ["2 Method > 2.4"], ["reparameterization trick"]),
-    ("why very deep networks get worse and how learning a residual fixes it",
-     "arxiv:1512.03385", ["3 Deep Residual Learning > 3.1"], ["residual mapping", "degradation problem"]),
-    ("generate images by learning to undo noise that was added step by step",
-     "arxiv:2006.11239", [], ["reverse process"]),
-    ("reversing the order of the words in the input sentence helps the LSTM",
-     "arxiv:1409.3215", ["3 Experiments > 3.3"], []),
-    ("two networks trained against each other, one making fakes and one spotting them",
-     "arxiv:1406.2661", ["3 Adversarial nets"], ["minimax"]),
-    ("layer inputs keep changing distribution during training, which slows learning",
-     "arxiv:1502.03167", [], ["internal covariate shift"]),
-    ("predict the surrounding words given the current word",
-     "arxiv:1301.3781", ["3 New Log-linear Models > 3.2"], []),
+    (
+        "why divide attention scores by the square root of the dimension",
+        "arxiv:1706.03762",
+        [],
+        ["grow large in magnitude"],
+    ),
+    (
+        "correcting moving averages of the gradient that start at zero",
+        "arxiv:1412.6980",
+        ["3 INITIALIZATION BIAS CORRECTION"],
+        ["biased towards zero"],
+    ),
+    (
+        "train a small network on the softened outputs of a big model",
+        "arxiv:1503.02531",
+        ["2 Distillation"],
+        ["soft targets"],
+    ),
+    (
+        "how to backpropagate through random sampling of a latent variable",
+        "arxiv:1312.6114",
+        ["2 Method > 2.4"],
+        ["reparameterization trick"],
+    ),
+    (
+        "why very deep networks get worse and how learning a residual fixes it",
+        "arxiv:1512.03385",
+        ["3 Deep Residual Learning > 3.1"],
+        ["residual mapping", "degradation problem"],
+    ),
+    (
+        "generate images by learning to undo noise that was added step by step",
+        "arxiv:2006.11239",
+        [],
+        ["reverse process"],
+    ),
+    (
+        "reversing the order of the words in the input sentence helps the LSTM",
+        "arxiv:1409.3215",
+        ["3 Experiments > 3.3"],
+        [],
+    ),
+    (
+        "two networks trained against each other, one making fakes and one spotting them",
+        "arxiv:1406.2661",
+        ["3 Adversarial nets"],
+        ["minimax"],
+    ),
+    (
+        "layer inputs keep changing distribution during training, which slows learning",
+        "arxiv:1502.03167",
+        [],
+        ["internal covariate shift"],
+    ),
+    ("predict the surrounding words given the current word", "arxiv:1301.3781", ["3 New Log-linear Models > 3.2"], []),
 ]
 
 
@@ -56,8 +91,7 @@ def main() -> None:
     settings = get_settings()
     conn = db.open_db(settings.db_path)
     counter = HFTokenCounter(settings.embedding_model)
-    embedder = Embedder(settings.embedding_model, settings.embedding_query_instruction,
-                        settings.embedding_batch_size)
+    embedder = Embedder(settings.embedding_model, settings.embedding_query_instruction, settings.embedding_batch_size)
 
     rows = []  # (chunk, doc_title, section_path)
     for document in db.list_documents(conn):
@@ -116,12 +150,16 @@ def main() -> None:
 
     print(f"\n{'question':72} {'A':>4} {'B':>4} {'C':>4}")
     for r in results:
-        print(f"{r['question'][:72]:72} {r['A_full_rank']:>4} {r['B_no_instruction_rank']:>4} {r['C_no_header_rank']:>4}")
+        print(
+            f"{r['question'][:72]:72} {r['A_full_rank']:>4} {r['B_no_instruction_rank']:>4} {r['C_no_header_rank']:>4}"
+        )
     for name in variants:
         ranks = [r[f"{name}_rank"] for r in results]
-        print(f"{name:18} rank1 {sum(r == 1 for r in ranks)}/10  top3 {sum(r <= 3 for r in ranks)}/10  "
-              f"top5 {sum(r <= 5 for r in ranks)}/10  mean rank {np.mean(ranks):.1f}  "
-              f"top-1 from right paper {sum(r[f'{name}_top1_doc_ok'] for r in results)}/10")
+        print(
+            f"{name:18} rank1 {sum(r == 1 for r in ranks)}/10  top3 {sum(r <= 3 for r in ranks)}/10  "
+            f"top5 {sum(r <= 5 for r in ranks)}/10  mean rank {np.mean(ranks):.1f}  "
+            f"top-1 from right paper {sum(r[f'{name}_top1_doc_ok'] for r in results)}/10"
+        )
     print(f"\nwrote {OUT}")
 
 

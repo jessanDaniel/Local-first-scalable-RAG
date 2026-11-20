@@ -54,7 +54,7 @@ def run(parsed_args) -> int:
 def main() -> int:
     from rag.main import run_module
 
-    return run_module(['parse'])
+    return run_module(["parse"])
 
 
 if __name__ == "__main__":

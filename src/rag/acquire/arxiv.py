@@ -140,9 +140,7 @@ class ArxivClient:
         for attempt in range(max_retries + 1):
             self._throttle()
             try:
-                response = self.session.get(
-                    url, params=params, timeout=(CONNECT_TIMEOUT_SECONDS, READ_TIMEOUT_SECONDS)
-                )
+                response = self.session.get(url, params=params, timeout=(CONNECT_TIMEOUT_SECONDS, READ_TIMEOUT_SECONDS))
             except requests.RequestException as exc:
                 if attempt == max_retries:
                     raise ArxivError(f"GET {url} failed: {exc}") from exc

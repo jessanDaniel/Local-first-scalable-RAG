@@ -34,8 +34,26 @@ HEADER_RESERVE_TOKENS = 64
 
 SENTENCE_END = re.compile(r"[.!?][\"')\]]*\s+(?=[A-Z0-9(\[\"'])")
 ABBREVIATIONS = {
-    "e.g.", "i.e.", "al.", "fig.", "figs.", "eq.", "eqs.", "sec.", "secs.", "tab.",
-    "vs.", "cf.", "resp.", "approx.", "no.", "ref.", "refs.", "appx.", "ch.", "pp.",
+    "e.g.",
+    "i.e.",
+    "al.",
+    "fig.",
+    "figs.",
+    "eq.",
+    "eqs.",
+    "sec.",
+    "secs.",
+    "tab.",
+    "vs.",
+    "cf.",
+    "resp.",
+    "approx.",
+    "no.",
+    "ref.",
+    "refs.",
+    "appx.",
+    "ch.",
+    "pp.",
 }
 INITIAL = re.compile(r"(?:^|\s)[A-Z]\.$")  # "J. Smith": not a sentence end
 
@@ -180,7 +198,7 @@ def sentence_spans(text: str, start: int, end: int) -> list[tuple[int, int]]:
     sentence_start = start
     for match in SENTENCE_END.finditer(text, start, end):
         sentence_end = match.start() + len(match.group().rstrip())
-        before = text[sentence_start:match.start() + 1]
+        before = text[sentence_start : match.start() + 1]
         last_word = before.split()[-1].lstrip("([\"'").lower() if before.split() else ""
         if last_word in ABBREVIATIONS or INITIAL.search(before):
             continue
@@ -200,8 +218,12 @@ def _chunk_type(section: Section) -> ChunkType:
 
 
 def _pages(section: Section, start: int, end: int) -> tuple[int | None, int | None]:
-    starts = [p.page_start for p in section.paragraphs
-              if p.char_start < end and p.char_end > start and p.page_start is not None]
-    ends = [p.page_end for p in section.paragraphs
-            if p.char_start < end and p.char_end > start and p.page_end is not None]
+    starts = [
+        p.page_start
+        for p in section.paragraphs
+        if p.char_start < end and p.char_end > start and p.page_start is not None
+    ]
+    ends = [
+        p.page_end for p in section.paragraphs if p.char_start < end and p.char_end > start and p.page_end is not None
+    ]
     return (min(starts) if starts else None, max(ends) if ends else None)

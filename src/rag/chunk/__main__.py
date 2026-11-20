@@ -61,11 +61,15 @@ def run(parsed_args) -> int:
         )
     elapsed = time.perf_counter() - start
 
-    print(f"\n{len(documents)} documents, {len(all_tokens)} chunks ({chunker.version}, "
-          f"{settings.embedding_model} tokens) in {elapsed:.1f}s")
+    print(
+        f"\n{len(documents)} documents, {len(all_tokens)} chunks ({chunker.version}, "
+        f"{settings.embedding_model} tokens) in {elapsed:.1f}s"
+    )
     print("types: " + ", ".join(f"{t} {n}" for t, n in types.most_common()))
-    print(f"tokens: median {statistics.median(all_tokens):.0f}, mean {statistics.mean(all_tokens):.0f}, "
-          f"max {max(all_tokens)} (limit {settings.chunk_max_tokens})")
+    print(
+        f"tokens: median {statistics.median(all_tokens):.0f}, mean {statistics.mean(all_tokens):.0f}, "
+        f"max {max(all_tokens)} (limit {settings.chunk_max_tokens})"
+    )
     for low, high in TOKEN_BUCKETS:
         n = sum(low <= t < high for t in all_tokens)
         print(f"  {low:>3}-{high - 1:<3} tokens: {n:5} ({n / len(all_tokens):.0%})")
@@ -76,7 +80,7 @@ def run(parsed_args) -> int:
 def main() -> int:
     from rag.main import run_module
 
-    return run_module(['chunk'])
+    return run_module(["chunk"])
 
 
 if __name__ == "__main__":

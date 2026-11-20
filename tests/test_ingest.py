@@ -17,8 +17,13 @@ DOC = "arxiv:1412.6980"
 
 def make_document() -> Document:
     return Document(
-        doc_id=DOC, source="arxiv", title="Adam", authors=["Kingma", "Ba"],
-        abstract="We introduce Adam.", published=date(2014, 12, 22), source_format="pdf",
+        doc_id=DOC,
+        source="arxiv",
+        title="Adam",
+        authors=["Kingma", "Ba"],
+        abstract="We introduce Adam.",
+        published=date(2014, 12, 22),
+        source_format="pdf",
         metadata={"arxiv_id": "1412.6980", "version": 9},
     )
 
@@ -49,10 +54,7 @@ class FakeParser(Parser):
 
 def good_parse(doc_id: str, title: str = "", authors: list[str] | None = None) -> ParsedDocument:
     words = " ".join(["word"] * 200)
-    sections = [
-        Section.from_paragraphs(doc_id, i, f"{i} S", 1, f"{i} S", [(words, i + 1, i + 1)])
-        for i in range(2)
-    ]
+    sections = [Section.from_paragraphs(doc_id, i, f"{i} S", 1, f"{i} S", [(words, i + 1, i + 1)]) for i in range(2)]
     parsed = ParsedDocument(doc_id, "grobid-test", title, authors or [], "", sections, 2, 5)
     parsed.issues = [] if title else ["no title"]
     return parsed
@@ -94,7 +96,8 @@ def test_grobid_failure_falls_back_to_pymupdf(conn, tmp_path):
 
 def test_both_parsers_failing_marks_failed(conn, tmp_path):
     result = run(
-        conn, tmp_path,
+        conn,
+        tmp_path,
         FakeParser("grobid", error=ParseError("HTTP 500")),
         FakeParser("pymupdf", error=ParseError("no text")),
     )
@@ -128,9 +131,7 @@ def test_pymupdf_reads_pdf_title(tmp_path):
 def ingestor(tmp_path):
     ing = Ingestor(Settings(_env_file=None, data_dir=tmp_path / "data"))
     ing._checked_grobid = True  # no GROBID in tests
-    ing.primary = FakeParser(
-        "grobid", result=lambda doc_id: good_parse(doc_id, "The Perceptron", ["Frank Rosenblatt"])
-    )
+    ing.primary = FakeParser("grobid", result=lambda doc_id: good_parse(doc_id, "The Perceptron", ["Frank Rosenblatt"]))
     yield ing
     ing.close()
 
@@ -179,9 +180,16 @@ def test_reapply_tei_uses_saved_grobid_output(ingestor):
     ingestor.parsed_dir.mkdir(parents=True)
     (ingestor.parsed_dir / "arxiv_1412.6980.tei.xml").write_text(tei)
     db.upsert_document(ingestor.conn, replace(make_document(), parser="grobid-0.8.2", parse_status="ok"))
-    db.upsert_document(ingestor.conn, Document(
-        doc_id="arxiv:2006.11239", source="arxiv", title="DDPM", parser="grobid-0.8.2", parse_status="ok",
-    ))
+    db.upsert_document(
+        ingestor.conn,
+        Document(
+            doc_id="arxiv:2006.11239",
+            source="arxiv",
+            title="DDPM",
+            parser="grobid-0.8.2",
+            parse_status="ok",
+        ),
+    )
 
     by_id = {r.doc_id: r for r in ingestor.reapply_tei()}
     assert by_id[DOC].status == "suspect"  # the fixture is short; only the word-count gate fires

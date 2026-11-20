@@ -23,9 +23,19 @@ class WordCounter:
 
 def chunk(doc_id: str, section_ord: int, ord: int, section_text: str, text: str, page: int) -> Chunk:
     start = section_text.index(text)
-    return Chunk(doc_id=doc_id, section_ord=section_ord, ord=ord, chunk_type="body", text=text,
-                 char_start=start, char_end=start + len(text), n_tokens=len(text.split()),
-                 chunker_version="test", page_start=page, page_end=page)
+    return Chunk(
+        doc_id=doc_id,
+        section_ord=section_ord,
+        ord=ord,
+        chunk_type="body",
+        text=text,
+        char_start=start,
+        char_end=start + len(text),
+        n_tokens=len(text.split()),
+        chunker_version="test",
+        page_start=page,
+        page_end=page,
+    )
 
 
 SENT_A = "We divide each dot product by sqrt dk."
@@ -70,7 +80,10 @@ def test_overlapping_hits_from_one_section_become_one_source():
     other = chunk(ATTN, 1, 2, SECTION_1, SECTION_1, 5)
     sources, dropped = assemble_sources(
         [hit(1, other, "3.2.2 Multi-Head Attention"), hit(2, overlapping), hit(3, first)],
-        texts, WordCounter(), budget_tokens=1000, max_sources=8,
+        texts,
+        WordCounter(),
+        budget_tokens=1000,
+        max_sources=8,
     )
     assert dropped == []
     assert [(s.n, s.section_path, s.best_rank) for s in sources] == [
@@ -105,7 +118,9 @@ def test_source_label_and_links():
 
 
 def test_prompt_contains_numbered_sources_and_question():
-    source = Source(1, ATTN, "Attention Is All You Need", "3.2.1 Scaled", 4, 4, "Divide by sqrt dk.", ["c"], 1, 0.7, None)
+    source = Source(
+        1, ATTN, "Attention Is All You Need", "3.2.1 Scaled", 4, 4, "Divide by sqrt dk.", ["c"], 1, 0.7, None
+    )
     prompt = build_user_prompt("Why scale?", [source])
     assert "[1] Attention Is All You Need — 3.2.1 Scaled (p.4)\nDivide by sqrt dk." in prompt
     assert prompt.endswith("Question: Why scale?")
@@ -143,10 +158,14 @@ class FakeLLM(LLM):
 def conn(tmp_path):
     connection = db.open_db(tmp_path / "rag.db")
     db.upsert_document(connection, Document(doc_id=ATTN, source="arxiv", title="Attention Is All You Need"))
-    db.replace_sections(connection, ATTN, [
-        Section.from_paragraphs(ATTN, 0, "3.2.1", 3, "3.2.1 Scaled Dot-Product Attention", [(SECTION_0, 4, 4)]),
-        Section.from_paragraphs(ATTN, 1, "3.2.2", 3, "3.2.2 Multi-Head Attention", [(SECTION_1, 5, 5)]),
-    ])
+    db.replace_sections(
+        connection,
+        ATTN,
+        [
+            Section.from_paragraphs(ATTN, 0, "3.2.1", 3, "3.2.1 Scaled Dot-Product Attention", [(SECTION_0, 4, 4)]),
+            Section.from_paragraphs(ATTN, 1, "3.2.2", 3, "3.2.2 Multi-Head Attention", [(SECTION_1, 5, 5)]),
+        ],
+    )
     yield connection
     connection.close()
 

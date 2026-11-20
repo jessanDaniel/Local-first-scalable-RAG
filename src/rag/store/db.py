@@ -113,8 +113,7 @@ def init_schema(conn: sqlite3.Connection) -> None:
     current = conn.execute("PRAGMA user_version").fetchone()[0]
     if current > SCHEMA_VERSION:
         raise SchemaVersionError(
-            f"database schema is version {current}, code expects {SCHEMA_VERSION}; "
-            "this code is older than the database"
+            f"database schema is version {current}, code expects {SCHEMA_VERSION}; this code is older than the database"
         )
     missing = [version for version in range(current, SCHEMA_VERSION) if current and version not in MIGRATIONS]
     if missing:
@@ -261,9 +260,16 @@ def replace_sections(conn: sqlite3.Connection, doc_id: str, sections: list[Secti
             """,
             [
                 (
-                    s.section_id, s.doc_id, s.ord, s.heading, s.level, s.path, s.text,
+                    s.section_id,
+                    s.doc_id,
+                    s.ord,
+                    s.heading,
+                    s.level,
+                    s.path,
+                    s.text,
                     json.dumps([[p.char_start, p.char_end, p.page_start, p.page_end] for p in s.paragraphs]),
-                    s.anchor, s.page_start,
+                    s.anchor,
+                    s.page_start,
                 )
                 for s in sections
             ],
@@ -271,9 +277,7 @@ def replace_sections(conn: sqlite3.Connection, doc_id: str, sections: list[Secti
 
 
 def get_sections(conn: sqlite3.Connection, doc_id: str) -> list[Section]:
-    rows = conn.execute(
-        "SELECT * FROM sections WHERE doc_id = ? ORDER BY ord", (doc_id,)
-    ).fetchall()
+    rows = conn.execute("SELECT * FROM sections WHERE doc_id = ? ORDER BY ord", (doc_id,)).fetchall()
     return [
         Section(
             doc_id=row["doc_id"],
@@ -301,9 +305,7 @@ def replace_chunks(conn: sqlite3.Connection, doc_id: str, chunks: list[Chunk]) -
         if chunk.doc_id != doc_id:
             raise ValueError(f"chunk {chunk.chunk_id} does not belong to {doc_id}")
         if chunk.chunk_id in seen:
-            raise ValueError(
-                f"duplicate chunk text in section {chunk.section_id} (chunk_id {chunk.chunk_id})"
-            )
+            raise ValueError(f"duplicate chunk text in section {chunk.section_id} (chunk_id {chunk.chunk_id})")
         seen.add(chunk.chunk_id)
     with conn:
         conn.execute("DELETE FROM chunks WHERE doc_id = ?", (doc_id,))
@@ -316,8 +318,19 @@ def replace_chunks(conn: sqlite3.Connection, doc_id: str, chunks: list[Chunk]) -
             """,
             [
                 (
-                    c.chunk_id, c.doc_id, c.section_id, c.section_ord, c.ord, c.chunk_type, c.text,
-                    c.char_start, c.char_end, c.n_tokens, c.chunker_version, c.page_start, c.page_end,
+                    c.chunk_id,
+                    c.doc_id,
+                    c.section_id,
+                    c.section_ord,
+                    c.ord,
+                    c.chunk_type,
+                    c.text,
+                    c.char_start,
+                    c.char_end,
+                    c.n_tokens,
+                    c.chunker_version,
+                    c.page_start,
+                    c.page_end,
                 )
                 for c in chunks
             ],
@@ -325,9 +338,7 @@ def replace_chunks(conn: sqlite3.Connection, doc_id: str, chunks: list[Chunk]) -
 
 
 def get_chunks(conn: sqlite3.Connection, doc_id: str) -> list[Chunk]:
-    rows = conn.execute(
-        "SELECT * FROM chunks WHERE doc_id = ? ORDER BY ord", (doc_id,)
-    ).fetchall()
+    rows = conn.execute("SELECT * FROM chunks WHERE doc_id = ? ORDER BY ord", (doc_id,)).fetchall()
     return [_chunk_from_row(row) for row in rows]
 
 
@@ -337,9 +348,7 @@ def get_chunks_by_ids(conn: sqlite3.Connection, chunk_ids: list[str]) -> list[Ch
     if not chunk_ids:
         return []
     placeholders = ",".join("?" * len(chunk_ids))
-    rows = conn.execute(
-        f"SELECT * FROM chunks WHERE chunk_id IN ({placeholders})", chunk_ids
-    ).fetchall()
+    rows = conn.execute(f"SELECT * FROM chunks WHERE chunk_id IN ({placeholders})", chunk_ids).fetchall()
     by_id = {row["chunk_id"]: _chunk_from_row(row) for row in rows}
     return [by_id[chunk_id] for chunk_id in chunk_ids if chunk_id in by_id]
 

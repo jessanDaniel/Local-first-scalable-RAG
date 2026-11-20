@@ -1,4 +1,3 @@
-
 """Phase 6 — Manual cosine similarity + Top-K (no vector DB yet)."""
 
 from dataclasses import dataclass
@@ -72,4 +71,3 @@ def print_retrieval_debug(query: str, results: list[ScoredChunk]) -> None:
         preview = r.text if len(r.text) <= 240 else r.text[:240] + "..."
         print(f'"{preview}"')
         print()
-

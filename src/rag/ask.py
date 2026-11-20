@@ -42,8 +42,10 @@ def print_answer(answer: Answer, explain: bool) -> None:
     if not answer.cited_sources:
         print("  (none)")
     c = answer.citations
-    print(f"\nCitation check: {len(c.cited)} valid, {len(c.invalid)} invalid, "
-          f"{c.n_cited_sentences}/{c.n_sentences} sentences cited")
+    print(
+        f"\nCitation check: {len(c.cited)} valid, {len(c.invalid)} invalid, "
+        f"{c.n_cited_sentences}/{c.n_sentences} sentences cited"
+    )
     for warning in answer.warnings:
         print(f"WARNING: {warning}")
 
@@ -53,13 +55,11 @@ def run(parsed_args) -> int:
     settings = get_settings()
     conn = db.open_db(settings.db_path)
     try:
-        index = load_current(settings.data_dir / "indexes" / "dense", settings.embedding_model,
-                             db.all_chunk_ids(conn))
+        index = load_current(settings.data_dir / "indexes" / "dense", settings.embedding_model, db.all_chunk_ids(conn))
     except StaleIndexError as exc:
         print(exc)
         return 1
-    embedder = Embedder(settings.embedding_model, settings.embedding_query_instruction,
-                        settings.embedding_batch_size)
+    embedder = Embedder(settings.embedding_model, settings.embedding_query_instruction, settings.embedding_batch_size)
     answerer = Answerer(
         conn,
         DenseSearcher(conn, index, embedder),
@@ -81,7 +81,7 @@ def run(parsed_args) -> int:
 def main() -> int:
     from rag.main import run_module
 
-    return run_module(['ask'])
+    return run_module(["ask"])
 
 
 if __name__ == "__main__":

@@ -55,7 +55,9 @@ class FakeEmbedder:
 
 
 def test_passage_text_puts_title_and_path_before_the_chunk():
-    text = passage_text("Attention Is All You Need", "5 Training > 5.4 Regularization", "We use dropout.", WordCounter())
+    text = passage_text(
+        "Attention Is All You Need", "5 Training > 5.4 Regularization", "We use dropout.", WordCounter()
+    )
     assert text == "Attention Is All You Need | 5 Training > 5.4 Regularization\nWe use dropout."
 
 
@@ -132,15 +134,24 @@ def conn(tmp_path):
     connection = db.open_db(tmp_path / "rag.db")
     chunker = Chunker(WordCounter(), 60)
     papers = {
-        "arxiv:1": ("Adam", ["Adam keeps moving averages of the gradient and its square.",
-                             "Bias correction fixes averages that start at zero."]),
-        "arxiv:2": ("ResNet", ["Residual connections let very deep networks train.",
-                               "Shortcut connections add the input to the output."]),
+        "arxiv:1": (
+            "Adam",
+            [
+                "Adam keeps moving averages of the gradient and its square.",
+                "Bias correction fixes averages that start at zero.",
+            ],
+        ),
+        "arxiv:2": (
+            "ResNet",
+            ["Residual connections let very deep networks train.", "Shortcut connections add the input to the output."],
+        ),
     }
     for doc_id, (title, paragraphs) in papers.items():
         db.upsert_document(connection, Document(doc_id=doc_id, source="arxiv", title=title, parse_status="ok"))
-        sections = [Section.from_paragraphs(doc_id, i, f"{i + 1} S", 1, f"{i + 1} S", [(p, i + 1, i + 1)])
-                    for i, p in enumerate(paragraphs)]
+        sections = [
+            Section.from_paragraphs(doc_id, i, f"{i + 1} S", 1, f"{i + 1} S", [(p, i + 1, i + 1)])
+            for i, p in enumerate(paragraphs)
+        ]
         db.replace_sections(connection, doc_id, sections)
         db.replace_chunks(connection, doc_id, chunker.chunk_document(sections))
     yield connection

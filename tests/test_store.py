@@ -30,17 +30,28 @@ def make_document(**overrides) -> Document:
 
 def make_section(ord: int = 0, text: str = SECTION_TEXT) -> Section:
     return Section(
-        doc_id=DOC, ord=ord, heading="4 Method", level=1,
-        path="4 Method", text=text, anchor=f"S{ord}",
+        doc_id=DOC,
+        ord=ord,
+        heading="4 Method",
+        level=1,
+        path="4 Method",
+        text=text,
+        anchor=f"S{ord}",
     )
 
 
 def make_chunk(text: str, ord: int = 0, section_ord: int = 0, section_text: str = SECTION_TEXT) -> Chunk:
     start = section_text.index(text)
     return Chunk(
-        doc_id=DOC, section_ord=section_ord, ord=ord, chunk_type="body",
-        text=text, char_start=start, char_end=start + len(text),
-        n_tokens=len(text.split()), chunker_version="test-1",
+        doc_id=DOC,
+        section_ord=section_ord,
+        ord=ord,
+        chunk_type="body",
+        text=text,
+        char_start=start,
+        char_end=start + len(text),
+        n_tokens=len(text.split()),
+        chunker_version="test-1",
     )
 
 
@@ -117,7 +128,7 @@ def test_chunk_offsets_point_into_section_text(conn):
 
     section = db.get_sections(conn, DOC)[0]
     for chunk in db.get_chunks(conn, DOC):
-        assert section.text[chunk.char_start:chunk.char_end] == chunk.text
+        assert section.text[chunk.char_start : chunk.char_end] == chunk.text
 
 
 def test_replace_is_idempotent_and_reparse_drops_chunks(conn):
@@ -187,8 +198,15 @@ def test_chunk_id_depends_on_content_not_position():
 def test_bad_offsets_are_rejected():
     with pytest.raises(ValueError, match="bad offsets"):
         Chunk(
-            doc_id="x", section_ord=0, ord=0, chunk_type="body", text="t",
-            char_start=5, char_end=5, n_tokens=1, chunker_version="test-1",
+            doc_id="x",
+            section_ord=0,
+            ord=0,
+            chunk_type="body",
+            text="t",
+            char_start=5,
+            char_end=5,
+            n_tokens=1,
+            chunker_version="test-1",
         )
 
 
@@ -200,7 +218,11 @@ def test_db_path_follows_data_dir(tmp_path):
 def test_paragraph_spans_round_trip(conn):
     db.upsert_document(conn, make_document())
     section = Section.from_paragraphs(
-        DOC, 0, "4 Method", 1, "4 Method",
+        DOC,
+        0,
+        "4 Method",
+        1,
+        "4 Method",
         [("LoRA freezes the pretrained weights.", 4, 4), ("It trains low-rank matrices A and B.", 4, 5)],
     )
     db.replace_sections(conn, DOC, [section])

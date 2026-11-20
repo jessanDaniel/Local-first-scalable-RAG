@@ -55,8 +55,12 @@ def test_ollama_response_becomes_generation(monkeypatch):
     monkeypatch.setattr(ollama, "post_json", fake_post_json)
     result = create_llm(make_settings()).generate("hello", system="be brief")
     assert result == Generation(
-        text="hi", provider="ollama", model="qwen2.5:7b-instruct",
-        elapsed_seconds=result.elapsed_seconds, prompt_tokens=12, completion_tokens=3,
+        text="hi",
+        provider="ollama",
+        model="qwen2.5:7b-instruct",
+        elapsed_seconds=result.elapsed_seconds,
+        prompt_tokens=12,
+        completion_tokens=3,
     )
     assert result.total_tokens == 15
 
