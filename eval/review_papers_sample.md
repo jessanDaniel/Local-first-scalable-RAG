@@ -29,16 +29,16 @@ the 400 paper chunks. Mark each line **keep / rewrite / reject** (or edit
 
 | # | id | Rank | Overlap | Decision |
 |---|---|---|---|---|
-| 1 | ddpm_reverse | >20 | 0.14 || rewrite (applied) |
-| 2 | resnet_degradation | 10 | 0.50 || keep |
-| 3 | s2s_bleu | >20 | 0.82 || keep |
-| 4 | resnet_ensemble_error | >20 | 0.67 || keep |
-| 5 | bn_learning_rate | 13 | 0.83 || keep |
-| 6 | adam_name | 13 | 0.67 || keep |
-| 7 | kd_soft_targets | 1 | 0.43 || rewrite (applied) |
-| 8 | gan_nonsaturating | 3 | 0.71 || keep |
-| 9 | vae_kl_term | 4 | 0.45 || keep |
-| 10 | none_alexnet_optimizer | — | — || keep |
+| 1 | ddpm_reverse | >20 | 0.14 | rewrite (applied) |
+| 2 | resnet_degradation | 10 | 0.50 | keep |
+| 3 | s2s_bleu | >20 | 0.82 | keep |
+| 4 | resnet_ensemble_error | >20 | 0.67 | keep |
+| 5 | bn_learning_rate | 13 | 0.83 | keep |
+| 6 | adam_name | 13 | 0.67 | keep |
+| 7 | kd_soft_targets | 1 | 0.43 | rewrite (applied) |
+| 8 | gan_nonsaturating | 3 | 0.71 | keep |
+| 9 | vae_kl_term | 4 | 0.45 | keep |
+| 10 | none_alexnet_optimizer | — | — | keep |
 
 ---
 
