@@ -29,16 +29,16 @@ for el in root.iter():
         for box in c.split(";"):
             pages.add(int(box.split(",")[0]))
 print("PAGES with coords:", min(pages), "-", max(pages))
-print(
-    f"BODY: {len(divs)} sections, {len(body.findall('.//t:p', NS))} paragraphs, {sum(len(txt(p).split()) for p in body.findall('.//t:p', NS))} words"
-)
+paragraphs = body.findall(".//t:p", NS)
+words = sum(len(txt(p).split()) for p in paragraphs)
+print(f"BODY: {len(divs)} sections, {len(paragraphs)} paragraphs, {words} words")
 for d in divs:
     h = d.find("t:head", NS)
     ps = d.findall("t:p", NS)
     pg = sorted({int(b.split(",")[0]) for p in ps if p.get("coords") for b in p.get("coords").split(";")})
-    print(
-        f"  [{(h.get('n') if h is not None else '') or '-':>5}] {txt(h)[:55] if h is not None else '(no head)':55} paras={len(ps):2} pages={pg[:1]}..{pg[-1:]}"
-    )
+    number = (h.get("n") if h is not None else "") or "-"
+    heading = txt(h)[:55] if h is not None else "(no head)"
+    print(f"  [{number:>5}] {heading:55} paras={len(ps):2} pages={pg[:1]}..{pg[-1:]}")
 figs = root.findall(".//t:figure", NS)
 print(
     "FIGURES/TABLES:",

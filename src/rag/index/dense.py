@@ -49,7 +49,7 @@ class DenseIndex:
             raise ValueError(f"k must be >= 1, got {k}")
         query = np.ascontiguousarray(query_vector, dtype=np.float32).reshape(1, -1)
         scores, rows = self.index.search(query, min(k, self.index.ntotal))
-        return [(self.chunk_ids[row], float(score)) for row, score in zip(rows[0], scores[0]) if row >= 0]
+        return [(self.chunk_ids[row], float(score)) for row, score in zip(rows[0], scores[0], strict=True) if row >= 0]
 
     def save(self, build_dir: Path) -> None:
         build_dir.mkdir(parents=True, exist_ok=False)  # a build is never overwritten

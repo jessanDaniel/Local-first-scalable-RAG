@@ -161,8 +161,14 @@ load their code lazily (`--help` 0.7 s, `status` 0.3 s, no torch/FAISS). `rag st
 counts, index current/stale, GROBID/LLM up or down, and the next command. `python -m rag.<x>`
 still works. End-to-end run in a scratch data dir passed. Found: titles of `ingest files` PDFs
 come out wrong (arXiv licence line / venue banner); fix with the second-corpus step. Notes:
-`experiments/stage1/cli_step9.md`. 139 tests. Next: step 10 (ruff config, pytest, pre-commit),
-then collections + second corpus (§0.1). Do not start Phase 16.
+`experiments/stage1/cli_step9.md`. 139 tests. Step 10 done (no pre-commit hook: the user
+has not decided which repository this goes to; add one later): ruff in `pyproject.toml` (E, F,
+W, I, B, UP; line length 120; `experiments/learning/` excluded; prompt files exempt from E501
+because wrapping would change the prompt), one mechanical format commit listed in
+`.git-blame-ignore-revs`, `zip(..., strict=True)` where lengths must match. Run
+`scripts/check.sh` (lint + format check + offline tests, ~2 s; `--fix` applies safe fixes)
+before every commit. Stage 1 is complete. Next: collections + second corpus (§0.1 items 2–3),
+including the wrong-title fix for `ingest files` PDFs. Do not start Phase 16.
 
 ### Phase 7 close-out (2026-09-20)
 

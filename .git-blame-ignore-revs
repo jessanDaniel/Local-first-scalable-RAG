@@ -1,0 +1,5 @@
+# Mechanical commits that git blame should skip:
+#   git config blame.ignoreRevsFile .git-blame-ignore-revs
+
+# ruff format + safe fixes (Stage 1 step 10)
+98d1db7ae5e8f93ba6f829a54de48dd33d31f16b

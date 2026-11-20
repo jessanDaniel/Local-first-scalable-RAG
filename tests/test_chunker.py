@@ -21,7 +21,9 @@ def words(n: int, word: str = "w") -> str:
 
 def section(ord: int, path: str, paragraphs: list[str], pages: list[int] | None = None) -> Section:
     pages = pages or [1] * len(paragraphs)
-    return Section.from_paragraphs(DOC, ord, path, 1, path, [(p, pg, pg) for p, pg in zip(paragraphs, pages)])
+    return Section.from_paragraphs(
+        DOC, ord, path, 1, path, [(p, pg, pg) for p, pg in zip(paragraphs, pages, strict=True)]
+    )
 
 
 def chunker(max_tokens: int = 10) -> Chunker:

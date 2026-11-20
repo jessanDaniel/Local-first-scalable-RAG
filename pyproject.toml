@@ -46,5 +46,12 @@ extend-exclude = ["experiments/learning"]
 # pyflakes + pycodestyle errors/warnings, import order, bugbear (likely bugs), pyupgrade.
 select = ["E", "F", "W", "I", "B", "UP"]
 
+[tool.ruff.lint.per-file-ignores]
+# Long lines here are inside prompt strings: wrapping them would change the text sent to the model
+# (answer_smoke.py asserts its copy equals the shipped prompt).
+"src/rag/answer/prompt.py" = ["E501"]
+"experiments/stage1/answer_smoke.py" = ["E501"]
+"src/rag/generation/context_builder.py" = ["E501"]
+
 [tool.ruff.lint.isort]
 known-first-party = ["rag"]

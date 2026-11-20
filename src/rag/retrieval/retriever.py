@@ -32,7 +32,7 @@ class Retriever:
         distances = results["distances"][0]
         scored: list[ScoredChunk] = []
 
-        for rank, (chunk_id, text, meta, distance) in enumerate(zip(ids, docs, metas, distances), start=1):
+        for rank, (chunk_id, text, meta, distance) in enumerate(zip(ids, docs, metas, distances, strict=True), start=1):
             scored.append(
                 ScoredChunk(
                     chunk_id=chunk_id,

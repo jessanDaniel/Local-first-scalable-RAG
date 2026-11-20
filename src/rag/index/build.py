@@ -36,7 +36,7 @@ class EmbeddingCache:
         self.vectors: dict[str, np.ndarray] = {}
         if path.exists():
             data = np.load(path)
-            self.vectors = dict(zip(data["keys"].tolist(), data["vectors"]))
+            self.vectors = dict(zip(data["keys"].tolist(), data["vectors"], strict=True))
 
     @staticmethod
     def key(model_name: str, text: str) -> str:
@@ -85,7 +85,7 @@ def build_dense_index(
     embed_start = time.perf_counter()
     if missing:
         vectors = embedder.embed_passages([rows[i][1] for i in missing])
-        for i, vector in zip(missing, vectors):
+        for i, vector in zip(missing, vectors, strict=True):
             cache.vectors[keys[i]] = vector
         cache.save()
     embed_seconds = time.perf_counter() - embed_start

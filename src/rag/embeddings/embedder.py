@@ -28,4 +28,4 @@ class Embedder:
         texts = [chunk.text for chunk in chunks]
         vectors = self.embed_texts(texts)
 
-        return [EmbeddedChunk(chunk=chunk, embedding=vector) for chunk, vector in zip(chunks, vectors)]
+        return [EmbeddedChunk(chunk=chunk, embedding=vector) for chunk, vector in zip(chunks, vectors, strict=True)]
