@@ -206,9 +206,14 @@ BM25-only cases but breaks vae_reparam (1 → >20) and makes new rank-1 errors.
 `retrieval_mode` stays hybrid; `rerank_model` = bge for opt-in. Notes:
 `experiments/stage2/rerank_step15.md`. Stage 2 (on the current corpus) is done.
 **2026-11-22: the user chose the full path. The ordered roadmap with "done when" criteria is
-`docs/production_plan.md` §0.2 (steps 15b–32).** Next: step 15b — `RERANK=off|fused|replace`
-switch (off never loads the model) + reranker as a third RRF list, judged by the decision rule in
-§0.2. Pitch first. Do not start Phase 16.
+`docs/production_plan.md` §0.2 (steps 15b–32).** Step 15b done: `RERANK` (search/eval, default
+off) and `ASK_RERANK` (ask, default **fused**) = off|fused|replace, `--rerank` on every command;
+off never imports the reranker; `RerankingSearcher(base, strategy)` wraps any retriever; fused =
+reranker as a third RRF vote. Papers fused Hit@1 26/40, Hit@5 35, MRR 0.755 (hybrid 22/33/0.675,
+replace 22/37/0.695); all four decision-rule checks passed. CLI `rag ask` pays ~8 s per call to
+load bge (`--rerank off` is the fast path; the Stage 3 server loads once). Notes:
+`experiments/stage2/rerank_fused_step15b.md`. Next: step 16, answer-level eval — pitch first.
+Do not start Phase 16.
 
 ### Phase 7 close-out (2026-09-20)
 

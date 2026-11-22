@@ -55,7 +55,7 @@ def run_eval(args) -> int:
         print(f"{len(broken)} quotes have no chunk: run `rag eval check --set {args.set}` first")
         return 1
     try:
-        searcher = make_searcher(conn, args.retriever or settings.retrieval_mode)
+        searcher = make_searcher(conn, args.retriever or settings.retrieval_mode, args.rerank or settings.rerank)
     except StaleIndexError as exc:
         print(exc)
         return 1
@@ -65,7 +65,9 @@ def run_eval(args) -> int:
     searcher.search("warm-up query, not scored", 5)  # load models and caches before anything is timed
     rows = score_questions(searcher, questions, gold, not args.no_filter, gold_texts)
 
-    config = {"retriever": searcher.mode, **retriever_config(searcher, conn)}
+    base = searcher.base if searcher.mode == "rerank" else searcher
+    rerank = searcher.strategy if searcher.mode == "rerank" else "off"
+    config = {"retriever": base.mode, "rerank": rerank, **retriever_config(searcher, conn)}
     config |= {
         "collection_filter": not args.no_filter,
         "k": max(len(r["ranked"]) for r in rows),
@@ -86,9 +88,10 @@ def retriever_config(searcher, conn) -> dict:
     """What a run must record to be reproduced: the index and every setting that shapes the ranking."""
     if searcher.mode == "rerank":
         r = searcher.reranker
+        base = retriever_config(searcher.base, conn)
         return {
-            **retriever_config(searcher.hybrid, conn),
-            "index_type": f"{retriever_config(searcher.hybrid, conn)['index_type']} + cross-encoder",
+            **base,
+            "index_type": f"{base['index_type']} + cross-encoder ({searcher.strategy})",
             "rerank_model": r.model_name,
             "rerank_device": r.device,
             "rerank_candidates": searcher.candidates,

@@ -66,10 +66,17 @@ class Settings(BaseSettings):
     # Answering: how many hits to retrieve, how many sources at most, and the token budget for
     # the sources block of the prompt.
     # Retrieval: which retriever `rag ask` uses, and the hybrid settings (Stage 2 step 14).
-    retrieval_mode: Literal["hybrid", "rerank", "dense", "bm25"] = "hybrid"
+    retrieval_mode: Literal["hybrid", "dense", "bm25"] = "hybrid"
     hybrid_candidates: int = Field(default=100, ge=1)  # each retriever's list size before fusion
     rrf_k: int = Field(default=60, ge=0)  # Reciprocal Rank Fusion constant (Cormack et al. 2009)
-    # Cross-encoder reranking (Stage 2 step 15), opt-in with --mode rerank: hybrid's top
+    # Reranking on top of the retriever (step 15b): off | fused (the reranker votes in RRF) |
+    # replace (its order is final). "off" never loads the model. Override per command with --rerank.
+    rerank: Literal["off", "fused", "replace"] = "off"  # default for rag search and rag eval
+    # `rag ask` adds generation (6-13 s), so the reranker's ~1.8 s is a small share there. Fused won
+    # the step-15b decision rule (papers Hit@1 26 vs 22, MRR 0.755 vs 0.675;
+    # experiments/stage2/rerank_fused_step15b.md).
+    ask_rerank: Literal["off", "fused", "replace"] = "fused"
+    # Cross-encoder reranking (Stage 2 step 15): the retriever's top
     # `rerank_candidates` are rescored and the best `rerank_keep` kept. Both models were approved by the
     # user; bge measured better than ms-marco-MiniLM-L-6-v2 (papers Hit@5 37 vs 34, MRR 0.695 vs 0.661)
     # but costs ~1.8 s per query, so retrieval_mode stays hybrid (experiments/stage2/rerank_step15.md).

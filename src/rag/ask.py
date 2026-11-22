@@ -1,8 +1,11 @@
 """Ask a question; get an answer with checked citations.
 
-    rag ask "why do transformers divide attention scores by sqrt(d_k)?" [--mode hybrid|rerank|dense|bm25] [--explain]
+    rag ask "why do transformers divide attention scores by sqrt(d_k)?" [--mode hybrid|dense|bm25]
+            [--rerank off|fused|replace] [--explain]
 
-Retrieval uses the RETRIEVAL_MODE setting (hybrid by default) unless --mode says otherwise.
+Retrieval uses the RETRIEVAL_MODE setting (hybrid by default) unless --mode says otherwise, and
+the ASK_RERANK setting (fused by default) unless --rerank says otherwise; --rerank off skips the
+reranker entirely (its model is not even loaded).
 
 --explain prints every stage: retrieved chunks, how they became numbered sources,
 the exact prompt sent, model, token counts, timings, and each citation's check.
@@ -58,7 +61,7 @@ def run(parsed_args) -> int:
     conn = db.open_db(settings.db_path)
     mode = parsed_args.mode or settings.retrieval_mode
     try:
-        searcher = make_searcher(conn, mode)
+        searcher = make_searcher(conn, mode, parsed_args.rerank or settings.ask_rerank)
     except StaleIndexError as exc:
         print(exc)
         return 1
@@ -79,7 +82,8 @@ def run(parsed_args) -> int:
     except KeyError as exc:  # unknown collection
         print(f"error: {exc.args[0]}")
         return 1
-    print_answer(answer, parsed_args.explain, mode, getattr(searcher, "last_ranks", None))
+    label = mode if searcher.mode != "rerank" else f"{mode} + rerank {searcher.strategy}"
+    print_answer(answer, parsed_args.explain, label, getattr(searcher, "last_ranks", None))
     if getattr(searcher, "last_fallback", None):
         print(f"WARNING: {searcher.last_fallback}")
     return 0

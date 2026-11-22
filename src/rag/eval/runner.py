@@ -186,20 +186,23 @@ def print_run(run: dict) -> None:
     s, c = run["summary"], run["config"]
     print(f"run {run['run_id']}")
     retriever = c.get("retriever", "dense")
+    rerank = c.get("rerank", "replace" if retriever == "rerank" else "off")  # runs before 15b: "rerank" = replace
+    if retriever == "rerank":
+        retriever = "hybrid"
     print(
         f"  {retriever}: index {c['index_build']} ({c['index_type']}, {c['n_chunks']} chunks), "
         f"chunker {c['chunker_version']}, filter {'on' if c['collection_filter'] else 'off'}, commit {c['git_commit']}"
     )
-    if retriever in ("dense", "hybrid", "rerank"):
+    if retriever in ("dense", "hybrid"):
         print(f"  {c['embedding_model']}, query instruction: {c['query_instruction']!r}")
-    if retriever in ("bm25", "hybrid", "rerank"):
+    if retriever in ("bm25", "hybrid"):
         print(f"  BM25 k1={c['bm25_k1']}, b={c['bm25_b']}, tokenizer {c['tokenizer']}")
-    if retriever in ("hybrid", "rerank"):
+    if retriever == "hybrid":
         print(f"  RRF k={c['rrf_k']}, {c['hybrid_candidates']} candidates from each retriever")
-    if retriever == "rerank":
+    if rerank != "off":
         print(
-            f"  reranker {c['rerank_model']} on {c['rerank_device']}: "
-            f"fused top {c['rerank_candidates']} -> best {c['rerank_keep']}"
+            f"  rerank {rerank}: {c['rerank_model']} on {c['rerank_device']}, "
+            f"top {c['rerank_candidates']} candidates -> best {c['rerank_keep']}"
         )
     overall = s["overall"]
     print(f"\n  answerable questions: {overall['n']}")
@@ -219,7 +222,7 @@ def print_run(run: dict) -> None:
             f"  search latency per question: p50 {lat['p50']:.0f} ms, p95 {lat['p95']:.0f} ms, max {lat['max']:.0f} ms"
         )
     if s.get("fallbacks"):
-        print(f"  WARNING: reranker fell back to the fused order on {s['fallbacks']} questions")
+        print(f"  WARNING: reranker fell back to the base order on {s['fallbacks']} questions")
     if s["no_gold"]:
         print(f"  WARNING: no gold chunk found for {', '.join(s['no_gold'])} (run `rag eval check`)")
     misses = [q for q in run["questions"] if q["answerable"] and (q["first_rank"] or 99) > 5]

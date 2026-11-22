@@ -317,24 +317,64 @@ class FakeReranker:
         return [float(text.lower().count("residual")) for _, text in passages]
 
 
-def reranking(conn, tmp_path, reranker, keep=20, timeout=5.0):
+def reranking(conn, tmp_path, reranker, keep=20, timeout=5.0, strategy="replace"):
     from rag.search import BM25Searcher, HybridSearcher, RerankingSearcher
 
     embedder, _ = build(conn, tmp_path)
     dense = DenseSearcher(conn, load_current(tmp_path / "indexes", embedder.model_name, conn), embedder)
     hybrid = HybridSearcher(conn, dense, BM25Searcher.from_db(conn), candidates=10, rrf_k=60)
-    return RerankingSearcher(conn, hybrid, reranker, candidates=10, keep=keep, timeout_seconds=timeout)
+    return RerankingSearcher(
+        conn, hybrid, reranker, candidates=10, keep=keep, timeout_seconds=timeout, strategy=strategy
+    )
 
 
-def test_reranker_reorders_the_fused_candidates(conn, tmp_path):
-    searcher = reranking(conn, tmp_path, FakeReranker())
+def test_replace_makes_the_reranker_order_final(conn, tmp_path):
+    searcher = reranking(conn, tmp_path, FakeReranker(), strategy="replace")
     hits = searcher.search("bias correction averages zero", k=4)
     assert "residual" in hits[0].chunk.text.lower()  # the fake reranker's favourite wins
     assert hits[0].score == 1.0 and searcher.last_fallback is None
     ranks = searcher.last_ranks[hits[0].chunk.chunk_id]
-    assert set(ranks) == {"dense", "bm25", "fused", "rerank"} and ranks["rerank"] == 1
-    assert ranks["fused"] > 1  # it was not first before reranking
+    assert list(ranks) == ["dense", "bm25", "fused", "rerank", "final"]
+    assert ranks["rerank"] == ranks["final"] == 1 and ranks["fused"] > 1
     assert "rerank_ms" in searcher.last_timings
+
+
+def test_fused_lets_two_agreeing_lists_outvote_the_reranker(conn, tmp_path):
+    query = "bias correction averages zero"
+    searcher = reranking(conn, tmp_path, FakeReranker(), strategy="fused")
+    hits = searcher.search(query, k=4)
+    top = searcher.last_ranks[hits[0].chunk.chunk_id]
+    # dense and BM25 both put the bias-correction chunk first; the reranker prefers a "residual" one
+    assert "bias correction" in hits[0].chunk.text.lower()
+    assert top["dense"] == top["bm25"] == 1 and top["rerank"] > 1
+    assert hits[0].score == pytest.approx(1 / 61 + 1 / 61 + 1 / (60 + top["rerank"]))
+
+    # The final order is exactly RRF over the three recorded ranks.
+    def fused(chunk_id):
+        r = searcher.last_ranks[chunk_id]
+        return sum(1 / (60 + r[name]) for name in ("dense", "bm25", "rerank") if r[name] is not None)
+
+    scores = [fused(h.chunk.chunk_id) for h in hits]
+    assert scores == sorted(scores, reverse=True)
+    assert [h.score for h in hits] == pytest.approx(scores)
+
+
+def test_rerank_off_never_loads_the_model(conn, tmp_path, monkeypatch):
+    import rag.rerank
+    from rag.search import BM25Searcher, make_searcher
+
+    def refuse(*args, **kwargs):
+        raise AssertionError("the reranker model must not be loaded when RERANK is off")
+
+    monkeypatch.setattr(rag.rerank, "Reranker", refuse)
+    assert isinstance(make_searcher(conn, "bm25", "off"), BM25Searcher)
+    with pytest.raises(AssertionError, match="must not be loaded"):
+        make_searcher(conn, "bm25", "fused")  # proves the guard above is the real code path
+
+
+def test_unknown_rerank_strategy_is_refused(conn, tmp_path):
+    with pytest.raises(ValueError, match="fused or replace"):
+        reranking(conn, tmp_path, FakeReranker(), strategy="sideways")
 
 
 def test_keep_limits_the_results(conn, tmp_path):

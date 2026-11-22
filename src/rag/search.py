@@ -1,6 +1,7 @@
 """Search the indexed chunks, dense or BM25, with an explain view.
 
-    rag search "why divide attention scores by sqrt d_k" [-k 5] [--mode hybrid|rerank|dense|bm25] [--explain]
+    rag search "why divide attention scores by sqrt d_k" [-k 5] [--mode hybrid|dense|bm25]
+               [--rerank off|fused|replace] [--explain]
 
 Retrieval only: no prompt, no LLM. Each hit carries the chunk plus what a
 citation needs (document title, section path, pages, source link).
@@ -160,63 +161,105 @@ class HybridSearcher:
 
 
 class RerankingSearcher:
-    """Hybrid's top `candidates` -> cross-encoder scores every (question, chunk) pair -> the best
-    `keep` (or k, if smaller) by that score. Hit.score is the reranker's raw score.
+    """A base retriever's top `candidates` -> cross-encoder scores every (question, chunk) pair ->
+    the best `keep` (or k, if smaller). Two strategies:
 
-    If the reranker raises or runs past `timeout_seconds`, the fused order is used instead and
+        replace  the reranker's order is final (Hit.score = raw reranker score)
+        fused    the reranker's order is one more vote: RRF over the base's own lists (dense and
+                 BM25 for hybrid) plus the reranker's (Hit.score = the fused RRF score). A wrong
+                 reranker call is outvoted when the other lists agree; a right one still lifts.
+
+    If the reranker raises or runs past `timeout_seconds`, the base order is used and
     `last_fallback` says why: an answer is still produced, just without reranking."""
 
     mode = "rerank"
 
-    def __init__(self, conn, hybrid: HybridSearcher, reranker, candidates: int, keep: int, timeout_seconds: float):
+    def __init__(
+        self,
+        conn,
+        base,
+        reranker,
+        candidates: int,
+        keep: int,
+        timeout_seconds: float,
+        strategy: str = "fused",
+        rrf_k: int = 60,
+    ):
         from concurrent.futures import ThreadPoolExecutor
 
+        if strategy not in ("fused", "replace"):
+            raise ValueError(f"rerank strategy must be fused or replace, not {strategy!r}")
         self.conn = conn
-        self.hybrid = hybrid
+        self.base = base
         self.reranker = reranker
         self.candidates = candidates
         self.keep = keep
         self.timeout_seconds = timeout_seconds
+        self.strategy = strategy
+        self.rrf_k = rrf_k
         self.executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="rerank")
         self.last_timings: dict[str, float] = {}
         self.last_ranks: dict[str, dict[str, int | None]] = {}
         self.last_fallback: str | None = None
 
+    def base_ranks(self, candidates: list[str]) -> dict[str, dict[str, int | None]]:
+        """Each candidate's ranks in the base's own lists. Hybrid records dense, BM25 and fused
+        ranks; a single retriever only has its own order."""
+        own = getattr(self.base, "last_ranks", None)
+        if self.base.mode == "hybrid" and own:
+            return {c: {**own[c], "fused": i} for i, c in enumerate(candidates, start=1)}
+        return {c: {self.base.mode: i} for i, c in enumerate(candidates, start=1)}
+
     def search(self, query: str, k: int = 5, collections: list[str] | None = None) -> list[Hit]:
         from concurrent.futures import TimeoutError as FutureTimeout
 
+        from rag.fusion import rrf
+
         allowed = db.chunk_ids_in_collections(self.conn, collections) if collections else None
-        fused = self.hybrid.rank(query, self.candidates, allowed)
-        passages = db.passages(self.conn, [chunk_id for chunk_id, _ in fused])
+        base_ranked = self.base.rank(query, self.candidates, allowed)
+        candidates = [chunk_id for chunk_id, _ in base_ranked]
+        ranks = self.base_ranks(candidates)
+        passages = db.passages(self.conn, candidates)
         rerank_start = time.perf_counter()
         self.last_fallback = None
         try:
             future = self.executor.submit(
                 self.reranker.score,
                 query,
-                [(f"{passages[c][0]} | {passages[c][1]}", passages[c][2]) for c, _ in fused],
+                [(f"{passages[c][0]} | {passages[c][1]}", passages[c][2]) for c in candidates],
             )
             scores = future.result(timeout=self.timeout_seconds)
         except FutureTimeout:
-            self.last_fallback = f"reranker took over {self.timeout_seconds:g} s: fused order used"
+            self.last_fallback = f"reranker took over {self.timeout_seconds:g} s: base order used"
         except Exception as exc:  # a broken reranker must not break search
-            self.last_fallback = f"reranker failed ({type(exc).__name__}: {exc}): fused order used"
+            self.last_fallback = f"reranker failed ({type(exc).__name__}: {exc}): base order used"
         rerank_ms = (time.perf_counter() - rerank_start) * 1000
 
-        fused_rank = {chunk_id: i for i, (chunk_id, _) in enumerate(fused, start=1)}
+        limit = min(k, self.keep)
         if self.last_fallback:
-            ranked = fused[: min(k, self.keep)]
+            final = base_ranked[:limit]
         else:
-            order = sorted(zip(fused, scores, strict=True), key=lambda x: (-x[1], fused_rank[x[0][0]]))
-            ranked = [(chunk_id, score) for (chunk_id, _), score in order[: min(k, self.keep)]]
-        self.last_ranks = {
-            chunk_id: {**self.hybrid.last_ranks[chunk_id], "fused": fused_rank[chunk_id], "rerank": i}
-            for i, (chunk_id, _) in enumerate(ranked, start=1)
-        }
+            position = {c: i for i, c in enumerate(candidates)}
+            by_reranker = sorted(zip(candidates, scores, strict=True), key=lambda x: (-x[1], position[x[0]]))
+            for i, (chunk_id, _) in enumerate(by_reranker, start=1):
+                ranks[chunk_id]["rerank"] = i
+            if self.strategy == "replace":
+                final = by_reranker[:limit]
+            else:
+                lists = {
+                    name: sorted((c for c in candidates if ranks[c].get(name)), key=lambda c: ranks[c][name])
+                    for name in ("dense", "bm25")
+                    if any(ranks[c].get(name) for c in candidates)
+                }
+                if not lists:  # a single base retriever: its own order is the other vote
+                    lists = {self.base.mode: candidates}
+                lists["rerank"] = [c for c, _ in by_reranker]
+                final = [(f.chunk_id, f.score) for f in rrf(lists, self.rrf_k)[:limit]]
+        self.last_ranks = {chunk_id: {**ranks[chunk_id], "final": i} for i, (chunk_id, _) in enumerate(final, start=1)}
         fetch_start = time.perf_counter()
-        hits = make_hits(self.conn, ranked)
+        hits = make_hits(self.conn, final)
         self.last_timings = {
-            **self.hybrid.last_timings,
+            **self.base.last_timings,
             "rerank_ms": rerank_ms,
             "fetch_ms": (time.perf_counter() - fetch_start) * 1000,
         }
@@ -241,7 +284,8 @@ def print_hits(query: str, hits: list[Hit], searcher, explain: bool) -> None:
                 f"Index:      {manifest.build_id} ({manifest.index_type}, {manifest.n_chunks} chunks, "
                 f"chunker {manifest.chunker_version})"
             )
-        hybrid = {"hybrid": searcher, "rerank": getattr(searcher, "hybrid", None)}.get(searcher.mode)
+        base = searcher.base if searcher.mode == "rerank" else searcher
+        hybrid = base if base.mode == "hybrid" else None
         if hybrid is not None:
             print(
                 f"Fusion:     RRF k={hybrid.rrf_k} over dense top {hybrid.candidates} + BM25 top "
@@ -249,16 +293,21 @@ def print_hits(query: str, hits: list[Hit], searcher, explain: bool) -> None:
             )
         if searcher.mode == "rerank":
             r = searcher.reranker
+            score = (
+                "raw cross-encoder logit"
+                if searcher.strategy == "replace"
+                else f"RRF k={searcher.rrf_k} with the reranker as a vote"
+            )
             print(
-                f"Rerank:     {r.model_name} on {r.device}, fused top {searcher.candidates} -> best {searcher.keep}; "
-                f"score = raw cross-encoder logit; pairs over {r.max_tokens} tokens: {r.last_truncated}"
+                f"Rerank:     {searcher.strategy}: {r.model_name} on {r.device}, {base.mode} top {searcher.candidates} "
+                f"-> best {searcher.keep}; score = {score}; pairs over {r.max_tokens} tokens: {r.last_truncated}"
             )
             if searcher.last_fallback:
                 print(f"FALLBACK:   {searcher.last_fallback}")
-        if searcher.mode in ("bm25", "hybrid", "rerank"):
+        bm25 = base if base.mode == "bm25" else (hybrid.bm25 if hybrid is not None else None)
+        if bm25 is not None:
             from rag.index.tokenize import TOKENIZER_VERSION, query_terms
 
-            bm25 = searcher if searcher.mode == "bm25" else hybrid.bm25
             index = bm25.index
             print(f"Terms:      {', '.join(query_terms(query)) or '(none)'}")
             print(
@@ -279,7 +328,7 @@ def print_hits(query: str, hits: list[Hit], searcher, explain: bool) -> None:
             if searcher.mode in ("hybrid", "rerank"):
                 print(f"    {describe_ranks(searcher.last_ranks[c.chunk_id])}")
             if searcher.mode == "bm25":
-                parts = [p for p in searcher.index.explain(query, c.chunk_id) if p.tf]
+                parts = [p for p in searcher.index.explain(query, c.chunk_id) if p.tf]  # per-term BM25
                 print("    " + "  ".join(f"{p.term}: tf {p.tf} × idf {p.idf:.2f} → {p.score:.2f}" for p in parts))
             text = " ".join(c.text.split())
             print(f"    [{c.chunk_type}, {c.n_tokens} tokens, {c.chunk_id}]")
@@ -287,28 +336,32 @@ def print_hits(query: str, hits: list[Hit], searcher, explain: bool) -> None:
             print()
 
 
-def make_searcher(conn, mode: str):
-    """The searcher for a mode. Dense needs a CURRENT index (raises StaleIndexError) and loads the
-    embedding model; BM25 builds its index from SQLite and loads nothing else."""
+def make_searcher(conn, mode: str, rerank: str = "off"):
+    """The searcher for a retrieval mode, optionally wrapped by a reranker.
+
+    Dense needs a CURRENT index (raises StaleIndexError) and loads the embedding model; BM25
+    builds its index from SQLite and loads nothing else. With rerank="off" the reranker module
+    is never imported: no model load, no ~1 GB of memory."""
+    if rerank != "off":
+        from rag.rerank import Reranker
+
+        settings = get_settings()
+        return RerankingSearcher(
+            conn,
+            make_searcher(conn, mode),
+            Reranker(settings.rerank_model, settings.rerank_batch_size),
+            settings.rerank_candidates,
+            settings.rerank_keep,
+            settings.rerank_timeout_seconds,
+            strategy=rerank,
+            rrf_k=settings.rrf_k,
+        )
     if mode == "bm25":
         return BM25Searcher.from_db(conn)
     if mode == "hybrid":
         settings = get_settings()
         dense = make_searcher(conn, "dense")
         return HybridSearcher(conn, dense, BM25Searcher.from_db(conn), settings.hybrid_candidates, settings.rrf_k)
-    if mode == "rerank":
-        from rag.rerank import Reranker
-
-        settings = get_settings()
-        reranker = Reranker(settings.rerank_model, settings.rerank_batch_size)
-        return RerankingSearcher(
-            conn,
-            make_searcher(conn, "hybrid"),
-            reranker,
-            settings.rerank_candidates,
-            settings.rerank_keep,
-            settings.rerank_timeout_seconds,
-        )
     from rag.embed.embedder import Embedder
     from rag.index.dense import load_current
 
@@ -324,7 +377,9 @@ def run(parsed_args) -> int:
     settings = get_settings()
     conn = db.open_db(settings.db_path)
     try:
-        searcher = make_searcher(conn, parsed_args.mode or settings.retrieval_mode)
+        searcher = make_searcher(
+            conn, parsed_args.mode or settings.retrieval_mode, parsed_args.rerank or settings.rerank
+        )
     except StaleIndexError as exc:
         print(exc)
         return 1

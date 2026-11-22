@@ -41,6 +41,8 @@ from tests.test_dense import FakeEmbedder, WordCounter
             {"collections": ["papers", "hr-demo"]},
         ),
         (["ask", "why?", "--collection", "papers"], "rag.ask:run", {"question": "why?", "collections": ["papers"]}),
+        (["ask", "why?", "--rerank", "fused"], "rag.ask:run", {"rerank": "fused", "mode": None}),
+        (["search", "q", "--mode", "bm25", "--rerank", "off"], "rag.search:run", {"mode": "bm25", "rerank": "off"}),
     ],
 )
 def test_every_command_parses_to_its_handler(argv, handler, expected):
