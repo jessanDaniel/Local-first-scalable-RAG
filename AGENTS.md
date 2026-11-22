@@ -204,8 +204,11 @@ timeout/exception → fused order), `--mode rerank`, eval latency p50/p95. Paper
 MRR 0.695 but Hit@1 22 (same as hybrid), 1.8 s/query; MiniLM no gain, 0.3 s. bge fixes the
 BM25-only cases but breaks vae_reparam (1 → >20) and makes new rank-1 errors.
 `retrieval_mode` stays hybrid; `rerank_model` = bge for opt-in. Notes:
-`experiments/stage2/rerank_step15.md`. Stage 2 (on the current corpus) is done. Next: discuss
-with the user (Stage 3 API + UI, or more Stage 2 work) — pitch first. Do not start Phase 16.
+`experiments/stage2/rerank_step15.md`. Stage 2 (on the current corpus) is done.
+**2026-11-22: the user chose the full path. The ordered roadmap with "done when" criteria is
+`docs/production_plan.md` §0.2 (steps 15b–32).** Next: step 15b — `RERANK=off|fused|replace`
+switch (off never loads the model) + reranker as a third RRF list, judged by the decision rule in
+§0.2. Pitch first. Do not start Phase 16.
 
 ### Phase 7 close-out (2026-09-20)
 

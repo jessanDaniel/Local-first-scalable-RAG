@@ -69,6 +69,35 @@ not the scope. Changes that follow from this, in order:
 Order from here: step 9 (CLI) → step 10 (tooling) → collections + second corpus → eval v0 →
 Stage 2 → Stage 3 (API + UI) → Stage 4 → Stage 5.
 
+### 0.2 Roadmap to completion (decided 2026-11-22: the full path, not a cut-down v1)
+
+Done by 2026-11-20: Stage 1 (steps 1–10), step 11, eval v0, Stage 2 steps 13–15 on the
+current corpus. What remains, in order. Every step is pitched first. Anything new (a dependency,
+a model, a service) is asked about before it is added.
+
+| # | Step | Done when |
+|---|---|---|
+| 15b | Reranker switch + fused reranking: `RERANK=off\|fused\|replace`, `--rerank` on ask/search/eval; "off" never loads the model; reranker as a third RRF list | Eval against hybrid and replace. Fused becomes the `ask` default only if papers Hit@1 ≥ 22, MRR ≥ 0.675, vae_reparam in the top 5, and hr-demo stays 24/24; otherwise ask stays on hybrid |
+| 16 | Answer-level eval: labels for generated answers (correct, complete, refusal right/wrong) + an automatic citation-support check (does the cited source contain the claim?), each question run more than once | `rag eval answers` with a baseline; also decides the reranker for `ask` on answer quality |
+| 17 | Guardrails: refuse when the sources can't answer (not a raw score threshold; step 15 showed scores overlap); retrieved text treated as untrusted (prompt-injection test documents) | Refusal rate on unanswerable questions measured; injection tests pass |
+| 18 | Regression gate: `scripts/check.sh` runs a fast retrieval eval and fails on a drop beyond a set tolerance | A deliberately worse config fails the check |
+| 19 | API (FastAPI): `/search`, `/ask` (streaming), `/collections`, `/health` (from `rag status`), request ids, models loaded once | Endpoints tested; the same answers as the CLI |
+| 20 | Observability: one structured log record per request (stage timings, candidates, scores, tokens, model, rerank on/off, fallbacks); metrics per stage | A request can be explained from its log alone |
+| 21–22 | Web UI, served by the same process: ask with streaming, clickable citations opening the PDF page, the per-stage trace, the reranker toggle with its time cost, collections, eval runs | Usable end to end in a browser |
+| 23 | Grow the corpus (~200 papers, then as far as the Mac allows) + new baselines | Eval rerun; the cost of distractors measured |
+| 24 | Incremental ingest + index rebuilds without downtime | Adding papers doesn't require a full rebuild by hand |
+| 25 | Index benchmark: flat vs HNSW vs SQ8 vs IVF-PQ (+ rescoring), plus one vector-database row; real corpus + synthetic vectors at 1M+ | Memory / p95 / recall-vs-exact table; the index type chosen by the numbers |
+| 26 | Reranker comparison at scale (hybrid / fused / replace) | Default rechecked with the larger corpus |
+| 27 | Load test: concurrent `/search` p50/p95/p99; `/ask` separately | Numbers in the README |
+| 28 | Native service: `launchd`, start/stop, logs, keep Ollama and GROBID optional | Survives a reboot |
+| 29 | Access: API keys, rate limits, collection-level access enforced in every index | Tests prove a key can't read another collection |
+| 30 | Upload: PDF/txt/md into a private collection through the API and UI | An uploaded file is answerable within a minute |
+| 31 | README: architecture, design decisions, every measured result | Readable by someone who has never seen the repo |
+| 32 | Knowledge test (AGENTS.md §9, adapted to the production system): the user answers unaided | Done when the user can explain every stage |
+
+Rough size: ~18 steps. At the pace so far that's 5–7 working sessions; the UI and access steps
+may take longer.
+
 ---
 
 ## 1. What I found in the current code
