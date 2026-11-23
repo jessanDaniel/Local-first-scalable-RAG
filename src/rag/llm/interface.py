@@ -20,6 +20,11 @@ class Generation:
     elapsed_seconds: float
     prompt_tokens: int | None
     completion_tokens: int | None
+    # Where the time went, when the provider reports it (Ollama does): reading the prompt
+    # (prefill) vs writing the answer (decode), and loading the model if it was not in memory.
+    prompt_seconds: float | None = None
+    write_seconds: float | None = None
+    load_seconds: float | None = None
 
     @property
     def total_tokens(self) -> int | None:

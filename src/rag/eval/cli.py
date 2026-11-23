@@ -7,6 +7,7 @@ rag eval list
 """
 
 import sys
+from pathlib import Path
 
 from rag.config import get_settings
 from rag.eval.sets import load_set, resolve_gold, set_path
@@ -156,8 +157,124 @@ def list_all(args) -> int:
     return 0
 
 
+def answers_dir():
+    return get_settings().data_dir / "eval" / "answers"
+
+
+def answers(args) -> int:
+    """Run `rag ask` on every question of a set, `--runs` times, with automatic checks."""
+    import hashlib
+
+    from rag.answer.answerer import Answerer
+    from rag.chunk.tokens import HFTokenCounter
+    from rag.eval.answers import print_answer_summary, run_answers, save_answer_run
+    from rag.eval.runner import git_commit
+    from rag.eval.sets import file_sha1
+    from rag.index.current import StaleIndexError
+    from rag.llm.factory import create_llm
+    from rag.search import make_searcher
+    from rag.status import probe_ollama
+
+    settings = get_settings()
+    if settings.llm_provider == "ollama":
+        state = probe_ollama(settings.ollama_base_url, settings.ollama_model)
+        if state != "running":
+            print(f"Ollama: {state}. Start it first (brew services start ollama); nothing was run.")
+            return 1
+    path = set_path(args.set)
+    questions = load_set(path)
+    conn = db.open_db(settings.db_path)
+    gold, checks = resolve_gold(conn, questions)
+    if any(c.status in ("split", "missing") for c in checks):
+        print(f"some quotes have no chunk: run `rag eval check --set {args.set}` first")
+        return 1
+    retriever = args.retriever or settings.retrieval_mode
+    rerank = args.rerank or settings.ask_rerank
+    try:
+        searcher = make_searcher(conn, retriever, rerank)
+    except StaleIndexError as exc:
+        print(exc)
+        return 1
+    llm = create_llm(settings)
+    answerer = Answerer(
+        conn,
+        searcher,
+        llm,
+        HFTokenCounter(settings.llm_tokenizer),
+        settings.ask_retrieve_k,
+        settings.ask_max_sources,
+        settings.ask_context_tokens,
+    )
+    print("warming up (models load once) ...", flush=True)
+    answerer.ask("warm-up question, not scored", [questions[0].collection])
+    records = run_answers(answerer, questions, gold, args.runs, progress=lambda line: print(line, flush=True))
+    config = {
+        "llm": f"{llm.provider} {llm.model}",
+        "temperature": settings.llm_temperature,
+        "context_window": llm.context_window,
+        "max_answer_tokens": llm.max_tokens,
+        "system_prompt_sha1": hashlib.sha1(answerer.system_prompt.encode()).hexdigest()[:12],
+        "retriever": retriever,
+        "rerank": rerank,
+        "rerank_model": settings.rerank_model if rerank != "off" else None,
+        "retrieve_k": settings.ask_retrieve_k,
+        "max_sources": settings.ask_max_sources,
+        "context_tokens": settings.ask_context_tokens,
+        "runs": args.runs,
+        "set_file": path.name,
+        "set_sha1": file_sha1(path),
+        "git_commit": git_commit(),
+    }
+    run = save_answer_run(path.stem, config, records, answers_dir(), args.label)
+    print()
+    print_answer_summary(run)
+    print(f"\nsaved {answers_dir() / (run['run_id'] + '.json')}")
+    return 0
+
+
+def sheet(args) -> int:
+    """Write a labeling sheet: a varied sample of answers from one or more answer runs."""
+    from rag.eval.labels import write_sheet
+    from rag.eval.runner import load_run
+
+    runs = [load_run(ref, answers_dir()) for ref in args.runs]
+    per_run = {}
+    for spec in args.per_set:
+        name, _, count = spec.partition("=")
+        per_run[name] = int(count)
+    out = Path(args.out)
+    n = write_sheet(runs, per_run, out)
+    print(f"wrote {n} entries to {out}")
+    return 0
+
+
+def labels(args) -> int:
+    """Read a filled sheet and report how well the automatic checks agree with the labels."""
+    import json
+
+    from rag.eval.labels import agreement_report, parse_sheet
+
+    found, problems = parse_sheet(Path(args.sheet).read_text())
+    for problem in problems:
+        print(f"PROBLEM: {problem}")
+    runs = {}
+    for label in found:
+        if label["run_id"] not in runs:
+            runs[label["run_id"]] = json.loads((answers_dir() / f"{label['run_id']}.json").read_text())
+    print("\n".join(agreement_report(found, runs)))
+    return 1 if problems else 0
+
+
 def run(args) -> int:
-    actions = {"check": check, "run": run_eval, "compare": compare, "list": list_all}
+    actions = {
+        "check": check,
+        "run": run_eval,
+        "compare": compare,
+        "list": list_all,
+        "answers": answers,
+        "sheet": sheet,
+        "labels": labels,
+    }
     try:
         return actions[args.action](args)
     except (ValueError, FileNotFoundError) as exc:

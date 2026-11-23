@@ -6,6 +6,11 @@ from rag.llm.http import post_json
 from rag.llm.interface import LLM, Generation, LLMError, chat_messages
 
 
+def nanoseconds(value) -> float | None:
+    """Ollama reports durations in nanoseconds."""
+    return value / 1e9 if isinstance(value, int | float) else None
+
+
 class OllamaLLM(LLM):
     provider = "ollama"
 
@@ -58,4 +63,7 @@ class OllamaLLM(LLM):
             elapsed_seconds=elapsed,
             prompt_tokens=data.get("prompt_eval_count"),
             completion_tokens=data.get("eval_count"),
+            prompt_seconds=nanoseconds(data.get("prompt_eval_duration")),
+            write_seconds=nanoseconds(data.get("eval_duration")),
+            load_seconds=nanoseconds(data.get("load_duration")),
         )
