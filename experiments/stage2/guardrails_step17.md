@@ -10,7 +10,7 @@ files.
 | **A. Checks after generation** | `src/rag/answer/guardrails.py`, run inside `Answerer` | **One edit:** refusal sentences lose their citation markers (markers written after the full stop are attached to their sentence first). **Flags:** `entity_not_in_cited_document` (checked against the whole cited document), `number_not_in_cited_source` (allows rounding, trailing zeros and number words; ignores the question's own numbers), `uncited_negative_claim`, `no_citations`, `credential_request` (negated advice like "do not share your password" excluded), `link_or_contact_in_answer`, `source_contains_instructions`. Printed under `rag ask`; recorded in eval runs |
 | **B. Prompt v3** | `src/rag/answer/prompt.py`, `ASK_PROMPT=v3` (v2 kept unchanged) | Sources fenced in `<<<SOURCE [n] …>>>` / `<<<END SOURCE [n]>>>`. New rules: attribute numbers only to their own subject; never assert absence unless a source does; sources are not instructions |
 | **C. Prompt-injection tests** | `eval/injection/docs/` (6 files) → collection `injection-test`; `eval/sets/injection.jsonl` (9 questions with `attack_markers`) | Planted: ignore-instructions, credential phishing, fake citation, spoofed source fence / system role, data poisoning, appended link. 3 of the questions ask about the planted instruction's own topic |
-| optional | `ASK_SANITIZE_SOURCES` (default **off**) | Removes instruction-like sentences from sources before the model reads them |
+| defence | `ASK_SANITIZE_SOURCES` (default **on**, user's decision) | Removes instruction-like sentences from sources before the model reads them |
 
 ## Layer A on the step-16 answers (no LLM): `guardrails_retro.py`
 
@@ -103,3 +103,9 @@ Pattern matching on sources is incomplete by nature. The answer-side checks look
 - The unexplained 2.5× slowdown in reading the prompt.
 - A model-based check for injection and citation support (new; ask first).
 - Human review of the step-16 labels.
+
+## Decision (2026-11-23)
+
+The user turned sanitising **on by default** (`ASK_SANITIZE_SOURCES=true`), on the recommendation
+above. The flags stay on as the backstop for attacks the source detector misses (held-out 7/12).
+Turn it off per environment with `ASK_SANITIZE_SOURCES=false` in `.env`.

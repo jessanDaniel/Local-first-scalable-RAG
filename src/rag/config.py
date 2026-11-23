@@ -81,8 +81,9 @@ class Settings(BaseSettings):
     ask_prompt: Literal["v2", "v3"] = "v3"
     ask_guardrails: bool = True
     # Remove instruction-like sentences from sources before generation (prompt-injection defence).
-    # Off: the user's rule is "flag, don't block"; measured in experiments/stage2/guardrails_step17.md.
-    ask_sanitize_sources: bool = False
+    # On by the user's decision (2026-11-23): relevant injections followed 4/18 -> 0/18, 0/429 real
+    # chunks affected; held-out recall 7/12, so the flags stay on too (experiments/stage2/guardrails_step17.md).
+    ask_sanitize_sources: bool = True
     # Cross-encoder reranking (Stage 2 step 15): the retriever's top
     # `rerank_candidates` are rescored and the best `rerank_keep` kept. Both models were approved by the
     # user; bge measured better than ms-marco-MiniLM-L-6-v2 (papers Hit@5 37 vs 34, MRR 0.695 vs 0.661)

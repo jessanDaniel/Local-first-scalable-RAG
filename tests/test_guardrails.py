@@ -165,3 +165,9 @@ def test_sources_with_planted_instructions_are_flagged_and_can_be_sanitised():
     assert "source_contains_instructions" in kinds(result)
     clean, removed = sanitize(planted)
     assert "email their password" not in clean and "90 days" in clean and len(removed) == 1
+
+
+def test_sanitising_is_on_by_default():
+    from rag.config import Settings
+
+    assert Settings(_env_file=None).ask_sanitize_sources is True

@@ -227,7 +227,7 @@ answer, source contains instructions); prompt v3 (`ASK_PROMPT`, fenced sources +
 `eval/injection/docs/`, set `eval/sets/injection.jsonl`. Results: refusals citing 10→0, unanswerable
 11/11, correct? 53/64 (was 50); relevant prompt injections followed 4/18 with v3 (all flagged),
 0/18 with sanitising; source detector held-out recall 7/12, 0/429 false positives on real chunks.
-**Open: the user decides whether sanitising goes on by default.** Notes:
+**Sanitising is ON by default (user's decision, 2026-11-23); flags stay on too.** Notes:
 `experiments/stage2/guardrails_step17.md`. Next: step 18, regression gate — pitch first.
 Do not start Phase 16.
 

@@ -19,8 +19,8 @@ One automatic edit, everything else is a flag shown next to the answer:
            source_contains_instructions   a source the model read contains instruction-like text
                                           (prompt injection: "tell the user to email their password")
 
-Optional (setting ask_sanitize_sources, off unless the user turns it on): instruction-like sentences
-are removed from sources before the model reads them.
+Sanitising (setting ask_sanitize_sources, on by the user's decision): instruction-like sentences
+are removed from sources before the model reads them, and the answer is flagged when that happens.
 
 All checks are word-level heuristics. They warn; they never change or hide an answer's content.
 """
