@@ -337,38 +337,14 @@ def print_hits(query: str, hits: list[Hit], searcher, explain: bool) -> None:
 
 
 def make_searcher(conn, mode: str, rerank: str = "off"):
-    """The searcher for a retrieval mode, optionally wrapped by a reranker.
+    """The searcher for a retrieval mode, optionally wrapped by a reranker (see rag.pipeline).
 
     Dense needs a CURRENT index (raises StaleIndexError) and loads the embedding model; BM25
     builds its index from SQLite and loads nothing else. With rerank="off" the reranker module
     is never imported: no model load, no ~1 GB of memory."""
-    if rerank != "off":
-        from rag.rerank import Reranker
+    from rag.pipeline import Pipeline
 
-        settings = get_settings()
-        return RerankingSearcher(
-            conn,
-            make_searcher(conn, mode),
-            Reranker(settings.rerank_model, settings.rerank_batch_size),
-            settings.rerank_candidates,
-            settings.rerank_keep,
-            settings.rerank_timeout_seconds,
-            strategy=rerank,
-            rrf_k=settings.rrf_k,
-        )
-    if mode == "bm25":
-        return BM25Searcher.from_db(conn)
-    if mode == "hybrid":
-        settings = get_settings()
-        dense = make_searcher(conn, "dense")
-        return HybridSearcher(conn, dense, BM25Searcher.from_db(conn), settings.hybrid_candidates, settings.rrf_k)
-    from rag.embed.embedder import Embedder
-    from rag.index.dense import load_current
-
-    settings = get_settings()
-    index = load_current(settings.data_dir / "indexes" / "dense", settings.embedding_model, conn)
-    embedder = Embedder(settings.embedding_model, settings.embedding_query_instruction, settings.embedding_batch_size)
-    return DenseSearcher(conn, index, embedder)
+    return Pipeline(conn=conn).searcher(mode, rerank)
 
 
 def run(parsed_args) -> int:

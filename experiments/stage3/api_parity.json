@@ -1,0 +1,131 @@
+{
+ "when": "2026-11-23T17:16:30",
+ "k": 10,
+ "server_load_seconds": 17.827247499953955,
+ "search": [
+  {
+   "rerank": "off",
+   "questions": 84,
+   "identical": 84,
+   "different": []
+  },
+  {
+   "rerank": "fused",
+   "questions": 20,
+   "identical": 20,
+   "different": []
+  }
+ ],
+ "ask": [
+  {
+   "id": "adam_bias_correction",
+   "prompt_identical": true,
+   "system_identical": true,
+   "sources_identical": true,
+   "answer_identical": true,
+   "flags_api": [],
+   "flags_cli": [],
+   "api_text": "The initialization bias of moving averages starting at zero can be corrected. For the second moment estimate, the correction term is (1 - β²ᵗ), where β² is the decay rate. This correction is applied to counteract the bias introduced by initializing the moving average with zeros, especially when the decay rate is close to 1 [2][3].",
+   "cli_text": "The initialization bias of moving averages starting at zero can be corrected. For the second moment estimate, the correction term is (1 - β²ᵗ), where β² is the decay rate. This correction is applied to counteract the bias introduced by initializing the moving average with zeros, especially when the decay rate is close to 1 [2][3]."
+  },
+  {
+   "id": "adam_name",
+   "prompt_identical": true,
+   "system_identical": true,
+   "sources_identical": true,
+   "answer_identical": true,
+   "flags_api": [],
+   "flags_cli": [],
+   "api_text": "The name Adam stands for adaptive moment estimation [1][2].",
+   "cli_text": "The name Adam stands for adaptive moment estimation [1][2]."
+  },
+  {
+   "id": "adam_adamax_bound",
+   "prompt_identical": true,
+   "system_identical": true,
+   "sources_identical": true,
+   "answer_identical": true,
+   "flags_api": [],
+   "flags_cli": [],
+   "api_text": "AdaMax gives a simpler bound on the size of each parameter update, namely |∆ t | ≤ α [2].",
+   "cli_text": "AdaMax gives a simpler bound on the size of each parameter update, namely |∆ t | ≤ α [2]."
+  },
+  {
+   "id": "adam_adamax_defaults",
+   "prompt_identical": true,
+   "system_identical": true,
+   "sources_identical": true,
+   "answer_identical": true,
+   "flags_api": [],
+   "flags_cli": [],
+   "api_text": "The default step size α suggested for AdaMax is 0.002, as stated in source [1] [1].",
+   "cli_text": "The default step size α suggested for AdaMax is 0.002, as stated in source [1] [1]."
+  },
+  {
+   "id": "w2v_skipgram",
+   "prompt_identical": true,
+   "system_identical": true,
+   "sources_identical": true,
+   "answer_identical": true,
+   "flags_api": [],
+   "flags_cli": [],
+   "api_text": "The Skip-gram model predicts surrounding words given the current word [2][1]. Specifically, it uses each current word as an input to a log-linear classifier and predicts words within a certain range before and after the current word. The range is set by the parameter C, which determines the maximum distance of the words to be considered [2].",
+   "cli_text": "The Skip-gram model predicts surrounding words given the current word [2][1]. Specifically, it uses each current word as an input to a log-linear classifier and predicts words within a certain range before and after the current word. The range is set by the parameter C, which determines the maximum distance of the words to be considered [2]."
+  },
+  {
+   "id": "w2v_king_queen",
+   "prompt_identical": true,
+   "system_identical": true,
+   "sources_identical": true,
+   "answer_identical": true,
+   "flags_api": [],
+   "flags_cli": [],
+   "api_text": "Queen [1][2]",
+   "cli_text": "Queen [1][2]"
+  },
+  {
+   "id": "w2v_cbow",
+   "prompt_identical": true,
+   "system_identical": true,
+   "sources_identical": true,
+   "answer_identical": true,
+   "flags_api": [],
+   "flags_cli": [],
+   "api_text": "The first of the two new architectures differs from a feedforward neural net language model (NNLM) in that it directly learns continuous word vector representations in the first step, without constructing the full NNLM. Specifically, it uses a neural network with a single hidden layer to learn word vectors, which are then used to train the NNLM in the second step. This approach simplifies the training process and potentially allows for more efficient training on larger datasets [4][5].",
+   "cli_text": "The first of the two new architectures differs from a feedforward neural net language model (NNLM) in that it directly learns continuous word vector representations in the first step, without constructing the full NNLM. Specifically, it uses a neural network with a single hidden layer to learn word vectors, which are then used to train the NNLM in the second step. This approach simplifies the training process and potentially allows for more efficient training on larger datasets [4][5]."
+  },
+  {
+   "id": "policy_refund_window",
+   "prompt_identical": true,
+   "system_identical": true,
+   "sources_identical": true,
+   "answer_identical": true,
+   "flags_api": [],
+   "flags_cli": [],
+   "api_text": "According to the Acme Corp Customer Policy Handbook, customers may request a full refund within 30 days of purchase [1].",
+   "cli_text": "According to the Acme Corp Customer Policy Handbook, customers may request a full refund within 30 days of purchase [1]."
+  },
+  {
+   "id": "policy_refund_processing",
+   "prompt_identical": true,
+   "system_identical": true,
+   "sources_identical": true,
+   "answer_identical": true,
+   "flags_api": [],
+   "flags_cli": [],
+   "api_text": "Refunds are processed within 5-7 business days [1].",
+   "cli_text": "Refunds are processed within 5-7 business days [1]."
+  },
+  {
+   "id": "policy_exchange_window",
+   "prompt_identical": true,
+   "system_identical": true,
+   "sources_identical": true,
+   "answer_identical": false,
+   "flags_api": [],
+   "flags_cli": [],
+   "api_text": "According to the Acme Corp Customer Policy Handbook, exchanges are permitted within 45 days of purchase for items of equal or lesser value [1].",
+   "cli_text": "According to the Acme Corp Customer Policy Handbook, exchanges are permitted within 45 days of purchase [1]."
+  }
+ ]
+}

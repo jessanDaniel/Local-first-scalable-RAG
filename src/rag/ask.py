@@ -13,14 +13,12 @@ the exact prompt sent, model, token counts, timings, and each citation's check.
 
 import sys
 
-from rag.answer.answerer import Answer, Answerer, ContextWindowError
-from rag.chunk.tokens import HFTokenCounter
+from rag.answer.answerer import Answer, ContextWindowError
 from rag.config import get_settings
 from rag.index.current import StaleIndexError
-from rag.llm.factory import create_llm
 from rag.llm.interface import LLMError
-from rag.search import describe_ranks, make_searcher
-from rag.store import db
+from rag.pipeline import Pipeline
+from rag.search import describe_ranks
 
 RULE = "=" * 78
 
@@ -62,25 +60,14 @@ def print_answer(answer: Answer, explain: bool, mode: str = "dense", ranks: dict
 def run(parsed_args) -> int:
 
     settings = get_settings()
-    conn = db.open_db(settings.db_path)
+    pipeline = Pipeline(settings)
     mode = parsed_args.mode or settings.retrieval_mode
     try:
-        searcher = make_searcher(conn, mode, parsed_args.rerank or settings.ask_rerank)
+        answerer = pipeline.answerer(mode, parsed_args.rerank or settings.ask_rerank)
     except StaleIndexError as exc:
         print(exc)
         return 1
-    answerer = Answerer(
-        conn,
-        searcher,
-        create_llm(settings),
-        HFTokenCounter(settings.llm_tokenizer),
-        settings.ask_retrieve_k,
-        settings.ask_max_sources,
-        settings.ask_context_tokens,
-        prompt_version=settings.ask_prompt,
-        guardrails=settings.ask_guardrails,
-        sanitize_sources=settings.ask_sanitize_sources,
-    )
+    searcher = answerer.searcher
     try:
         answer = answerer.ask(parsed_args.question, parsed_args.collections)
     except (ContextWindowError, LLMError) as exc:
@@ -90,9 +77,9 @@ def run(parsed_args) -> int:
         print(f"error: {exc.args[0]}")
         return 1
     label = mode if searcher.mode != "rerank" else f"{mode} + rerank {searcher.strategy}"
-    print_answer(answer, parsed_args.explain, label, getattr(searcher, "last_ranks", None))
-    if getattr(searcher, "last_fallback", None):
-        print(f"WARNING: {searcher.last_fallback}")
+    print_answer(answer, parsed_args.explain, label, answer.ranks)
+    if answer.retrieval_fallback:
+        print(f"WARNING: {answer.retrieval_fallback}")
     return 0
 
 

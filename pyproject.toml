@@ -6,11 +6,13 @@ requires-python = ">=3.12"
 dependencies = [
     "chromadb>=1.5.9",
     "faiss-cpu>=1.16.0",
+    "fastapi>=0.165.0",
     "pydantic-settings>=2.15.0",
     "pymupdf>=2.1",
     "python-dotenv>=1.2.3",
     "requests>=2.34.2",
     "sentence-transformers>=6.0.1",
+    "uvicorn>=0.52.4",
 ]
 
 [dependency-groups]
@@ -34,7 +36,11 @@ packages = ["src/rag"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 # PyMuPDF's SWIG bindings warn on import; not actionable here.
-filterwarnings = ["ignore:builtin type .* has no __module__ attribute:DeprecationWarning"]
+# Starlette's TestClient asks for httpx2 (a new dependency, not added); httpx still works.
+filterwarnings = [
+    "ignore:builtin type .* has no __module__ attribute:DeprecationWarning",
+    "ignore:Using `httpx` with `starlette.testclient` is deprecated",
+]
 
 [tool.ruff]
 line-length = 120

@@ -5,11 +5,16 @@ their own modules; rag.llm.factory picks one from Settings.
 """
 
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from dataclasses import dataclass
 
 
 class LLMError(RuntimeError):
     """A provider call failed after retries, or returned an unusable response."""
+
+
+class GenerationCancelled(Exception):
+    """Raised by an on_token callback to stop a streaming generation (e.g. the client left)."""
 
 
 @dataclass(frozen=True)
@@ -42,6 +47,14 @@ class LLM(ABC):
     @abstractmethod
     def generate(self, prompt: str, system: str | None = None) -> Generation:
         raise NotImplementedError
+
+    def generate_stream(self, prompt: str, system: str | None, on_token: Callable[[str], None]) -> Generation:
+        """Like generate, but on_token receives the answer piece by piece as the model writes it.
+        Returns the same Generation at the end. Providers without streaming send the whole text
+        as one piece, so callers never need to know which kind they have."""
+        generation = self.generate(prompt, system)
+        on_token(generation.text)
+        return generation
 
 
 def chat_messages(prompt: str, system: str | None) -> list[dict]:

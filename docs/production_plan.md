@@ -81,7 +81,7 @@ a model, a service) is asked about before it is added.
 | ~~16~~ ✅ | Answer-level eval: labels for generated answers (correct, complete, refusal right/wrong) + an automatic citation-support check (does the cited source contain the claim?), each question run more than once | `rag eval answers` with a baseline; also decides the reranker for `ask` on answer quality |
 | ~~17~~ ✅ | Guardrails: refuse when the sources can't answer (not a raw score threshold; step 15 showed scores overlap); retrieved text treated as untrusted (prompt-injection test documents) | Refusal rate on unanswerable questions measured; injection tests pass |
 | ~~18~~ ✅ | Regression gate: `scripts/check.sh` runs a fast retrieval eval and fails on a drop beyond a set tolerance | A deliberately worse config fails the check |
-| 19 | API (FastAPI): `/search`, `/ask` (streaming), `/collections`, `/health` (from `rag status`), request ids, models loaded once | Endpoints tested; the same answers as the CLI |
+| ~~19~~ ✅ | API (FastAPI): `/search`, `/ask` (streaming), `/collections`, `/health` (from `rag status`), request ids, models loaded once | Endpoints tested; the same answers as the CLI |
 | 20 | Observability: one structured log record per request (stage timings, candidates, scores, tokens, model, rerank on/off, fallbacks); metrics per stage | A request can be explained from its log alone |
 | 21–22 | Web UI, served by the same process: ask with streaming, clickable citations opening the PDF page, the per-stage trace, the reranker toggle with its time cost, collections, eval runs | Usable end to end in a browser |
 | 23 | Grow the corpus (~200 papers, then as far as the Mac allows) + new baselines | Eval rerun; the cost of distractors measured |

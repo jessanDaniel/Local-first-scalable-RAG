@@ -234,8 +234,20 @@ answer, source contains instructions); prompt v3 (`ASK_PROMPT`, fenced sources +
 any question leaving the top 5, or any flag change fails. Intended changes: `rag eval gate --update
 "reason"` (keeps a history). `scripts/check.sh` runs it (~15 s total; `--fast` skips). **Run
 scripts/check.sh before every commit; if the gate fails on purpose, update the baseline with a
-reason in the same commit.** Notes: `experiments/stage2/gate_step18.md`. Next: Stage 3, step 19
-(API) — pitch first. Do not start Phase 16.
+reason in the same commit.** Notes: `experiments/stage2/gate_step18.md`. Step 19 done (user
+approved `fastapi`; `uvicorn` was already present, now declared; "stream, then correct"):
+`src/rag/pipeline.py` (`Pipeline`: every part loaded once, searchers/answerers cached per
+(mode, rerank); `make_searcher` and `rag ask` use it), `Answerer.prepare()` / `finish()` (ask =
+both), `LLM.generate_stream` (Ollama JSON lines; default = one piece), `src/rag/api/{app,schemas}.py`
+— `rag serve [--port]` (loopback only), `GET /health` (503 if the pipeline can't load; `degraded`
+if the index is stale or the LLM is down), `GET /collections`, `POST /search`, `POST /ask` (SSE
+`sources` → `token` → `done`|`error`, or `stream:false`), `X-Request-ID`, `/docs`. One pipeline
+thread (SQLite + models), one LLM thread. Parity with the CLI: /search 84/84 + fused 20/20 identical,
+/ask prompts 10/10 byte-identical (answers 9/10: Ollama nondeterminism). Warm /search p50 9 ms
+(CLI 11.8 s cold); /ask median first token 8.7 s, of which Ollama reads the prompt 6.6–8 s at
+2.4 ms/token (step 16: 1.0) — same with the server stopped; 10 GB swap in use, memory pressure
+suspected. Server footprint 4.2 GB. Notes: `experiments/stage3/api_step19.md`. 309 tests. Next:
+step 20 (observability) — pitch first. Do not start Phase 16.
 
 ### Phase 7 close-out (2026-09-20)
 

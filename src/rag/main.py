@@ -11,6 +11,7 @@
     rag search "query" [-k 5] [--mode hybrid|dense|bm25] [--rerank off|fused|replace]
                [--collection NAME ...] [--explain]
     rag ask "question" [--mode hybrid|dense|bm25] [--rerank off|fused|replace] [--collection NAME ...] [--explain]
+    rag serve [--port 8000]                      # HTTP API on 127.0.0.1, docs at /docs
     rag eval check|run --set papers   rag eval compare papers:latest~1 papers:latest   rag eval list
 
 `--data-dir DIR` (before the command) points everything at another data folder,
@@ -154,6 +155,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--rerank", choices=["off", "fused", "replace"], help="reranker on top (default: ASK_RERANK setting, fused)"
     )
     ask.add_argument("--explain", action="store_true", help="show retrieval, the exact prompt, tokens, timings")
+
+    serve = command("serve", "rag.api.app:run", "run the HTTP API (search, ask with streaming, health)")
+    serve.add_argument("--host", help="default: API_HOST setting (127.0.0.1); only loopback is allowed")
+    serve.add_argument("--port", type=int, help="default: API_PORT setting (8000)")
     return parser
 
 

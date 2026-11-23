@@ -38,10 +38,31 @@ class Answer:
     flags: list[Flag] = field(default_factory=list)
     refusal: bool = False
     prompt_version: str = ""
+    ranks: dict[str, dict[str, int | None]] = field(default_factory=dict)  # chunk -> rank per retriever list
+    retrieval_fallback: str | None = None  # why the reranker was skipped, if it was
+    search_timings: dict[str, float] = field(default_factory=dict)
 
     @property
     def cited_sources(self) -> list[Source]:
         return [s for s in self.sources if s.n in self.citations.cited]
+
+
+@dataclass
+class Prepared:
+    """Retrieval and the prompt, ready for the model: the first half of an answer."""
+
+    question: str
+    hits: list[Hit]
+    sources: list[Source]
+    dropped_hits: list[Hit]
+    user_prompt: str
+    prompt_tokens: int
+    removed_instructions: list[str]
+    ranks: dict[str, dict[str, int | None]]
+    retrieval_fallback: str | None
+    search_timings: dict[str, float]
+    started: float
+    timings: dict[str, float]
 
 
 class Answerer:
@@ -74,9 +95,21 @@ class Answerer:
         self.context_tokens = context_tokens
 
     def ask(self, question: str, collections: list[str] | None = None) -> Answer:
+        """The whole pipeline in one call (the CLI). The API calls prepare, streams the
+        generation itself, then calls finish: the same two halves, so the same prompt."""
+        prepared = self.prepare(question, collections)
+        return self.finish(prepared, self.llm.generate(prepared.user_prompt, system=self.system_prompt))
+
+    def prepare(self, question: str, collections: list[str] | None = None) -> "Prepared":
+        """Everything before the model: retrieve, assemble numbered sources, build and measure the
+        prompt. Raises KeyError (unknown collection) or ContextWindowError."""
         start = time.perf_counter()
         hits = self.searcher.search(question, self.retrieve_k, collections)
         retrieved = time.perf_counter()
+        # The searcher is shared between requests in the server: copy what it recorded now.
+        ranks = dict(getattr(self.searcher, "last_ranks", None) or {})
+        fallback = getattr(self.searcher, "last_fallback", None)
+        search_timings = dict(getattr(self.searcher, "last_timings", None) or {})
 
         sections: dict[tuple[str, int], str] = {}
 
@@ -109,23 +142,39 @@ class Answerer:
                 f"{self.llm.context_window} of {self.llm.model}; the model would silently lose the start"
             )
         assembled = time.perf_counter()
+        return Prepared(
+            question=question,
+            hits=hits,
+            sources=sources,
+            dropped_hits=dropped,
+            user_prompt=user_prompt,
+            prompt_tokens=prompt_tokens,
+            removed_instructions=removed_instructions,
+            ranks=ranks,
+            retrieval_fallback=fallback,
+            search_timings=search_timings,
+            started=start,
+            timings={"retrieve_s": retrieved - start, "assemble_s": assembled - retrieved},
+        )
 
-        generation = self.llm.generate(user_prompt, system=self.system_prompt)
+    def finish(self, prepared: "Prepared", generation: Generation) -> Answer:
+        """Everything after the model: guardrails, citation check, warnings."""
+        sources = prepared.sources
         text, flags, refusal = generation.text, [], False
         if self.guardrails:
             guard = check_answer_text(
-                question,
+                prepared.question,
                 generation.text,
                 {s.n: s.text for s in sources},
                 {s.n: s.doc_id for s in sources},
                 self.doc_texts({s.doc_id for s in sources}),
             )
             text, flags, refusal = guard.text, guard.flags, guard.refusal
-            if removed_instructions:
+            if prepared.removed_instructions:
                 flags.append(
                     Flag(
                         "instructions_removed_from_sources",
-                        f"{len(removed_instructions)} instruction-like sentence(s) removed before generation",
+                        f"{len(prepared.removed_instructions)} instruction-like sentence(s) removed before generation",
                     )
                 )
         citations = check_citations(text, len(sources))
@@ -139,27 +188,29 @@ class Answerer:
             warnings.append(f"answer reached the {self.llm.max_tokens}-token limit and may be cut off")
 
         return Answer(
-            question=question,
+            question=prepared.question,
             text=text,
             sources=sources,
             citations=citations,
-            hits=hits,
-            dropped_hits=dropped,
+            hits=prepared.hits,
+            dropped_hits=prepared.dropped_hits,
             generation=generation,
             system_prompt=self.system_prompt,
-            user_prompt=user_prompt,
-            prompt_tokens=prompt_tokens,
+            user_prompt=prepared.user_prompt,
+            prompt_tokens=prepared.prompt_tokens,
             timings={
-                "retrieve_s": retrieved - start,
-                "assemble_s": assembled - retrieved,
+                **prepared.timings,
                 "generate_s": generation.elapsed_seconds,
-                "total_s": time.perf_counter() - start,
+                "total_s": time.perf_counter() - prepared.started,
             },
             warnings=warnings,
             raw_text=generation.text,
             flags=flags,
             refusal=refusal,
             prompt_version=self.prompt_version,
+            ranks=prepared.ranks,
+            retrieval_fallback=prepared.retrieval_fallback,
+            search_timings=prepared.search_timings,
         )
 
     def doc_texts(self, doc_ids: set[str]) -> dict[str, str]:

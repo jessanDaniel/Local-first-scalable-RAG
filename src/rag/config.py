@@ -98,6 +98,10 @@ class Settings(BaseSettings):
     ask_max_sources: int = Field(default=8, ge=1)
     ask_context_tokens: int = Field(default=3000, ge=200)
 
+    # API server (`rag serve`, Stage 3 step 19). Loopback only until API keys exist (step 29).
+    api_host: str = "127.0.0.1"
+    api_port: int = Field(default=8000, ge=1, le=65535)
+
     @property
     def db_path(self) -> Path:
         return self.data_dir / "rag.db"
