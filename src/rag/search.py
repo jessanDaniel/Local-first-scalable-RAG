@@ -359,12 +359,31 @@ def run(parsed_args) -> int:
     except StaleIndexError as exc:
         print(exc)
         return 1
+    from rag.requestlog import RequestLog, Trace
+
+    log = RequestLog.from_settings(settings)
+    trace = Trace(
+        "cli",
+        "search",
+        parsed_args.query,
+        searcher.base.mode if searcher.mode == "rerank" else searcher.mode,
+        searcher.strategy if searcher.mode == "rerank" else "off",
+        parsed_args.collections,
+        k=parsed_args.k,
+    )
     try:
+        start = time.perf_counter()
         hits = searcher.search(parsed_args.query, parsed_args.k, parsed_args.collections)
+        trace.searched(searcher, hits, (time.perf_counter() - start) * 1000)
     except KeyError as exc:
+        trace.failed(str(exc.args[0]))
+        log.write(trace.record())
         print(f"error: {exc.args[0]}")
         return 1
+    log.write(trace.record())
     print_hits(parsed_args.query, hits, searcher, parsed_args.explain)
+    if parsed_args.explain:
+        print(f"request {trace.request_id} (rag logs show {trace.request_id})")
     return 0
 
 

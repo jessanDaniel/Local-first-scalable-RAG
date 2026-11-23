@@ -18,8 +18,9 @@ searchers keep per-call state, so requests take turns there. Generation (an HTTP
 runs on a second thread ("llm"), so a 7-second answer doesn't block /search. The event loop only
 moves bytes, so /health answers while both are busy.
 
-Request ids. Every response carries X-Request-ID (the caller's, if it sent a sane one); step 20's
-logs will be keyed on it.
+Request ids. Every response carries X-Request-ID (the caller's, if it sent a sane one). Every
+/search and /ask writes one record under that id to data/logs/requests.jsonl (rag.requestlog), the
+same record `rag search` / `rag ask` write: `rag logs show <id>` explains the request.
 """
 
 import asyncio
@@ -48,6 +49,7 @@ from rag.api.schemas import (
     source_out,
 )
 from rag.config import Settings, get_settings
+from rag.requestlog import RequestLog, Trace, stats
 
 REQUEST_ID = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
 LOOPBACK = {"127.0.0.1", "localhost", "::1"}
@@ -66,6 +68,7 @@ class Service:
         self.load_error: str | None = None
         self.load_seconds: float | None = None
         self.started = time.time()
+        self.log = RequestLog.from_settings(settings)
 
     def default_pipeline(self):
         from rag.pipeline import Pipeline
@@ -197,6 +200,14 @@ def create_app(settings: Settings | None = None, pipeline_factory=None, llm_prob
                     "sanitize_sources": settings.ask_sanitize_sources,
                 },
             },
+            "requests": {
+                "logged": service.log.written,
+                "log": str(service.log.path) if service.log.path else None,
+                "log_text": service.log.log_text,
+                "write_errors": service.log.write_errors,
+                "last_write_error": service.log.last_error,
+                "recent": stats(list(service.log.recent)),
+            },
             "report": report,
         }
         return JSONResponse(body, status_code=503 if status == "unavailable" else 200)
@@ -212,9 +223,9 @@ def create_app(settings: Settings | None = None, pipeline_factory=None, llm_prob
     @app.post("/search", response_model=SearchResponse)
     async def search(body: SearchRequest, request: Request):
         service = service_of(request)
-        pipeline = service.require_pipeline()
         mode = body.mode or settings.retrieval_mode
         rerank = body.rerank or settings.rerank
+        trace = Trace("api", "search", body.query, mode, rerank, body.collections, request.state.request_id, k=body.k)
 
         def work():
             from rag.index.current import StaleIndexError
@@ -227,6 +238,7 @@ def create_app(settings: Settings | None = None, pipeline_factory=None, llm_prob
             start = time.perf_counter()
             hits = searcher.search(body.query, body.k, body.collections)
             total_ms = (time.perf_counter() - start) * 1000
+            trace.searched(searcher, hits, total_ms)
             return SearchResponse(
                 request_id=request.state.request_id,
                 query=body.query,
@@ -237,7 +249,14 @@ def create_app(settings: Settings | None = None, pipeline_factory=None, llm_prob
                 fallback=getattr(searcher, "last_fallback", None),
             )
 
-        return await service.run(work)
+        try:
+            pipeline = service.require_pipeline()
+            return await service.run(work)
+        except HTTPException as exc:
+            trace.failed(str(exc.detail), http_status=exc.status_code)
+            raise
+        finally:
+            service.log.write(trace.record())
 
     @app.post("/ask", response_model=AnswerOut)
     async def ask(body: AskRequest, request: Request):
@@ -246,37 +265,49 @@ def create_app(settings: Settings | None = None, pipeline_factory=None, llm_prob
         from rag.llm.interface import GenerationCancelled, LLMError
 
         service = service_of(request)
-        pipeline = service.require_pipeline()
         request_id = request.state.request_id
         mode = body.mode or settings.retrieval_mode
         rerank = body.rerank or settings.ask_rerank
-
-        llm_problem = await asyncio.to_thread(service.llm_probe)
-        if llm_problem:
-            raise HTTPException(503, f"{llm_problem}; /search still works")
+        trace = Trace("api", "ask", body.question, mode, rerank, body.collections, request_id)
 
         def prepare():
             service.check_collections(body.collections)
             try:
                 answerer = pipeline.answerer(mode, rerank)
-                return answerer, answerer.prepare(body.question, body.collections)
+                prepared = answerer.prepare(body.question, body.collections)
             except StaleIndexError as exc:
                 raise HTTPException(503, str(exc)) from exc
             except ContextWindowError as exc:
                 raise HTTPException(500, str(exc)) from exc
+            trace.prepared(answerer, prepared)
+            return answerer, prepared
 
-        answerer, prepared = await service.run(prepare)
         loop = asyncio.get_running_loop()
-
-        if not body.stream:
-            try:
-                generation = await loop.run_in_executor(
-                    service.llm_thread, partial(answerer.llm.generate, prepared.user_prompt, answerer.system_prompt)
-                )
-            except LLMError as exc:
-                raise HTTPException(502, str(exc)) from exc
-            answer = await service.run(answerer.finish, prepared, generation)
-            return answer_out(answer, request_id, mode, rerank)
+        try:
+            pipeline = service.require_pipeline()
+            check_start = time.perf_counter()
+            llm_problem = await asyncio.to_thread(service.llm_probe)
+            trace.time("llm_check_ms", (time.perf_counter() - check_start) * 1000)
+            if llm_problem:
+                raise HTTPException(503, f"{llm_problem}; /search still works")
+            answerer, prepared = await service.run(prepare)
+            if not body.stream:
+                try:
+                    generation = await loop.run_in_executor(
+                        service.llm_thread,
+                        partial(answerer.llm.generate, prepared.user_prompt, answerer.system_prompt),
+                    )
+                except LLMError as exc:
+                    raise HTTPException(502, str(exc)) from exc
+                trace.generated(generation)
+                answer = await service.run(answerer.finish, prepared, generation)
+                trace.answered(answer)
+                service.log.write(trace.record())
+                return answer_out(answer, request_id, mode, rerank)
+        except HTTPException as exc:
+            trace.failed(str(exc.detail), http_status=exc.status_code)
+            service.log.write(trace.record())
+            raise
 
         cancelled = threading.Event()
         queue: asyncio.Queue = asyncio.Queue()
@@ -296,6 +327,9 @@ def create_app(settings: Settings | None = None, pipeline_factory=None, llm_prob
                 loop.call_soon_threadsafe(queue.put_nowait, ("error", exc))
 
         async def events():
+            logged = False
+            streamed = 0
+            first_token_ms = None
             try:
                 yield sse(
                     "sources",
@@ -310,16 +344,32 @@ def create_app(settings: Settings | None = None, pipeline_factory=None, llm_prob
                 while True:
                     kind, value = await queue.get()
                     if kind == "token":
+                        if first_token_ms is None:
+                            first_token_ms = (time.perf_counter() - trace.started) * 1000
+                        streamed += 1
                         yield sse("token", {"text": value})
                     elif kind == "error":
-                        yield sse("error", {"request_id": request_id, "detail": f"{type(value).__name__}: {value}"})
+                        detail = f"{type(value).__name__}: {value}"
+                        trace.failed(detail)
+                        trace.data["streamed_pieces"] = streamed
+                        service.log.write(trace.record())
+                        logged = True
+                        yield sse("error", {"request_id": request_id, "detail": detail})
                         return
                     else:
+                        trace.generated(value, first_token_ms)
                         answer = await service.run(answerer.finish, prepared, value)
+                        trace.answered(answer)
+                        service.log.write(trace.record())
+                        logged = True
                         yield sse("done", answer_out(answer, request_id, mode, rerank))
                         return
             finally:  # the client left or we're done: stop the model at its next token
                 cancelled.set()
+                if not logged:
+                    trace.failed(f"client disconnected after {streamed} streamed pieces", status="cancelled")
+                    trace.data["streamed_pieces"] = streamed
+                    service.log.write(trace.record())
 
         return StreamingResponse(
             events(),

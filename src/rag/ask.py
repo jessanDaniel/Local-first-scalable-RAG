@@ -18,6 +18,7 @@ from rag.config import get_settings
 from rag.index.current import StaleIndexError
 from rag.llm.interface import LLMError
 from rag.pipeline import Pipeline
+from rag.requestlog import RequestLog, Trace
 from rag.search import describe_ranks
 
 RULE = "=" * 78
@@ -68,18 +69,39 @@ def run(parsed_args) -> int:
         print(exc)
         return 1
     searcher = answerer.searcher
+    log = RequestLog.from_settings(settings)
+    trace = Trace(
+        "cli",
+        "ask",
+        parsed_args.question,
+        mode,
+        searcher.strategy if searcher.mode == "rerank" else "off",
+        parsed_args.collections,
+    )
     try:
-        answer = answerer.ask(parsed_args.question, parsed_args.collections)
+        # ask() = prepare + generate + finish; done in three calls here so each half is logged.
+        prepared = answerer.prepare(parsed_args.question, parsed_args.collections)
+        trace.prepared(answerer, prepared)
+        generation = answerer.llm.generate(prepared.user_prompt, system=answerer.system_prompt)
+        trace.generated(generation)
+        answer = answerer.finish(prepared, generation)
+        trace.answered(answer)
     except (ContextWindowError, LLMError) as exc:
+        trace.failed(f"{type(exc).__name__}: {exc}")
+        log.write(trace.record())
         print(f"error: {exc}")
         return 1
     except KeyError as exc:  # unknown collection
+        trace.failed(str(exc.args[0]))
+        log.write(trace.record())
         print(f"error: {exc.args[0]}")
         return 1
+    log.write(trace.record())
     label = mode if searcher.mode != "rerank" else f"{mode} + rerank {searcher.strategy}"
     print_answer(answer, parsed_args.explain, label, answer.ranks)
     if answer.retrieval_fallback:
         print(f"WARNING: {answer.retrieval_fallback}")
+    print(f"\nrequest {trace.request_id} (rag logs show {trace.request_id})")
     return 0
 
 

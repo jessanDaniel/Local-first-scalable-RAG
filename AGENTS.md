@@ -248,8 +248,19 @@ thread (SQLite + models), one LLM thread. Parity with the CLI: /search 84/84 + f
 /ask prompts 10/10 byte-identical (answers 9/10: Ollama nondeterminism). Warm /search p50 9 ms
 (CLI 11.8 s cold); /ask median first token 8.7 s, of which Ollama reads the prompt 6.6–8 s at
 2.4 ms/token (step 16: 1.0) — same with the server stopped; 10 GB swap in use, memory pressure
-suspected. Server footprint 4.2 GB. Notes: `experiments/stage3/api_step19.md`. 309 tests. Next:
-step 20 (observability) — pitch first. Do not start Phase 16.
+suspected. Server footprint 4.2 GB. Notes: `experiments/stage3/api_step19.md`. 309 tests. Step 20 done (no new
+dependency; text logging ON by the user's choice, revisit for the release): `src/rag/requestlog.py`
+— `Trace` + `RequestLog`, one JSON line per `rag search` / `rag ask` / `/search` / `/ask` in
+`data/logs/requests.jsonl` (rotated, 20 MB × 5), keyed by request id; per-stage ms with `other_ms`
+so stages add up, every candidate's rank per list and the source it became, tokens, Ollama
+load/prompt/write/first-token, answer, flags, errors and cancelled streams; settings
+`LOG_REQUESTS`, `LOG_TEXT`, `LOG_MAX_MB`, `LOG_BACKUPS`; `rag logs show [ID|last]`, `rag logs stats`;
+`/health` has a `requests` block. Eval and the gate don't log. Proof: 6 real requests explained from
+the log alone (VAE replace = reranker drops §2.4 to rank 22 → refusal; fused keeps it at 1), log ==
+`--explain`; write 0.16 ms, warm /search p50 9.2 ms. Prompt reading still 2.36 ms/token (7.7 GB swap).
+Found: refusal citation stripping can leave a sentence without its subject. Notes:
+`experiments/stage3/logs_step20.md`. 323 tests. Next: steps 21–22 (web UI) — pitch first. Do not
+start Phase 16.
 
 ### Phase 7 close-out (2026-09-20)
 

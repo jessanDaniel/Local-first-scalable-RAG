@@ -12,6 +12,8 @@
                [--collection NAME ...] [--explain]
     rag ask "question" [--mode hybrid|dense|bm25] [--rerank off|fused|replace] [--collection NAME ...] [--explain]
     rag serve [--port 8000]                      # HTTP API on 127.0.0.1, docs at /docs
+    rag logs show [REQUEST_ID|last] [--json]     # one logged request as a trace
+    rag logs stats [--last N] [--route ask|search]
     rag eval check|run --set papers   rag eval compare papers:latest~1 papers:latest   rag eval list
 
 `--data-dir DIR` (before the command) points everything at another data folder,
@@ -155,6 +157,16 @@ def build_parser() -> argparse.ArgumentParser:
         "--rerank", choices=["off", "fused", "replace"], help="reranker on top (default: ASK_RERANK setting, fused)"
     )
     ask.add_argument("--explain", action="store_true", help="show retrieval, the exact prompt, tokens, timings")
+
+    logs = command("logs", "rag.requestlog:run", "per-request logs: one request as a trace, or stats per stage")
+    log_actions = logs.add_subparsers(dest="action", required=True, metavar="ACTION")
+    show = log_actions.add_parser("show", help="one request as a readable trace (default: the last one)")
+    show.add_argument("request_id", nargs="?", help="request id or its start; 'last' (default)")
+    show.add_argument("--json", action="store_true", help="print the raw record")
+    log_stats = log_actions.add_parser("stats", help="p50 / p95 per stage, error / fallback / refusal counts")
+    log_stats.add_argument("--last", type=int, default=200, help="only the last N requests (default 200)")
+    log_stats.add_argument("--route", choices=["ask", "search"])
+    log_stats.add_argument("--json", action="store_true")
 
     serve = command("serve", "rag.api.app:run", "run the HTTP API (search, ask with streaming, health)")
     serve.add_argument("--host", help="default: API_HOST setting (127.0.0.1); only loopback is allowed")

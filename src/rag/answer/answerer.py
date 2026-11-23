@@ -159,6 +159,7 @@ class Answerer:
 
     def finish(self, prepared: "Prepared", generation: Generation) -> Answer:
         """Everything after the model: guardrails, citation check, warnings."""
+        finish_start = time.perf_counter()
         sources = prepared.sources
         text, flags, refusal = generation.text, [], False
         if self.guardrails:
@@ -201,6 +202,7 @@ class Answerer:
             timings={
                 **prepared.timings,
                 "generate_s": generation.elapsed_seconds,
+                "finish_s": time.perf_counter() - finish_start,
                 "total_s": time.perf_counter() - prepared.started,
             },
             warnings=warnings,

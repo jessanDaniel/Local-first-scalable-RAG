@@ -2,6 +2,7 @@
 
 import time
 from collections.abc import Callable
+from dataclasses import replace
 
 from rag.llm.http import post_json, post_json_lines
 from rag.llm.interface import LLM, Generation, LLMError, chat_messages
@@ -68,6 +69,7 @@ class OllamaLLM(LLM):
         start = time.perf_counter()
         pieces: list[str] = []
         final: dict | None = None
+        first: float | None = None
         lines = post_json_lines(
             f"{self.base_url}/api/chat",
             self.payload(prompt, system, stream=True),
@@ -80,6 +82,8 @@ class OllamaLLM(LLM):
                     raise LLMError(f"Ollama error: {data['error']}")
                 piece = (data.get("message") or {}).get("content", "")
                 if piece:
+                    if first is None:
+                        first = time.perf_counter() - start
                     pieces.append(piece)
                     on_token(piece)  # may raise GenerationCancelled; closing `lines` ends the request
                 if data.get("done"):
@@ -89,7 +93,8 @@ class OllamaLLM(LLM):
             lines.close()
         if final is None:
             raise LLMError("Ollama stream ended without a final message")
-        return self.generation("".join(pieces), final, time.perf_counter() - start)
+        generation = self.generation("".join(pieces), final, time.perf_counter() - start)
+        return replace(generation, first_token_seconds=first)
 
     def generation(self, text: str, data: dict, elapsed: float) -> Generation:
         return Generation(

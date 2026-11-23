@@ -30,6 +30,8 @@ class Generation:
     prompt_seconds: float | None = None
     write_seconds: float | None = None
     load_seconds: float | None = None
+    # Streaming only: seconds from sending the request to the first piece of the answer.
+    first_token_seconds: float | None = None
 
     @property
     def total_tokens(self) -> int | None:

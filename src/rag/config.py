@@ -102,6 +102,15 @@ class Settings(BaseSettings):
     api_host: str = "127.0.0.1"
     api_port: int = Field(default=8000, ge=1, le=65535)
 
+    # Request logs (step 20): one JSON line per `rag search` / `rag ask` / API request in
+    # data/logs/requests.jsonl, read with `rag logs show|stats`. LOG_TEXT stores the question, the
+    # answer and the guardrail flag text; on while developing (the user's choice, 2026-11-23), to be
+    # revisited for the packaged release.
+    log_requests: bool = True
+    log_text: bool = True
+    log_max_mb: float = Field(default=20.0, gt=0)
+    log_backups: int = Field(default=5, ge=1)
+
     @property
     def db_path(self) -> Path:
         return self.data_dir / "rag.db"
