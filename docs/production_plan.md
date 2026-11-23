@@ -66,6 +66,21 @@ not the scope. Changes that follow from this, in order:
    uploads, and eval runs side by side. Built in Stage 3 after the API exists, served by the same
    FastAPI process, no Node toolchain required.
 
+8. **Release target (user, 2026-11-23): a packaged localhost app.** The user points it at a
+   folder or uploads files; it runs on 127.0.0.1. **Models are not bundled**: they download on
+   first run (embedder ~130 MB, reranker ~1.1 GB, prompt tokenizer, and the LLM through Ollama
+   ~4.7 GB), with progress shown, then work offline. This affects:
+   - **Folder ingest + upload** (steps 24, 30) are core features, not extras.
+   - **Step 28** becomes packaging, not just `launchd`. How to package (an .app bundle,
+     `uv tool install`, …) is not decided; ask before adding a packager.
+   - **Step 29**: localhost needs no API keys, but it does need protection against web pages
+     calling 127.0.0.1 (Origin/Host checks, DNS rebinding).
+   - **Data** moves from the repo's `data/` to a per-user app folder.
+   - **PDF parsing without GROBID** (Java, ~1.9 GB) must be good enough by default.
+   - **Ollama** is a separate install the app checks for and guides the user through.
+
+   All of these are open decisions, to be discussed before building.
+
 Order from here: step 9 (CLI) → step 10 (tooling) → collections + second corpus → eval v0 →
 Stage 2 → Stage 3 (API + UI) → Stage 4 → Stage 5.
 

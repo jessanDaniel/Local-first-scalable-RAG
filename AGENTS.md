@@ -89,6 +89,8 @@ Mac; research papers are only the first dataset. See `docs/production_plan.md` �
 before Stage 2, collections now, a second (txt/Markdown) corpus, guardrails, regression gate,
 index type chosen by measured recall (PQ only when size demands it), and a web UI in Stage 3.
 Order: step 9 → step 10 → collections + second corpus → eval v0 → Stage 2 → Stage 3 (API + UI).
+**Release target (2026-11-23):** a packaged localhost app (point at a folder or upload files);
+models download on first run, not bundled. Implications and open decisions: plan §0.1 item 8.
 
 **Next up:** Production-grade RAG, following `docs/production_plan.md` (§9 decisions agreed
 2026-11-17: arXiv cs.CL + cs.LG 2023+, FAISS, `bge-small-en-v1.5`, `qwen2.5:7b-instruct`, no
