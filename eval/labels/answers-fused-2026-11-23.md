@@ -1,5 +1,8 @@
 # Answer labels
 
+**Labelled by Claude (Opus 5.5) on 2026-11-23, at the user's request (the user was busy). These are not
+human labels; the user may review or overrule any of them.**
+
 For each entry, fill in the lines at the bottom. Judge **only from the text shown**: the
 reference passage is what the paper says; the quoted sources are what the model was given.
 
@@ -33,7 +36,7 @@ An answer can be `correct` while a citation `supports: no` (right fact, wrong so
 **Sources the answer cites:**
 
 **[3] Deep Residual Learning for Image Recognition (arxiv:1512.03385) §1 Introduction, pp.1-2**
-> Deep convolutional neural networks [22,21] have led to a series of breakthroughs for image classification [21,50,40]. Deep networks naturally integrate low/mid/highlevel features [50] and classifiers in an end-to-end multilayer fashion, and the "levels" of features can be enriched by the number of stacked layers (depth). Recent evidence [41,44] reveals that network depth is of crucial importance, and the leading results [41,44,13,16] on the challenging ImageNet dataset [36] all exploit "very deep" [41] models, with a depth of sixteen [41] to thirty [16]. Many other nontrivial visual recognition tasks [8,12,7,32,27] have also 1 http://image-net.org/challenges/LSVRC/2015/ and http://mscoco.org/dataset/#detections-challenge2015. greatly benefited from very deep models. Driven by the significance of depth, a question arises: Is learning better networks as easy as stacking more layers? An obstacle to answering this question was the notorious problem of vanishing/exploding gradients [1,9], which hamper convergence from the beginning. This problem, however, has been largely addressed by normalized initialization [23,9,37,13] and intermediate normalization layers [16], which enable networks with tens of layers to start converging for stochastic gradient descent (SGD) with backpropagation [22]. When deeper networks are able to start converging, a degradation problem has been exposed: with the network depth increasing, accuracy gets saturated (which might be unsurprising) and then degrades rapidly. Unexpectedly, such degradation is not caused by overfitting, and adding more layers to a suitably deep model leads to higher training error, as reported in [11,42] and thoroughly verified by our experiments. Fig. 1 shows a typical example. The degradation (of training accuracy) indicat …
+> Deep convolutional neural networks [22,21] have led to a series of breakthroughs for image classification [21,50,40]. Deep networks naturally integrate low/mid/highlevel features [50] and classifiers in an end-to-end multilayer fashion, and the "levels" of features can be enriched by the number of stacked layers (depth). Recent evidence [41,44] reveals that network depth is of crucial importance, and the leading results [41,44,13,16] on the challenging ImageNet dataset [36] all exploit "very deep" [41] models, with a depth of sixteen [41] to thirty [16]. Many other nontrivial visual recognition tasks [8,12,7,32,27] have also 1 http://image-net.org/challenges/LSVRC/2015/ and http://mscoco.org/dataset/#detections-challenge2015. greatly benefited from very deep models. Driven by the significance of depth, a question arises: Is learning better networks as easy as stacking more layers? An obstacle to answering this question was the notorious problem of vanishing/exploding gradients [1,9], which hamper convergence from the beginning. This problem, however, has been largely addressed by normalized initialization [23,9,37,13] and intermediate normalization layers [16], which enable networks with tens of layers to start converging for stochastic gradient descent (SGD) with backpropagation [22]. When deeper networks are able to start converging, a degradation problem has been exposed: with the network depth increasing, accuracy gets saturated (which might be unsurprising) and then degrades rapidly. Unexpectedly, such degradation is not caused by overfitting, and adding more layers to a suitably deep model leads to higher training error, as reported in [11,42] and thoroughly verified by our experiments. Fig. 1 shows a typical example. The degradation (of training accuracy) indicates that not all systems are similarly easy to optimize. Let us consider a shallower architecture and its deeper counterpart that adds more layers onto it. There exists a solution by construction to the deeper model: the added layers are identity mapping, and the other layers are copied from the learned shallower model. The existence of this constructed solution indicates that a deeper model should produce no higher training error than its shallower counterpart. But experiments show that our current solvers on hand are unable to find solutions that are comparably good or better than the constructed solution (or unable to do so in feasible time). In this paper, we address the degradation problem by introducing a deep residual learning framework. Instead of hoping each few stacked layers directly fit a desired underlying mapping, we explicitly let these layers fit a residual mapping. Formally, denoting the desired underlying mapping as H(x), we let the stacked nonlinear layers fit another mapping of F(x) := H(x)x. The original mapping is recast into F(x)+x. We hypothesize that it is easier to optimize the residual mapping than to optimize the original, unreferenced mapping. To the extreme, if an identity mapping were optimal, it would be easier to push the residual to zero than to fit an identity mapping by a stack of nonlinear layers. The formulation of F(x) + x can be realized by feedforward neural networks with "shortcut connections" (Fig. 2). Shortcut connections [2,34,49] are those skipping one or more layers. In our case, the shortcut connections simply perform identity mapping, and their outputs are added to the outputs of the stacked layers (Fig. 2). Identity shortcut connections add neither extra parameter nor computational complexity. The entire network can still be trained end-to-end by SGD with backpropagation, and can be easily implemented using common libraries (e.g., Caffe [19]) without modifying the solvers. We present comprehensive experiments on ImageNet [36] to show the degradation problem and evaluate our method. We show that: 1) Our extremely deep residual nets are easy to optimize, but the counterpart "plain" nets (that simply stack layers) exhibit higher training error when the depth increases; 2) Our deep residual nets can easily enjoy accuracy gains from greatly increased depth, producing results substantially better than previous networks. Similar phenomena are also shown on the CIFAR-10 set [20], suggesting that the optimization difficulties and the effects of our method are not just akin to a particular dataset. We present successfully trained models on this dataset with over 100 layers, and explore models with over 1000 layers. On the ImageNet classification dataset [36], we obtain excellent results by extremely deep residual nets. Our 152layer residual net is the deepest network ever presented on ImageNet, while still having lower complexity than VGG nets [41]. Our ensemble has 3.57% top-5 error on the ImageNet test set, and won the 1st place in the ILSVRC 2015 classification competition. The extremely deep representations also have excellent generalization performance on other recognition tasks, and lead us to further win the 1st places on: ImageNet detection, ImageNet localization, COCO detection, and COCO segmentation in ILSVRC & COCO 2015 competitions. This strong evidence shows that the residual learning principle is generic, and we expect that it is applicable in other vision and non-vision problems.
 
 **[4] Deep Residual Learning for Image Recognition (arxiv:1512.03385) §4 Experiments > 4.1 ImageNet Classification, p.5**
 > We argue that this optimization difficulty is unlikely to be caused by vanishing gradients. These plain networks are trained with BN [16], which ensures forward propagated signals to have non-zero variances. We also verify that the backward propagated gradients exhibit healthy norms with BN. So neither forward nor backward signals vanish. In fact, the 34-layer plain net is still able to achieve competitive accuracy (Table 3), suggesting that the solver works to some extent. We conjecture that the deep plain nets may have exponentially low convergence rates, which impact the reducing of the training error 3 . The reason for such optimization difficulties will be studied in the future. Residual Networks. Next we evaluate 18-layer and 34layer residual nets (ResNets). The baseline architectures are the same as the above plain nets, expect that a shortcut connection is added to each pair of 3×3 filters as in Fig. 3 (right). In the first comparison (Table 2 and Fig. 4 right), we use identity mapping for all shortcuts and zero-padding for increasing dimensions (option A). So they have no extra parameter compared to the plain counterparts. We have three major observations from Table 2 and Fig. 4. First, the situation is reversed with residual learning -the 34-layer ResNet is better than the 18-layer ResNet (by 2.8%). More importantly, the 34-layer ResNet exhibits considerably lower training error and is generalizable to the validation data. This indicates that the degradation problem is well addressed in this setting and we manage to obtain accuracy gains from increased depth.
@@ -41,11 +44,11 @@ An answer can be `correct` while a citation `supports: no` (right fact, wrong so
 **[6] Deep Residual Learning for Image Recognition (arxiv:1512.03385) §4 Experiments > 4.2 CIFAR-10 and Analysis, pp.7-8**
 > We compare n = {3, 5, 7, 9}, leading to 20, 32, 44, and 56-layer networks. Fig. 6 (left) shows the behaviors of the plain nets. The deep plain nets suffer from increased depth, and exhibit higher training error when going deeper. This phenomenon is similar to that on ImageNet (Fig. 4, left) and on MNIST (see [42]), suggesting that such an optimization difficulty is a fundamental problem. Fig. 6 (middle) shows the behaviors of ResNets. Also similar to the ImageNet cases (Fig. 4, right), our ResNets manage to overcome the optimization difficulty and demonstrate accuracy gains when the depth increases. We further explore n = 18 that leads to a 110-layer ResNet. In this case, we find that the initial learning rate of 0.1 is slightly too large to start converging 5 . So we use 0.01 to warm up the training until the training error is below 80% (about 400 iterations), and then go back to 0.1 and continue training. The rest of the learning schedule is as done previously. This 110-layer network converges well (Fig. 6, middle). It has fewer parameters than other deep and thin networks such as FitNet [35] and Highway [42] (Table 6), yet is among the state-of-the-art results (6.43%, Table 6).
 
-verdict: 
-[3] supports: 
-[4] supports: 
-[6] supports: 
-note: 
+verdict: correct
+[3] supports: yes
+[4] supports: yes
+[6] supports: yes
+note: explains both parts: training error rises with depth in plain nets (the degradation problem, not named) and residual reformulation F(x)=H(x)-x with the identity-mapping argument; two residual sentences carry no citation but [3] contains them
 
 ---
 
@@ -66,11 +69,11 @@ note:
 **Sources the answer cites:**
 
 **[2] Adam: A Method for Stochastic Optimization (arxiv:1412.6980) §7 EXTENSIONS > 7.1 ADAMAX, pp.8-9**
-> In Adam, the update rule for individual weights is to scale their gradients inversely proportional to a (scaled) L 2 norm of their individual current and past gradients. We can generalize the L 2 norm based update rule to a L p norm based update rule. Such variants become numerically unstable for large p. However, in the special case where we let p → ∞, a surprisingly simple and stable algorithm emerges; see algorithm 2. We'll now derive the algorithm. Let, in case of the L p norm, the stepsize at time t be inversely proportional to v 1/p t , where: v t = β p 2 v t-1 + (1 -β p 2 )|g t | p (6) = (1 -β p 2 ) t i=1 β p(t-i) 2 • |g i | p (7) Algorithm 2: AdaMax, a variant of Adam based on the infinity norm. See section 7.1 for details. Good default settings for the tested machine learning problems are α = 0.002, β 1 = 0.9 and β 2 = 0.999. With β t 1 we denote β 1 to the power t. Here, (α/(1β t 1 )) is the learning rate with the bias-correction term for the first moment. All operations on vectors are element-wise. Require: α: Stepsize Require: β 1 , β 2 ∈ [0, 1): Exponential decay rates Require: f (θ): Stochastic objective function with parameters θ Require: θ 0 : Initial parameter vector m 0 ← 0 (Initialize 1 st moment vector) u 0 ← 0 (Initialize the exponentially weighted infinity norm) t ← 0 (Initialize timestep) while θ t not converged do t ← t + 1 g t ← ∇ θ f t (θ t-1 ) (Get gradients w.r.t. stochastic objective at timestep t) m t ← β 1 • m t-1 + (1 -β 1 ) • g t (Update biased first moment estimate) u t ← max(β 2 • u t-1 , |g t |) (Update the exponentially weighted infinity norm) θ t ← θ t-1 -(α/(1 -β t 1 )) • m t /u t (Update parameters) end while return θ t (Resulting parameters) Note that the decay term is here equivalently parameterised as β p 2 instead of β 2 . Now …
+> In Adam, the update rule for individual weights is to scale their gradients inversely proportional to a (scaled) L 2 norm of their individual current and past gradients. We can generalize the L 2 norm based update rule to a L p norm based update rule. Such variants become numerically unstable for large p. However, in the special case where we let p → ∞, a surprisingly simple and stable algorithm emerges; see algorithm 2. We'll now derive the algorithm. Let, in case of the L p norm, the stepsize at time t be inversely proportional to v 1/p t , where: v t = β p 2 v t-1 + (1 -β p 2 )|g t | p (6) = (1 -β p 2 ) t i=1 β p(t-i) 2 • |g i | p (7) Algorithm 2: AdaMax, a variant of Adam based on the infinity norm. See section 7.1 for details. Good default settings for the tested machine learning problems are α = 0.002, β 1 = 0.9 and β 2 = 0.999. With β t 1 we denote β 1 to the power t. Here, (α/(1β t 1 )) is the learning rate with the bias-correction term for the first moment. All operations on vectors are element-wise. Require: α: Stepsize Require: β 1 , β 2 ∈ [0, 1): Exponential decay rates Require: f (θ): Stochastic objective function with parameters θ Require: θ 0 : Initial parameter vector m 0 ← 0 (Initialize 1 st moment vector) u 0 ← 0 (Initialize the exponentially weighted infinity norm) t ← 0 (Initialize timestep) while θ t not converged do t ← t + 1 g t ← ∇ θ f t (θ t-1 ) (Get gradients w.r.t. stochastic objective at timestep t) m t ← β 1 • m t-1 + (1 -β 1 ) • g t (Update biased first moment estimate) u t ← max(β 2 • u t-1 , |g t |) (Update the exponentially weighted infinity norm) θ t ← θ t-1 -(α/(1 -β t 1 )) • m t /u t (Update parameters) end while return θ t (Resulting parameters) Note that the decay term is here equivalently parameterised as β p 2 instead of β 2 . Now let p → ∞, and define u t = lim p→∞ (v t ) 1/p , then: u t = lim p→∞ (v t ) 1/p = lim p→∞ (1 -β p 2 ) t i=1 β p(t-i) 2 • |g i | p 1/p (8) = lim p→∞ (1 -β p 2 ) 1/p t i=1 β p(t-i) 2 • |g i | p 1/p (9) = lim p→∞ t i=1 β (t-i) 2 • |g i | p 1/p (10) = max β t-1 2 |g 1 |, β t-2 2 |g 2 |, . . . , β 2 |g t-1 |, |g t | (11) Which corresponds to the remarkably simple recursive formula: u t = max(β 2 • u t-1 , |g t |) (12) with initial value u 0 = 0. Note that, conveniently enough, we don't need to correct for initialization bias in this case. Also note that the magnitude of parameter updates has a simpler bound with AdaMax than Adam, namely: |∆ t | ≤ α.
 
-verdict: 
-[2] supports: 
-note: 
+verdict: correct
+[2] supports: yes
+note: |Δt| ≤ α is in [2] (the end of the source; the first sheet cut it off)
 
 ---
 
@@ -106,21 +109,21 @@ note:
 > Figure 2: Training of multilayer neural networks on MNIST images. (a) Neural networks using dropout stochastic regularization. (b) Neural networks with deterministic cost function.We compare with the sum-of-functions (SFO) optimizer(Sohl-Dickstein et al., 2014)
 
 **[7] Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift (arxiv:1502.03167) §1 Introduction, pp.1-2**
-> Using mini-batches of examples, as opposed to one example at a time, is helpful in several ways. First, the gradient of the loss over a mini-batch is an estimate of the gradient over the training set, whose quality improves as the batch size increases. Second, computation over a batch can be much more efficient than m computations for individual examples, due to the parallelism afforded by the modern computing platforms. While stochastic gradient is simple and effective, it requires careful tuning of the model hyper-parameters, specifically the learning rate used in optimization, as well as the initial values for the model parameters. The training is complicated by the fact that the inputs to each layer are affected by the parameters of all preceding layers -so that small changes to the network parameters amplify as the network becomes deeper. The change in the distributions of layers' inputs presents a problem because the layers need to continuously adapt to the new distribution. When the input distribution to a learning system changes, it is said to experience covariate shift (Shimodaira, 2000). This is typically handled via domain adaptation (Jiang, 2008). However, the notion of covariate shift can be extended beyond the learning system as a whole, to apply to its parts, such as a sub-network or a layer. Consider a network computing ℓ = F 2 (F 1 (u, Θ 1 ), Θ 2 ) where F 1 and F 2 are arbitrary transformations, and the parameters Θ 1 , Θ 2 are to be learned so as to minimize the loss ℓ. Learning Θ 2 can be viewed as if the inputs x = F 1 (u, Θ 1 ) are fed into the sub-network ℓ = F 2 (x, Θ 2 ). For example, a gradient descent step Θ 2 ← Θ 2 - α m m i=1 ∂F 2 (x i , Θ 2 ) ∂Θ 2 (for batch size m and learning rate α) is exactly equivalent to that for a stand-alone network …
+> Using mini-batches of examples, as opposed to one example at a time, is helpful in several ways. First, the gradient of the loss over a mini-batch is an estimate of the gradient over the training set, whose quality improves as the batch size increases. Second, computation over a batch can be much more efficient than m computations for individual examples, due to the parallelism afforded by the modern computing platforms. While stochastic gradient is simple and effective, it requires careful tuning of the model hyper-parameters, specifically the learning rate used in optimization, as well as the initial values for the model parameters. The training is complicated by the fact that the inputs to each layer are affected by the parameters of all preceding layers -so that small changes to the network parameters amplify as the network becomes deeper. The change in the distributions of layers' inputs presents a problem because the layers need to continuously adapt to the new distribution. When the input distribution to a learning system changes, it is said to experience covariate shift (Shimodaira, 2000). This is typically handled via domain adaptation (Jiang, 2008). However, the notion of covariate shift can be extended beyond the learning system as a whole, to apply to its parts, such as a sub-network or a layer. Consider a network computing ℓ = F 2 (F 1 (u, Θ 1 ), Θ 2 ) where F 1 and F 2 are arbitrary transformations, and the parameters Θ 1 , Θ 2 are to be learned so as to minimize the loss ℓ. Learning Θ 2 can be viewed as if the inputs x = F 1 (u, Θ 1 ) are fed into the sub-network ℓ = F 2 (x, Θ 2 ). For example, a gradient descent step Θ 2 ← Θ 2 - α m m i=1 ∂F 2 (x i , Θ 2 ) ∂Θ 2 (for batch size m and learning rate α) is exactly equivalent to that for a stand-alone network F 2 with input x. Therefore, the input distribution properties that make training more efficient -such as having the same distribution between the training and test data -apply to training the sub-network as well. As such it is advantageous for the distribution of x to remain fixed over time. Then, Θ 2 does not have to readjust to compensate for the change in the distribution of x. Fixed distribution of inputs to a sub-network would have positive consequences for the layers outside the subnetwork, as well. Consider a layer with a sigmoid activation function z = g(W u + b) where u is the layer input, the weight matrix W and bias vector b are the layer parameters to be learned, and g(x) = 1 1+exp(-x) . As |x| increases, g ′ (x) tends to zero. This means that for all dimensions of x = W u+b except those with small absolute values, the gradient flowing down to u will vanish and the model will train slowly. However, since x is affected by W, b and the parameters of all the layers below, changes to those parameters during training will likely move many dimensions of x into the saturated regime of the nonlinearity and slow down the convergence. This effect is amplified as the network depth increases. In practice, the saturation problem and the resulting vanishing gradients are usually addressed by using Rectified Linear Units (Nair & Hinton, 2010) ReLU (x) = max(x, 0), careful initialization (Bengio & Glorot, 2010;Saxe et al., 2013), and small learning rates. If, however, we could ensure that the distribution of nonlinearity inputs remains more stable as the network trains, then the optimizer would be less likely to get stuck in the saturated regime, and the training would accelerate.
 
 **[8] Adam: A Method for Stochastic Optimization (arxiv:1412.6980) §4 CONVERGENCE ANALYSIS, p.4**
 > Our following theorem holds when the learning rate α t is decaying at a rate of t -1 2 and first moment running average coefficient β 1,t decay exponentially with λ, that is typically close to 1, e.g. 1 -10 -8 . Theorem 4.1. Assume that the function f t has bounded gradients, ∇f t (θ) 2 ≤ G, ∇f t (θ) ∞ ≤ G ∞ for all θ ∈ R d and distance between any θ t generated by Adam is bounded, θ n -θ m 2 ≤ D, θ m -θ n ∞ ≤ D ∞ for any m, n ∈ {1, ..., T }, and β 1 , β 2 ∈ [0, 1) satisfy β 2 1 √ β2 < 1. Let α t = α √ t and β 1,t = β 1 λ t-1 , λ ∈ (0, 1). Adam achieves the following guarantee, for all T ≥ 1. R(T ) ≤ D 2 2α(1 -β 1 ) d i=1 T v T,i + α(1 + β 1 )G ∞ (1 -β 1 ) √ 1 -β 2 (1 -γ) 2 d i=1 g 1:T,i 2 + d i=1 D 2 ∞ G ∞ √ 1 -β 2 2α(1 -β 1 )(1 -λ) 2 Our Theorem 4.1 implies when the data features are sparse and bounded gradients, the summation term can be much smaller than its upper bound
 
-verdict: 
-[1] supports: 
-[2] supports: 
-[3] supports: 
-[4] supports: 
-[5] supports: 
-[6] supports: 
-[7] supports: 
-[8] supports: 
-note: 
+verdict: refused_ok
+[1] supports: yes
+[2] supports: partly
+[3] supports: no
+[4] supports: yes
+[5] supports: no
+[6] supports: partly
+[7] supports: no
+[8] supports: yes
+note: right refusal, but it cites all 8 sources and claims [2]-[8] 'focus on Adam': false for [3] word2vec/Adagrad, [5] distillation, [7] BatchNorm
 
 ---
 
@@ -143,9 +146,9 @@ note:
 **[3] Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift (arxiv:1502.03167) §4 Experiments > 4.2 ImageNet classification > 4.2.3 Ensemble Classification, p.7**
 > The current reported best results on the ImageNet Large Scale Visual Recognition Competition are reached by the Deep Image ensemble of traditional models (Wu et al., 2015) and the ensemble model of (He et al., 2015). The latter reports the top-5 error of 4.94%, as evaluated by the ILSVRC server. Here we report a top-5 validation error of 4.9%, and test error of 4.82% (according to the ILSVRC server). This improves upon the previous best result, and exceeds the estimated accuracy of human raters according to (Russakovsky et al., 2014). For our ensemble, we used 6 networks. Each was based on BN-x30, modified via some of the following: increased initial weights in the convolutional layers; using Dropout (with the Dropout probability of 5% or 10%, vs. 40% for the original Inception); and using non-convolutional, per-activation Batch Normalization with last hidden layers of the model. Each network achieved its maximum accuracy after about 6 • 10 6 training steps. The ensemble prediction was based on the arithmetic average of class probabilities predicted by the constituent networks. The details of ensemble and multicrop inference are similar to (Szegedy et al., 2014). We demonstrate in Fig. 4 that batch normalization allows us to set new state-of-the-art by a healthy margin on the ImageNet classification challenge benchmarks.
 
-verdict: 
-[3] supports: 
-note: 
+verdict: wrong
+[3] supports: no
+note: gives the BatchNorm paper's ensemble numbers (4.9% / 4.82%) and calls them ResNet's; expected 3.57%. ResNet's 3.57% chunk was not among the 8 sources (retrieval miss) and the model answered instead of saying so (generation failure); same in run 2
 
 ---
 
@@ -166,15 +169,15 @@ note:
 **Sources the answer cites:**
 
 **[2] Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift (arxiv:1502.03167) §1 Introduction, pp.1-2**
-> Using mini-batches of examples, as opposed to one example at a time, is helpful in several ways. First, the gradient of the loss over a mini-batch is an estimate of the gradient over the training set, whose quality improves as the batch size increases. Second, computation over a batch can be much more efficient than m computations for individual examples, due to the parallelism afforded by the modern computing platforms. While stochastic gradient is simple and effective, it requires careful tuning of the model hyper-parameters, specifically the learning rate used in optimization, as well as the initial values for the model parameters. The training is complicated by the fact that the inputs to each layer are affected by the parameters of all preceding layers -so that small changes to the network parameters amplify as the network becomes deeper. The change in the distributions of layers' inputs presents a problem because the layers need to continuously adapt to the new distribution. When the input distribution to a learning system changes, it is said to experience covariate shift (Shimodaira, 2000). This is typically handled via domain adaptation (Jiang, 2008). However, the notion of covariate shift can be extended beyond the learning system as a whole, to apply to its parts, such as a sub-network or a layer. Consider a network computing ℓ = F 2 (F 1 (u, Θ 1 ), Θ 2 ) where F 1 and F 2 are arbitrary transformations, and the parameters Θ 1 , Θ 2 are to be learned so as to minimize the loss ℓ. Learning Θ 2 can be viewed as if the inputs x = F 1 (u, Θ 1 ) are fed into the sub-network ℓ = F 2 (x, Θ 2 ). For example, a gradient descent step Θ 2 ← Θ 2 - α m m i=1 ∂F 2 (x i , Θ 2 ) ∂Θ 2 (for batch size m and learning rate α) is exactly equivalent to that for a stand-alone network …
+> Using mini-batches of examples, as opposed to one example at a time, is helpful in several ways. First, the gradient of the loss over a mini-batch is an estimate of the gradient over the training set, whose quality improves as the batch size increases. Second, computation over a batch can be much more efficient than m computations for individual examples, due to the parallelism afforded by the modern computing platforms. While stochastic gradient is simple and effective, it requires careful tuning of the model hyper-parameters, specifically the learning rate used in optimization, as well as the initial values for the model parameters. The training is complicated by the fact that the inputs to each layer are affected by the parameters of all preceding layers -so that small changes to the network parameters amplify as the network becomes deeper. The change in the distributions of layers' inputs presents a problem because the layers need to continuously adapt to the new distribution. When the input distribution to a learning system changes, it is said to experience covariate shift (Shimodaira, 2000). This is typically handled via domain adaptation (Jiang, 2008). However, the notion of covariate shift can be extended beyond the learning system as a whole, to apply to its parts, such as a sub-network or a layer. Consider a network computing ℓ = F 2 (F 1 (u, Θ 1 ), Θ 2 ) where F 1 and F 2 are arbitrary transformations, and the parameters Θ 1 , Θ 2 are to be learned so as to minimize the loss ℓ. Learning Θ 2 can be viewed as if the inputs x = F 1 (u, Θ 1 ) are fed into the sub-network ℓ = F 2 (x, Θ 2 ). For example, a gradient descent step Θ 2 ← Θ 2 - α m m i=1 ∂F 2 (x i , Θ 2 ) ∂Θ 2 (for batch size m and learning rate α) is exactly equivalent to that for a stand-alone network F 2 with input x. Therefore, the input distribution properties that make training more efficient -such as having the same distribution between the training and test data -apply to training the sub-network as well. As such it is advantageous for the distribution of x to remain fixed over time. Then, Θ 2 does not have to readjust to compensate for the change in the distribution of x. Fixed distribution of inputs to a sub-network would have positive consequences for the layers outside the subnetwork, as well. Consider a layer with a sigmoid activation function z = g(W u + b) where u is the layer input, the weight matrix W and bias vector b are the layer parameters to be learned, and g(x) = 1 1+exp(-x) . As |x| increases, g ′ (x) tends to zero. This means that for all dimensions of x = W u+b except those with small absolute values, the gradient flowing down to u will vanish and the model will train slowly. However, since x is affected by W, b and the parameters of all the layers below, changes to those parameters during training will likely move many dimensions of x into the saturated regime of the nonlinearity and slow down the convergence. This effect is amplified as the network depth increases. In practice, the saturation problem and the resulting vanishing gradients are usually addressed by using Rectified Linear Units (Nair & Hinton, 2010) ReLU (x) = max(x, 0), careful initialization (Bengio & Glorot, 2010;Saxe et al., 2013), and small learning rates. If, however, we could ensure that the distribution of nonlinearity inputs remains more stable as the network trains, then the optimizer would be less likely to get stuck in the saturated regime, and the training would accelerate.
 
 **[3] Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift (arxiv:1502.03167) §Abstract, p.1**
 > Training Deep Neural Networks is complicated by the fact that the distribution of each layer's inputs changes during training, as the parameters of the previous layers change. This slows down the training by requiring lower learning rates and careful parameter initialization, and makes it notoriously hard to train models with saturating nonlinearities. We refer to this phenomenon as internal covariate shift, and address the problem by normalizing layer inputs. Our method draws its strength from making normalization a part of the model architecture and performing the normalization for each training mini-batch. Batch Normalization allows us to use much higher learning rates and be less careful about initialization. It also acts as a regularizer, in some cases eliminating the need for Dropout. Applied to a state-of-the-art image classification model, Batch Normalization achieves the same accuracy with 14 times fewer training steps, and beats the original model by a significant margin. Using an ensemble of batchnormalized networks, we improve upon the best published result on ImageNet classification: reaching 4.9% top-5 validation error (and 4.8% test error), exceeding the accuracy of human raters.
 
-verdict: 
-[2] supports: 
-[3] supports: 
-note: 
+verdict: correct
+[2] supports: yes
+[3] supports: yes
+note: names internal covariate shift and its effect; citation markers oddly placed at the very start
 
 ---
 
@@ -206,13 +209,13 @@ note:
 **[8] Generative Adversarial Networks (arxiv:1406.2661) §5 Experiments, pp.5-6**
 > We trained adversarial nets an a range of datasets including MNIST [23], the Toronto Face Database (TFD) [28], and CIFAR-10 [21]. The generator nets used a mixture of rectifier linear activations [19,9] and sigmoid activations, while the discriminator net used maxout [10] activations. Dropout [17] was applied in training the discriminator net. While our theoretical framework permits the use of dropout and other noise at intermediate layers of the generator, we used noise as the input to only the bottommost layer of the generator network. We estimate probability of the test set data under p g by fitting a Gaussian Parzen window to the samples generated with G and reporting the log-likelihood under this distribution. The σ parameter Model MNIST TFD DBN [3] 138 ± 2 1909 ± 66 Stacked CAE [3] 121 ± 1.6 2110 ± 50 Deep GSN [6] 214 ± 1.1 1890 ± 29 Adversarial nets 225 ± 2 2057 ± 26 Table 1: Parzen window-based log-likelihood estimates. The reported numbers on MNIST are the mean loglikelihood of samples on test set, with the standard error of the mean computed across examples. On TFD, we computed the standard error across folds of the dataset, with a different σ chosen using the validation set of each fold. On TFD, σ was cross validated on each fold and mean log-likelihood on each fold were computed.
 
-verdict: 
-[4] supports: 
-[5] supports: 
-[6] supports: 
-[7] supports: 
-[8] supports: 
-note: 
+verdict: refused_ok
+[4] supports: no
+[5] supports: no
+[6] supports: no
+[7] supports: no
+[8] supports: no
+note: right refusal; the citations support nothing ([6] has the Transformer's dropout 0.1, a near-distractor the model rightly did not use)
 
 ---
 
@@ -235,8 +238,8 @@ note:
 **[1] Attention Is All You Need (arxiv:1706.03762) §3 Model Architecture > 3.5 Positional Encoding, p.6**
 > Since our model contains no recurrence and no convolution, in order for the model to make use of the order of the sequence, we must inject some information about the relative or absolute position of the tokens in the sequence. To this end, we add "positional encodings" to the input embeddings at the bottoms of the encoder and decoder stacks. The positional encodings have the same dimension d model as the embeddings, so that the two can be summed. There are many choices of positional encodings, learned and fixed [9]. In this work, we use sine and cosine functions of different frequencies: P E (pos,2i) = sin(pos/10000 2i/dmodel ) P E (pos,2i+1) = cos(pos/10000 2i/dmodel ) where pos is the position and i is the dimension. That is, each dimension of the positional encoding corresponds to a sinusoid. The wavelengths form a geometric progression from 2π to 10000 • 2π. We chose this function because we hypothesized it would allow the model to easily learn to attend by relative positions, since for any fixed offset k, P E pos+k can be represented as a linear function of P E pos . We also experimented with using learned positional embeddings [9] instead, and found that the two versions produced nearly identical results (see Table 3 row (E)). We chose the sinusoidal version because it may allow the model to extrapolate to sequence lengths longer than the ones encountered during training.
 
-verdict: 
-[1] supports: 
+verdict: correct
+[1] supports: yes
 note: 
 
 ---
@@ -258,10 +261,10 @@ note:
 **Sources the answer cites:**
 
 **[1] Adam: A Method for Stochastic Optimization (arxiv:1412.6980) §7 EXTENSIONS > 7.1 ADAMAX, pp.8-9**
-> In Adam, the update rule for individual weights is to scale their gradients inversely proportional to a (scaled) L 2 norm of their individual current and past gradients. We can generalize the L 2 norm based update rule to a L p norm based update rule. Such variants become numerically unstable for large p. However, in the special case where we let p → ∞, a surprisingly simple and stable algorithm emerges; see algorithm 2. We'll now derive the algorithm. Let, in case of the L p norm, the stepsize at time t be inversely proportional to v 1/p t , where: v t = β p 2 v t-1 + (1 -β p 2 )|g t | p (6) = (1 -β p 2 ) t i=1 β p(t-i) 2 • |g i | p (7) Algorithm 2: AdaMax, a variant of Adam based on the infinity norm. See section 7.1 for details. Good default settings for the tested machine learning problems are α = 0.002, β 1 = 0.9 and β 2 = 0.999. With β t 1 we denote β 1 to the power t. Here, (α/(1β t 1 )) is the learning rate with the bias-correction term for the first moment. All operations on vectors are element-wise. Require: α: Stepsize Require: β 1 , β 2 ∈ [0, 1): Exponential decay rates Require: f (θ): Stochastic objective function with parameters θ Require: θ 0 : Initial parameter vector m 0 ← 0 (Initialize 1 st moment vector) u 0 ← 0 (Initialize the exponentially weighted infinity norm) t ← 0 (Initialize timestep) while θ t not converged do t ← t + 1 g t ← ∇ θ f t (θ t-1 ) (Get gradients w.r.t. stochastic objective at timestep t) m t ← β 1 • m t-1 + (1 -β 1 ) • g t (Update biased first moment estimate) u t ← max(β 2 • u t-1 , |g t |) (Update the exponentially weighted infinity norm) θ t ← θ t-1 -(α/(1 -β t 1 )) • m t /u t (Update parameters) end while return θ t (Resulting parameters) Note that the decay term is here equivalently parameterised as β p 2 instead of β 2 . Now …
+> In Adam, the update rule for individual weights is to scale their gradients inversely proportional to a (scaled) L 2 norm of their individual current and past gradients. We can generalize the L 2 norm based update rule to a L p norm based update rule. Such variants become numerically unstable for large p. However, in the special case where we let p → ∞, a surprisingly simple and stable algorithm emerges; see algorithm 2. We'll now derive the algorithm. Let, in case of the L p norm, the stepsize at time t be inversely proportional to v 1/p t , where: v t = β p 2 v t-1 + (1 -β p 2 )|g t | p (6) = (1 -β p 2 ) t i=1 β p(t-i) 2 • |g i | p (7) Algorithm 2: AdaMax, a variant of Adam based on the infinity norm. See section 7.1 for details. Good default settings for the tested machine learning problems are α = 0.002, β 1 = 0.9 and β 2 = 0.999. With β t 1 we denote β 1 to the power t. Here, (α/(1β t 1 )) is the learning rate with the bias-correction term for the first moment. All operations on vectors are element-wise. Require: α: Stepsize Require: β 1 , β 2 ∈ [0, 1): Exponential decay rates Require: f (θ): Stochastic objective function with parameters θ Require: θ 0 : Initial parameter vector m 0 ← 0 (Initialize 1 st moment vector) u 0 ← 0 (Initialize the exponentially weighted infinity norm) t ← 0 (Initialize timestep) while θ t not converged do t ← t + 1 g t ← ∇ θ f t (θ t-1 ) (Get gradients w.r.t. stochastic objective at timestep t) m t ← β 1 • m t-1 + (1 -β 1 ) • g t (Update biased first moment estimate) u t ← max(β 2 • u t-1 , |g t |) (Update the exponentially weighted infinity norm) θ t ← θ t-1 -(α/(1 -β t 1 )) • m t /u t (Update parameters) end while return θ t (Resulting parameters) Note that the decay term is here equivalently parameterised as β p 2 instead of β 2 . Now let p → ∞, and define u t = lim p→∞ (v t ) 1/p , then: u t = lim p→∞ (v t ) 1/p = lim p→∞ (1 -β p 2 ) t i=1 β p(t-i) 2 • |g i | p 1/p (8) = lim p→∞ (1 -β p 2 ) 1/p t i=1 β p(t-i) 2 • |g i | p 1/p (9) = lim p→∞ t i=1 β (t-i) 2 • |g i | p 1/p (10) = max β t-1 2 |g 1 |, β t-2 2 |g 2 |, . . . , β 2 |g t-1 |, |g t | (11) Which corresponds to the remarkably simple recursive formula: u t = max(β 2 • u t-1 , |g t |) (12) with initial value u 0 = 0. Note that, conveniently enough, we don't need to correct for initialization bias in this case. Also note that the magnitude of parameter updates has a simpler bound with AdaMax than Adam, namely: |∆ t | ≤ α.
 
-verdict: 
-[1] supports: 
+verdict: correct
+[1] supports: yes
 note: 
 
 ---
@@ -303,16 +306,16 @@ note:
 **[8] Attention Is All You Need (arxiv:1706.03762) §4 Why Self-Attention, p.6**
 > In this section we compare various aspects of self-attention layers to the recurrent and convolutional layers commonly used for mapping one variable-length sequence of symbol representations (x 1 , ..., x n ) to another sequence of equal length (z 1 , ..., z n ), with x i , z i ∈ R d , such as a hidden layer in a typical sequence transduction encoder or decoder. Motivating our use of self-attention we consider three desiderata. One is the total computational complexity per layer. Another is the amount of computation that can be parallelized, as measured by the minimum number of sequential operations required. The third is the path length between long-range dependencies in the network. Learning long-range dependencies is a key challenge in many sequence transduction tasks. One key factor affecting the ability to learn such dependencies is the length of the paths forward and backward signals have to traverse in the network. The shorter these paths between any combination of positions in the input and output sequences, the easier it is to learn long-range dependencies [12]. Hence we also compare the maximum path length between any two input and output positions in networks composed of the different layer types.
 
-verdict: 
-[1] supports: 
-[2] supports: 
-[3] supports: 
-[4] supports: 
-[5] supports: 
-[6] supports: 
-[7] supports: 
-[8] supports: 
-note: 
+verdict: refused_ok
+[1] supports: no
+[2] supports: no
+[3] supports: no
+[4] supports: no
+[5] supports: no
+[6] supports: no
+[7] supports: no
+[8] supports: no
+note: right refusal; cites all 8 sources, none about GPT-3 ([6] has DDPM parameter counts, not used)
 
 ---
 
@@ -333,11 +336,11 @@ note:
 **Sources the answer cites:**
 
 **[2] Adam: A Method for Stochastic Optimization (arxiv:1412.6980) §3 INITIALIZATION BIAS CORRECTION, p.3**
-> As explained in section 2, Adam utilizes initialization bias correction terms. We will here derive the term for the second moment estimate; the derivation for the first moment estimate is completely analogous. Let g be the gradient of the stochastic objective f , and we wish to estimate its second raw moment (uncentered variance) using an exponential moving average of the squared gradient, with decay rate β 2 . Let g 1 , ..., g T be the gradients at subsequent timesteps, each a draw from an underlying gradient distribution g t ∼ p(g t ). Let us initialize the exponential moving average as v 0 = 0 (a vector of zeros). First note that the update at timestep t of the exponential moving average v t = β 2 • v t-1 + (1 -β 2 ) • g 2 t ( where g 2 t indicates the elementwise square g t g t ) can be written as a function of the gradients at all previous timesteps: v t = (1 -β 2 ) t i=1 β t-i 2 • g 2 i (1) We wish to know how E[v t ], the expected value of the exponential moving average at timestep t, relates to the true second moment E[g 2 t ], so we can correct for the discrepancy between the two. Taking expectations of the left-hand and right-hand sides of eq. ( 1): E[v t ] = E (1 -β 2 ) t i=1 β t-i 2 • g 2 i (2) = E[g 2 t ] • (1 -β 2 ) t i=1 β t-i 2 + ζ (3) = E[g 2 t ] • (1 -β t 2 ) + ζ (4) where ζ = 0 if the true second moment E[g 2 i ] is stationary; otherwise ζ can be kept small since the exponential decay rate β 1 can (and should) be chosen such that the exponential moving average assigns small weights to gradients too far in the past. What is left is the term (1β t 2 ) which is caused by initializing the running average with zeros. In algorithm 1 we therefore divide by this term to correct the initialization bias. In case of sparse gradients, for a reliable estimate of t …
+> As explained in section 2, Adam utilizes initialization bias correction terms. We will here derive the term for the second moment estimate; the derivation for the first moment estimate is completely analogous. Let g be the gradient of the stochastic objective f , and we wish to estimate its second raw moment (uncentered variance) using an exponential moving average of the squared gradient, with decay rate β 2 . Let g 1 , ..., g T be the gradients at subsequent timesteps, each a draw from an underlying gradient distribution g t ∼ p(g t ). Let us initialize the exponential moving average as v 0 = 0 (a vector of zeros). First note that the update at timestep t of the exponential moving average v t = β 2 • v t-1 + (1 -β 2 ) • g 2 t ( where g 2 t indicates the elementwise square g t g t ) can be written as a function of the gradients at all previous timesteps: v t = (1 -β 2 ) t i=1 β t-i 2 • g 2 i (1) We wish to know how E[v t ], the expected value of the exponential moving average at timestep t, relates to the true second moment E[g 2 t ], so we can correct for the discrepancy between the two. Taking expectations of the left-hand and right-hand sides of eq. ( 1): E[v t ] = E (1 -β 2 ) t i=1 β t-i 2 • g 2 i (2) = E[g 2 t ] • (1 -β 2 ) t i=1 β t-i 2 + ζ (3) = E[g 2 t ] • (1 -β t 2 ) + ζ (4) where ζ = 0 if the true second moment E[g 2 i ] is stationary; otherwise ζ can be kept small since the exponential decay rate β 1 can (and should) be chosen such that the exponential moving average assigns small weights to gradients too far in the past. What is left is the term (1β t 2 ) which is caused by initializing the running average with zeros. In algorithm 1 we therefore divide by this term to correct the initialization bias. In case of sparse gradients, for a reliable estimate of the second moment one needs to average over many gradients by chosing a small value of β 2 ; however it is exactly this case of small β 2 where a lack of initialisation bias correction would lead to initial steps that are much larger.
 
-verdict: 
-[2] supports: 
-note: 
+verdict: correct
+[2] supports: yes
+note: describes the second-moment correction only (dividing by 1 - β2^t, written ambiguously as β²ᵗ); the question did not ask for both moments
 
 ---
 
@@ -358,10 +361,10 @@ note:
 **Sources the answer cites:**
 
 **[1] Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift (arxiv:1502.03167) §3 Normalization via Mini-Batch Statistics, pp.3-4**
-> Since the full whitening of each layer's inputs is costly and not everywhere differentiable, we make two necessary simplifications. The first is that instead of whitening the features in layer inputs and outputs jointly, we will normalize each scalar feature independently, by making it have the mean of zero and the variance of 1. For a layer with d-dimensional input x = (x (1) . . . x (d) ), we will normalize each dimension x (k) = x (k) -E[x (k) ] Var[x (k) ] where the expectation and variance are computed over the training data set. As shown in (LeCun et al., 1998b), such normalization speeds up convergence, even when the features are not decorrelated. Note that simply normalizing each input of a layer may change what the layer can represent. For instance, normalizing the inputs of a sigmoid would constrain them to the linear regime of the nonlinearity. To address this, we make sure that the transformation inserted in the network can represent the identity transform. To accomplish this, we introduce, for each activation x (k) , a pair of parameters γ (k) , β (k) , which scale and shift the normalized value: y (k) = γ (k) x (k) + β (k) . These parameters are learned along with the original model parameters, and restore the representation power of the network. Indeed, by setting γ (k) = Var[x (k) ] and β (k) = E[x (k) ], we could recover the original activations, if that were the optimal thing to do. In the batch setting where each training step is based on the entire training set, we would use the whole set to normalize activations. However, this is impractical when using stochastic optimization. Therefore, we make the second simplification: since we use mini-batches in stochastic gradient training, each mini-batch produces estimates of the mean and variance of each ac …
+> Since the full whitening of each layer's inputs is costly and not everywhere differentiable, we make two necessary simplifications. The first is that instead of whitening the features in layer inputs and outputs jointly, we will normalize each scalar feature independently, by making it have the mean of zero and the variance of 1. For a layer with d-dimensional input x = (x (1) . . . x (d) ), we will normalize each dimension x (k) = x (k) -E[x (k) ] Var[x (k) ] where the expectation and variance are computed over the training data set. As shown in (LeCun et al., 1998b), such normalization speeds up convergence, even when the features are not decorrelated. Note that simply normalizing each input of a layer may change what the layer can represent. For instance, normalizing the inputs of a sigmoid would constrain them to the linear regime of the nonlinearity. To address this, we make sure that the transformation inserted in the network can represent the identity transform. To accomplish this, we introduce, for each activation x (k) , a pair of parameters γ (k) , β (k) , which scale and shift the normalized value: y (k) = γ (k) x (k) + β (k) . These parameters are learned along with the original model parameters, and restore the representation power of the network. Indeed, by setting γ (k) = Var[x (k) ] and β (k) = E[x (k) ], we could recover the original activations, if that were the optimal thing to do. In the batch setting where each training step is based on the entire training set, we would use the whole set to normalize activations. However, this is impractical when using stochastic optimization. Therefore, we make the second simplification: since we use mini-batches in stochastic gradient training, each mini-batch produces estimates of the mean and variance of each activation. This way, the statistics used for normalization can fully participate in the gradient backpropagation. Note that the use of minibatches is enabled by computation of per-dimension variances rather than joint covariances; in the joint case, regularization would be required since the mini-batch size is likely to be smaller than the number of activations being whitened, resulting in singular covariance matrices. Consider a mini-batch B of size m. Since the normalization is applied to each activation independently, let us focus on a particular activation x (k) and omit k for clarity. We have m values of this activation in the mini-batch, B = {x 1...m }. Let the normalized values be x 1...m , and their linear transformations be y 1...m . We refer to the transform BN γ,β : x 1...m → y 1...m as the Batch Normalizing Transform. We present the BN Transform in Algorithm 1. In the algorithm, ǫ is a constant added to the mini-batch variance for numerical stability. Input: Values of x over a mini-batch: B = {x 1...m }; Parameters to be learned: γ, β Output: {y i = BN γ,β (x i )} µ B ← 1 m m i=1 x i // mini-batch mean σ 2 B ← 1 m m i=1 (x i -µ B ) 2 // mini-batch variance x i ← x i -µ B σ 2 B + ǫ // normalize y i ← γ x i + β ≡ BN γ,β (x i ) // Algorithm 1: Batch Normalizing Transform, applied to activation x over a mini-batch. The BN transform can be added to a network to manipulate any activation. In the notation y = BN γ,β (x), we indicate that the parameters γ and β are to be learned, but it should be noted that the BN transform does not independently process the activation in each training example. Rather, BN γ,β (x) depends both on the training example and the other examples in the mini-batch. The scaled and shifted values y are passed to other network layers. The normalized activations x are internal to our transformation, but their presence is crucial. The distributions of values of any x has the expected value of 0 and the variance of 1, as long as the elements of each mini-batch are sampled from the same distribution, and if we neglect ǫ. This can be seen by observing that m i=1 x i = 0 and 1 m m i=1 x 2 i = 1, and taking expectations. Each normalized activation x (k) can be viewed as an input to a sub-network composed of the linear transform y (k) = γ (k) x (k) + β (k) , followed by the other processing done by the original network. These sub-network inputs all have fixed means and variances, and although the joint distribution of these normalized x (k) can change over the course of training, we expect that the introduction of normalized inputs accelerates the training of the sub-network and, consequently, the network as a whole.
 
-verdict: 
-[1] supports: 
+verdict: correct
+[1] supports: yes
 note: 
 
 ---
@@ -403,16 +406,16 @@ note:
 **[8] Acme Corp Employee Handbook (file:employee_handbook) §Section 2: Working Hours and Attendance, p.?**
 > Standard office hours are Monday through Friday, 9:00 a.m. to 5:30 p.m. local time, with a 30-minute unpaid lunch break. Teams may adopt flexible start times between 7:30 a.m. and 10:00 a.m. with manager approval, provided core collaboration hours of 11:00 a.m. to 3:00 p.m. are covered. Remote employees must remain reachable on company chat during their scheduled hours. Repeated unexplained absences, or three late arrivals within a rolling 30-day window, trigger a written attendance review. Planned time off must be submitted in the HR portal at least five business days in advance for absences of one or two days, and at least fifteen business days in advance for absences of three or more consecutive days.
 
-verdict: 
-[1] supports: 
-[2] supports: 
-[3] supports: 
-[4] supports: 
-[5] supports: 
-[6] supports: 
-[7] supports: 
-[8] supports: 
-note: 
+verdict: refused_ok
+[1] supports: no
+[2] supports: no
+[3] supports: no
+[4] supports: no
+[5] supports: no
+[6] supports: no
+[7] supports: no
+[8] supports: no
+note: right refusal, worded as 'the Handbook does not specify'; cites all 8 sources, none about holidays
 
 ---
 
@@ -435,8 +438,8 @@ note:
 **[1] Acme Corp Employee Handbook (file:employee_handbook) §Section 2: Working Hours and Attendance, p.?**
 > Standard office hours are Monday through Friday, 9:00 a.m. to 5:30 p.m. local time, with a 30-minute unpaid lunch break. Teams may adopt flexible start times between 7:30 a.m. and 10:00 a.m. with manager approval, provided core collaboration hours of 11:00 a.m. to 3:00 p.m. are covered. Remote employees must remain reachable on company chat during their scheduled hours. Repeated unexplained absences, or three late arrivals within a rolling 30-day window, trigger a written attendance review. Planned time off must be submitted in the HR portal at least five business days in advance for absences of one or two days, and at least fifteen business days in advance for absences of three or more consecutive days.
 
-verdict: 
-[1] supports: 
+verdict: correct
+[1] supports: yes
 note: 
 
 ---
@@ -478,16 +481,16 @@ note:
 **[8] Acme Corp Employee Handbook (file:employee_handbook) §Section 8: Information Security, p.?**
 > Employees must use unique passwords of at least 14 characters and enable multi-factor authentication on all company accounts. Passwords must not be shared, written on sticky notes, or stored in unencrypted personal notes apps. Company laptops must remain encrypted, locked when unattended, and patched within seven days of critical security updates. Public Wi-Fi may be used only through the company VPN. Phishing simulations occur quarterly; failing two consecutive simulations requires a short security refresher course. Software installation on managed devices requires approval through the IT service desk except for tools on the approved software catalog. Production credentials must never be committed to source control. Security incidents involving ransomware, account takeover, or lost devices must be reported immediately to the on-call security engineer listed in the internal directory.
 
-verdict: 
-[1] supports: 
-[2] supports: 
-[3] supports: 
-[4] supports: 
-[5] supports: 
-[6] supports: 
-[7] supports: 
-[8] supports: 
-note: 
+verdict: refused_ok
+[1] supports: no
+[2] supports: no
+[3] supports: no
+[4] supports: no
+[5] supports: no
+[6] supports: no
+[7] supports: no
+[8] supports: no
+note: right refusal; cites all 8 sources, none about equity
 
 ---
 
@@ -512,8 +515,8 @@ note:
 **[1] Acme Corp Customer Policy Handbook (file:company_policy) §Section 6: Loyalty Program, p.?**
 > The Acme Rewards program allows customers to earn 1 point for every dollar spent. Points can be redeemed for discounts on future purchases at a rate of 100 points per $5 discount. Points expire if an account is inactive for more than 12 months. Loyalty program membership is free and does not require a minimum purchase.
 
-verdict: 
-[1] supports: 
-note: 
+verdict: partial
+[1] supports: partly
+note: expiry right; 250 points is wrong: 100 points per $5 means 500 for $25. [1] supports the expiry, not 250. An arithmetic slip with the right source in hand (generation failure, like Phase 12's loyalty case)
 
 ---

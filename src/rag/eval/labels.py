@@ -45,9 +45,9 @@ An answer can be `correct` while a citation `supports: no` (right fact, wrong so
 """
 
 
-def quote_block(text: str, limit: int = 1800) -> str:
+def quote_block(text: str, limit: int | None = 1800) -> str:
     flat = " ".join(text.split())
-    if len(flat) > limit:
+    if limit is not None and len(flat) > limit:
         flat = flat[:limit] + " …"
     return "> " + flat
 
@@ -72,7 +72,9 @@ def render_entry(run_id: str, record: dict, attempt: dict, number: int) -> str:
     if cited:
         lines += ["**Sources the answer cites:**", ""]
         for source in cited:
-            lines += [f"**{source['label']}**", quote_block(source["text"]), ""]
+            # Sources are shown in full: a cut-off quote can hide the very sentence that supports a
+            # claim (found on the first sheet), and the labeller may only judge from what is shown.
+            lines += [f"**{source['label']}**", quote_block(source["text"], limit=None), ""]
     else:
         lines += ["*(the answer cites no source)*", ""]
     lines += ["verdict: "] + [f"[{s['n']}] supports: " for s in cited] + ["note: ", "", "---", ""]

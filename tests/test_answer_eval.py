@@ -21,6 +21,7 @@ from rag.eval.sets import EvalQuestion
         ("This is not covered in the provided context.", True),
         ("The provided sources contain no information about LoRA.", True),
         ("There is not enough information to answer.", True),
+        ("The Acme Corp Employee Handbook does not specify the number of holidays.", True),  # missed in step 16
         ("The Transformer does not include recurrence [2].", False),  # a fact, not a refusal
         ("Adam does not provide bias correction for v_0 alone; it corrects both moments [1].", False),
         ("The model uses 8 heads [3].", False),
@@ -177,3 +178,9 @@ def test_invalid_labels_are_reported():
     sheet = render_entry("r", run["questions"][0], run["questions"][0]["attempts"][0], 1)
     labels, problems = parse_sheet(sheet.replace("verdict: ", "verdict: maybe"))
     assert problems and "maybe" in problems[0]
+
+
+def test_cited_sources_are_shown_in_full_on_the_sheet():
+    rec = record("a")
+    rec["attempts"][0]["sources"][0]["text"] = "word " * 1000 + "THE SUPPORTING SENTENCE."
+    assert "THE SUPPORTING SENTENCE." in render_entry("r", rec, rec["attempts"][0], 1)

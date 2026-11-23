@@ -35,8 +35,11 @@ from rag.eval.sets import EvalQuestion, content_words, normal
 # A refusal talks about the SOURCES: "the sources do not mention X", "this is not covered in the
 # provided context". A sentence must contain both a sources word and a negation phrase, so a
 # factual sentence like "the Transformer does not include recurrence" is not a refusal.
+# Document names count too: "the Handbook does not specify ..." was a missed refusal (step 16 labels).
 SOURCES_WORD = re.compile(
-    r"\b(sources?|context|documents?|provided|passages?|excerpts?|given (?:text|information))\b", re.I
+    r"\b(sources?|context|documents?|provided|passages?|excerpts?|given (?:text|information)"
+    r"|handbook|papers?|articles?|reports?|policy|policies|manual|guide)\b",
+    re.I,
 )
 NEGATION = re.compile(
     r"\b(do(?:es)? not|don't|doesn't|did not|cannot|can't|unable to)\s+"
@@ -226,6 +229,21 @@ def summarise_answers(records: list[dict]) -> dict:
             "answer_tokens_median": median("answer_tokens"),
         },
     }
+
+
+def rescore(run: dict) -> dict:
+    """Recompute every automatic check from the stored answers (no LLM call): use after improving
+    a check. Labels and answers are unchanged; outcomes, consistency and the summary are redone."""
+    for record in run["questions"]:
+        for a in record["attempts"]:
+            a["refused"] = is_refusal(a["answer"])
+            a["refused_with_citations"] = a["refused"] and bool(a["cited"]) and not record["answerable"]
+            a["key_match"] = key_match(a["answer"], record["expected"]) if record["answerable"] else None
+            a["outcome"] = auto_outcome(record["answerable"], a["refused"], a["key_match"])
+        record["consistency"] = consistency(record["attempts"])
+    run["summary"] = summarise_answers(run["questions"])
+    run["rescored"] = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+    return run
 
 
 def save_answer_run(set_name: str, config: dict, records: list[dict], out_dir: Path, label: str | None) -> dict:

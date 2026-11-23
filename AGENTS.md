@@ -212,8 +212,16 @@ off never imports the reranker; `RerankingSearcher(base, strategy)` wraps any re
 reranker as a third RRF vote. Papers fused Hit@1 26/40, Hit@5 35, MRR 0.755 (hybrid 22/33/0.675,
 replace 22/37/0.695); all four decision-rule checks passed. CLI `rag ask` pays ~8 s per call to
 load bge (`--rerank off` is the fast path; the Stage 3 server loads once). Notes:
-`experiments/stage2/rerank_fused_step15b.md`. Next: step 16, answer-level eval — pitch first.
-Do not start Phase 16.
+`experiments/stage2/rerank_fused_step15b.md`. Step 16 done (fused only, user's choice):
+`rag eval answers|sheet|labels|rescore` (`src/rag/eval/answers.py`, `labels.py`); answers in
+`data/eval/answers/`. Papers 90 answers (2 runs) + HR 30: gold given 76/80, refusals right 15/16,
+EVERY refusal cites sources, median 7.4 s/answer (prompt reading 2.4 s). **The 15 labels in
+`eval/labels/answers-fused-2026-11-23.md` were written by Claude (user delegated), not the user —
+human review pending.** Labels: 8 correct, 1 partial (loyalty arithmetic), 1 wrong (ResNet: gold
+not retrieved, BN numbers misattributed), 5 refused_ok. Trust: refusal detector 15/15, key_match
+"match" yes / "no match" no. Notes: `experiments/stage2/answers_step16.md`. Next: step 17,
+guardrails (refusals without citations, no answer when gold is missing, unsupported negatives,
+prompt injection) — pitch first. Do not start Phase 16.
 
 ### Phase 7 close-out (2026-09-20)
 

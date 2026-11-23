@@ -248,6 +248,19 @@ def sheet(args) -> int:
     return 0
 
 
+def rescore_answers(args) -> int:
+    """Redo the automatic checks on a stored answer run (after a check was improved)."""
+    import json
+
+    from rag.eval.answers import print_answer_summary, rescore
+    from rag.eval.runner import load_run
+
+    run = rescore(load_run(args.run, answers_dir()))
+    (answers_dir() / f"{run['run_id']}.json").write_text(json.dumps(run, indent=1, ensure_ascii=False))
+    print_answer_summary(run)
+    return 0
+
+
 def labels(args) -> int:
     """Read a filled sheet and report how well the automatic checks agree with the labels."""
     import json
@@ -274,6 +287,7 @@ def run(args) -> int:
         "answers": answers,
         "sheet": sheet,
         "labels": labels,
+        "rescore": rescore_answers,
     }
     try:
         return actions[args.action](args)
