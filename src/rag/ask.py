@@ -53,6 +53,10 @@ def print_answer(answer: Answer, explain: bool, mode: str = "dense", ranks: dict
     )
     for warning in answer.warnings:
         print(f"WARNING: {warning}")
+    for flag in answer.flags:
+        print(f"FLAG {flag.kind}: {flag.detail}" + (f"\n      in: {flag.sentence[:160]}" if flag.sentence else ""))
+    if explain and answer.raw_text.strip() != answer.text.strip():
+        print(f"\n(guardrails edited the answer; the model wrote:)\n{answer.raw_text.strip()}")
 
 
 def run(parsed_args) -> int:
@@ -73,6 +77,9 @@ def run(parsed_args) -> int:
         settings.ask_retrieve_k,
         settings.ask_max_sources,
         settings.ask_context_tokens,
+        prompt_version=settings.ask_prompt,
+        guardrails=settings.ask_guardrails,
+        sanitize_sources=settings.ask_sanitize_sources,
     )
     try:
         answer = answerer.ask(parsed_args.question, parsed_args.collections)

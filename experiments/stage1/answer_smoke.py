@@ -60,7 +60,7 @@ Rules:
 6. Be concise: a short paragraph unless the question asks for more."""
 
 PROMPTS = {"v1": PROMPT_V1, "v2": PROMPT_V2}
-assert PROMPT_V2 == prompt_module.SYSTEM_PROMPT, "v2 is the shipped prompt"
+assert PROMPT_V2 == prompt_module.SYSTEM_PROMPT_V2, "v2 is the step-8 prompt, kept unchanged"
 
 UNANSWERABLE = [
     "What rank r did the LoRA paper use when adapting GPT-3?",

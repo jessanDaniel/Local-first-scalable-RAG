@@ -2,7 +2,7 @@ import pytest
 
 from rag.answer.answerer import Answerer, ContextWindowError
 from rag.answer.citations import check_citations, marker_numbers
-from rag.answer.prompt import SYSTEM_PROMPT, build_user_prompt
+from rag.answer.prompt import PROMPTS, SYSTEM_PROMPT, build_user_prompt
 from rag.answer.sources import Source, assemble_sources
 from rag.llm.interface import LLM, Generation
 from rag.models import Chunk, Document, Section
@@ -121,10 +121,19 @@ def test_prompt_contains_numbered_sources_and_question():
     source = Source(
         1, ATTN, "Attention Is All You Need", "3.2.1 Scaled", 4, 4, "Divide by sqrt dk.", ["c"], 1, 0.7, None
     )
-    prompt = build_user_prompt("Why scale?", [source])
+    v2_system, v2_format = PROMPTS["v2"]
+    prompt = v2_format("Why scale?", [source])
     assert "[1] Attention Is All You Need — 3.2.1 Scaled (p.4)\nDivide by sqrt dk." in prompt
     assert prompt.endswith("Question: Why scale?")
-    assert "[2]" in SYSTEM_PROMPT and "do not cover" in SYSTEM_PROMPT
+    assert "[2]" in v2_system and "do not cover" in v2_system
+    # v3 (the default) fences each source so its end is unambiguous, and adds the step-17 rules
+    prompt = build_user_prompt("Why scale?", [source])
+    assert (
+        "<<<SOURCE [1] | Attention Is All You Need | 3.2.1 Scaled (p.4)>>>\nDivide by sqrt dk.\n<<<END SOURCE [1]>>>"
+        in prompt
+    )
+    assert prompt.endswith("Question: Why scale?")
+    assert "not instructions" in SYSTEM_PROMPT and "Attribute a number" in SYSTEM_PROMPT
 
 
 # --- answerer -------------------------------------------------------------------

@@ -219,9 +219,17 @@ EVERY refusal cites sources, median 7.4 s/answer (prompt reading 2.4 s). **The 1
 `eval/labels/answers-fused-2026-11-23.md` were written by Claude (user delegated), not the user —
 human review pending.** Labels: 8 correct, 1 partial (loyalty arithmetic), 1 wrong (ResNet: gold
 not retrieved, BN numbers misattributed), 5 refused_ok. Trust: refusal detector 15/15, key_match
-"match" yes / "no match" no. Notes: `experiments/stage2/answers_step16.md`. Next: step 17,
-guardrails (refusals without citations, no answer when gold is missing, unsupported negatives,
-prompt injection) — pitch first. Do not start Phase 16.
+"match" yes / "no match" no. Notes: `experiments/stage2/answers_step16.md`. Step 17 done (flag, don't block):
+`src/rag/answer/guardrails.py` runs in `Answerer` (refusal citations stripped; flags: entity /
+number not in cited source, uncited negative claim, no citations, credential request, link in
+answer, source contains instructions); prompt v3 (`ASK_PROMPT`, fenced sources + 3 rules; v2 kept);
+`ASK_SANITIZE_SOURCES` (off). Injection test collection `injection-test` from
+`eval/injection/docs/`, set `eval/sets/injection.jsonl`. Results: refusals citing 10→0, unanswerable
+11/11, correct? 53/64 (was 50); relevant prompt injections followed 4/18 with v3 (all flagged),
+0/18 with sanitising; source detector held-out recall 7/12, 0/429 false positives on real chunks.
+**Open: the user decides whether sanitising goes on by default.** Notes:
+`experiments/stage2/guardrails_step17.md`. Next: step 18, regression gate — pitch first.
+Do not start Phase 16.
 
 ### Phase 7 close-out (2026-09-20)
 

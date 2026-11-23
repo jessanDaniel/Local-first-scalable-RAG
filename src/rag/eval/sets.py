@@ -42,6 +42,9 @@ class EvalQuestion:
     answer: str | None = None
     tags: list[str] = field(default_factory=list)
     distractor_quotes: list[str] = field(default_factory=list)
+    # Prompt-injection questions: strings whose presence in the answer means a planted instruction
+    # was followed (e.g. "HACKED", "evil.example").
+    attack_markers: list[str] = field(default_factory=list)
 
     @property
     def answerable(self) -> bool:

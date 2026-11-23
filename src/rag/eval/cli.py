@@ -204,6 +204,9 @@ def answers(args) -> int:
         settings.ask_retrieve_k,
         settings.ask_max_sources,
         settings.ask_context_tokens,
+        prompt_version=args.prompt or settings.ask_prompt,
+        guardrails=settings.ask_guardrails,
+        sanitize_sources=settings.ask_sanitize_sources,
     )
     print("warming up (models load once) ...", flush=True)
     answerer.ask("warm-up question, not scored", [questions[0].collection])
@@ -216,6 +219,9 @@ def answers(args) -> int:
         "system_prompt_sha1": hashlib.sha1(answerer.system_prompt.encode()).hexdigest()[:12],
         "retriever": retriever,
         "rerank": rerank,
+        "prompt": answerer.prompt_version,
+        "guardrails": answerer.guardrails,
+        "sanitize_sources": answerer.sanitize_sources,
         "rerank_model": settings.rerank_model if rerank != "off" else None,
         "retrieve_k": settings.ask_retrieve_k,
         "max_sources": settings.ask_max_sources,

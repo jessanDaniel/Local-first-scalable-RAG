@@ -76,6 +76,13 @@ class Settings(BaseSettings):
     # the step-15b decision rule (papers Hit@1 26 vs 22, MRR 0.755 vs 0.675;
     # experiments/stage2/rerank_fused_step15b.md).
     ask_rerank: Literal["off", "fused", "replace"] = "fused"
+    # Answer prompt (rag/answer/prompt.py) and post-generation guardrails (rag/answer/guardrails.py,
+    # step 17: flag, don't block; refusal citations are stripped).
+    ask_prompt: Literal["v2", "v3"] = "v3"
+    ask_guardrails: bool = True
+    # Remove instruction-like sentences from sources before generation (prompt-injection defence).
+    # Off: the user's rule is "flag, don't block"; measured in experiments/stage2/guardrails_step17.md.
+    ask_sanitize_sources: bool = False
     # Cross-encoder reranking (Stage 2 step 15): the retriever's top
     # `rerank_candidates` are rescored and the best `rerank_keep` kept. Both models were approved by the
     # user; bge measured better than ms-marco-MiniLM-L-6-v2 (papers Hit@5 37 vs 34, MRR 0.695 vs 0.661)

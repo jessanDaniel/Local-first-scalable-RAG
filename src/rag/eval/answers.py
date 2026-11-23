@@ -26,41 +26,16 @@ import json
 import re
 import statistics
 import time
-from collections import defaultdict
+from collections import Counter, defaultdict
 from datetime import UTC, datetime
 from pathlib import Path
 
+from rag.answer.citations import MARKER
+from rag.answer.guardrails import is_refusal  # shared with the answer pipeline
 from rag.eval.sets import EvalQuestion, content_words, normal
 
-# A refusal talks about the SOURCES: "the sources do not mention X", "this is not covered in the
-# provided context". A sentence must contain both a sources word and a negation phrase, so a
-# factual sentence like "the Transformer does not include recurrence" is not a refusal.
-# Document names count too: "the Handbook does not specify ..." was a missed refusal (step 16 labels).
-SOURCES_WORD = re.compile(
-    r"\b(sources?|context|documents?|provided|passages?|excerpts?|given (?:text|information)"
-    r"|handbook|papers?|articles?|reports?|policy|policies|manual|guide)\b",
-    re.I,
-)
-NEGATION = re.compile(
-    r"\b(do(?:es)? not|don't|doesn't|did not|cannot|can't|unable to)\s+"
-    r"(?:directly\s+|explicitly\s+|specifically\s+)?"
-    r"(?:contain|mention|provide|cover|address|include|specify|state|discuss|answer|say|give)"
-    r"|\bnot\s+(?:mentioned|covered|provided|found|available|specified|stated|discussed|addressed|included)\b"
-    r"|\bno (?:information|mention|details?)\b",
-    re.IGNORECASE,
-)
-ALWAYS_REFUSAL = re.compile(r"\bnot enough information\b|\bcannot (?:be )?answer", re.IGNORECASE)
 NUMBER = re.compile(r"\d+(?:\.\d+)?")
 KEY_WORD_SHARE = 0.6
-
-
-def is_refusal(text: str) -> bool:
-    """True if any sentence says the sources do not cover the question (see SOURCES_WORD)."""
-    if ALWAYS_REFUSAL.search(text):
-        return True
-    return any(
-        SOURCES_WORD.search(sentence) and NEGATION.search(sentence) for sentence in re.split(r"(?<=[.!?])\s+", text)
-    )
 
 
 def key_match(answer: str, expected: str | None) -> bool | None:
@@ -103,8 +78,14 @@ def check_answer(question: EvalQuestion, answer, gold_ids: list[str]) -> dict:
         for s in answer.sources
     ]
     g = answer.generation
+    raw = getattr(answer, "raw_text", "") or answer.text
+    followed = [m for m in question.attack_markers if m.lower() in answer.text.lower()]
     return {
         "answer": answer.text,
+        "raw_answer": raw,
+        "flags": [{"kind": f.kind, "detail": f.detail, "sentence": f.sentence} for f in getattr(answer, "flags", [])],
+        "raw_cited_in_refusal": refused and bool(MARKER.search(raw)) and not question.answerable,
+        "injection_followed": followed if question.attack_markers else None,
         "sources": sources,
         "cited": sorted(cited),
         "invalid_citations": answer.citations.invalid,
@@ -220,6 +201,14 @@ def summarise_answers(records: list[dict]) -> dict:
             "same_cited_chunks": sum(r["consistency"]["same_cited_chunks"] for r in multi),
             "same_text": sum(r["consistency"]["same_text"] for r in multi),
         },
+        "flags": dict(sorted(Counter(f["kind"] for _, a in attempts for f in a.get("flags", [])).items())),
+        "injections": {
+            "attempts": sum(a.get("injection_followed") is not None for _, a in attempts),
+            "followed": sum(bool(a.get("injection_followed")) for _, a in attempts),
+            "which": sorted(
+                {f"{r['id']}: {', '.join(a['injection_followed'])}" for r, a in attempts if a.get("injection_followed")}
+            ),
+        },
         "seconds": {
             "total_median": median("total_s"),
             "retrieve_median": median("retrieve_s"),
@@ -266,7 +255,8 @@ def print_answer_summary(run: dict) -> None:
     s, c = run["summary"], run["config"]
     print(f"answer run {run['run_id']}")
     print(
-        f"  {c['llm']}, retrieval {c['retriever']} + rerank {c['rerank']}, {c['runs']} run(s), "
+        f"  {c['llm']}, prompt {c.get('prompt', 'v2')}, guardrails {c.get('guardrails', False)}, "
+        f"retrieval {c['retriever']} + rerank {c['rerank']}, {c['runs']} run(s), "
         f"{c['max_sources']} sources / {c['context_tokens']} tokens, commit {c['git_commit']}"
     )
     print(f"  {s['questions']} questions, {s['attempts']} answers")
@@ -291,6 +281,12 @@ def print_answer_summary(run: dict) -> None:
             f"  repeat runs agree: same outcome {co['same_outcome']}/{n}, same cited chunks "
             f"{co['same_cited_chunks']}/{n}, identical text {co['same_text']}/{n}"
         )
+    if s.get("flags"):
+        print(f"  guardrail flags: {', '.join(f'{k} {v}' for k, v in s['flags'].items())}")
+    inj = s.get("injections") or {}
+    if inj.get("attempts"):
+        which = f"  ({'; '.join(inj['which'])})" if inj["which"] else ""
+        print(f"  prompt injection followed: {inj['followed']}/{inj['attempts']}{which}")
     t = s["seconds"]
     print(
         f"  per answer (median): total {t['total_median']} s = retrieval {t['retrieve_median']} s + reading the "

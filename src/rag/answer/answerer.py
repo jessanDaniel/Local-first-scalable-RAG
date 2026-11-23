@@ -1,10 +1,11 @@
-"""question -> retrieve -> numbered sources -> LLM -> answer with checked citations."""
+"""question -> retrieve -> numbered sources -> LLM -> guardrails -> answer with checked citations."""
 
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from rag.answer.citations import CitationReport, check_citations
-from rag.answer.prompt import SYSTEM_PROMPT, build_user_prompt
+from rag.answer.guardrails import Flag, check_answer_text, sanitize
+from rag.answer.prompt import PROMPTS
 from rag.answer.sources import Source, assemble_sources
 from rag.chunk.tokens import TokenCounter
 from rag.llm.interface import LLM, Generation
@@ -33,6 +34,10 @@ class Answer:
     prompt_tokens: int  # counted before sending, with the LLM's tokenizer
     timings: dict[str, float]
     warnings: list[str] = field(default_factory=list)
+    raw_text: str = ""  # what the model wrote; `text` is after guardrails (refusal citations removed)
+    flags: list[Flag] = field(default_factory=list)
+    refusal: bool = False
+    prompt_version: str = ""
 
     @property
     def cited_sources(self) -> list[Source]:
@@ -49,9 +54,17 @@ class Answerer:
         retrieve_k: int,
         max_sources: int,
         context_tokens: int,
-        system_prompt: str = SYSTEM_PROMPT,
+        system_prompt: str | None = None,
+        prompt_version: str = "v3",
+        guardrails: bool = True,
+        sanitize_sources: bool = False,
     ):
-        self.system_prompt = system_prompt
+        default_system, self.format_prompt = PROMPTS[prompt_version]
+        self.system_prompt = system_prompt or default_system
+        self.prompt_version = prompt_version
+        self.guardrails = guardrails
+        self.sanitize_sources = sanitize_sources
+        self._doc_texts: dict[str, str] = {}
         self.conn = conn
         self.searcher = searcher
         self.llm = llm
@@ -76,7 +89,15 @@ class Answerer:
         sources, dropped = assemble_sources(
             hits, section_text, self.prompt_counter, self.context_tokens, self.max_sources
         )
-        user_prompt = build_user_prompt(question, sources)
+        removed_instructions: list[str] = []
+        prompt_sources = sources
+        if self.sanitize_sources:  # optional: drop instruction-like sentences before the model reads them
+            prompt_sources = []
+            for source in sources:
+                clean, removed = sanitize(source.text)
+                removed_instructions += removed
+                prompt_sources.append(replace(source, text=clean))
+        user_prompt = self.format_prompt(question, prompt_sources)
         prompt_tokens = (
             self.prompt_counter.count(self.system_prompt)
             + self.prompt_counter.count(user_prompt)
@@ -90,19 +111,36 @@ class Answerer:
         assembled = time.perf_counter()
 
         generation = self.llm.generate(user_prompt, system=self.system_prompt)
-        citations = check_citations(generation.text, len(sources))
+        text, flags, refusal = generation.text, [], False
+        if self.guardrails:
+            guard = check_answer_text(
+                question,
+                generation.text,
+                {s.n: s.text for s in sources},
+                {s.n: s.doc_id for s in sources},
+                self.doc_texts({s.doc_id for s in sources}),
+            )
+            text, flags, refusal = guard.text, guard.flags, guard.refusal
+            if removed_instructions:
+                flags.append(
+                    Flag(
+                        "instructions_removed_from_sources",
+                        f"{len(removed_instructions)} instruction-like sentence(s) removed before generation",
+                    )
+                )
+        citations = check_citations(text, len(sources))
 
         warnings = []
         if citations.invalid:
             warnings.append(f"answer cites sources that do not exist: {citations.invalid}")
-        if not citations.has_citations:
+        if not citations.has_citations and not refusal:
             warnings.append("answer has no valid citations")
         if generation.completion_tokens and generation.completion_tokens >= self.llm.max_tokens:
             warnings.append(f"answer reached the {self.llm.max_tokens}-token limit and may be cut off")
 
         return Answer(
             question=question,
-            text=generation.text,
+            text=text,
             sources=sources,
             citations=citations,
             hits=hits,
@@ -118,4 +156,17 @@ class Answerer:
                 "total_s": time.perf_counter() - start,
             },
             warnings=warnings,
+            raw_text=generation.text,
+            flags=flags,
+            refusal=refusal,
+            prompt_version=self.prompt_version,
         )
+
+    def doc_texts(self, doc_ids: set[str]) -> dict[str, str]:
+        """Whole-document text (title + every section) per doc_id, cached: what the entity
+        guardrail checks a named thing against."""
+        for doc_id in doc_ids - self._doc_texts.keys():
+            document = db.get_document(self.conn, doc_id)
+            sections = " ".join(s.text for s in db.get_sections(self.conn, doc_id))
+            self._doc_texts[doc_id] = f"{document.title if document else ''} {sections}"
+        return {doc_id: self._doc_texts[doc_id] for doc_id in doc_ids}

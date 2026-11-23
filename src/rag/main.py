@@ -100,6 +100,7 @@ def build_parser() -> argparse.ArgumentParser:
     answers.add_argument("--runs", type=int, default=2, help="times each question is asked (default 2)")
     answers.add_argument("--retriever", choices=["hybrid", "dense", "bm25"], help="default: RETRIEVAL_MODE")
     answers.add_argument("--rerank", choices=["off", "fused", "replace"], help="default: ASK_RERANK (fused)")
+    answers.add_argument("--prompt", choices=["v2", "v3"], help="answer prompt (default: ASK_PROMPT, v3)")
     answers.add_argument("--label", help="short name added to the run id")
     sheet = actions.add_parser("sheet", help="write a labeling sheet from answer runs")
     sheet.add_argument("runs", nargs="+", help="answer run ids, paths, or SET:latest")
