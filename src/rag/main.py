@@ -106,6 +106,8 @@ def build_parser() -> argparse.ArgumentParser:
     sheet.add_argument("runs", nargs="+", help="answer run ids, paths, or SET:latest")
     sheet.add_argument("--per-set", nargs="+", required=True, metavar="SET=N", help="entries per set, e.g. papers=11")
     sheet.add_argument("--out", required=True, help="where to write the sheet (.md)")
+    gate = actions.add_parser("gate", help="quality gate: retrieval + guardrail replay vs eval/baseline.json")
+    gate.add_argument("--update", metavar="REASON", help="record the current numbers as the new baseline")
     rescore = actions.add_parser("rescore", help="redo the automatic checks on a stored answer run (no LLM)")
     rescore.add_argument("run", help="answer run id, path, or SET:latest")
     labels = actions.add_parser("labels", help="compare a filled labeling sheet with the automatic checks")

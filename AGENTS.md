@@ -166,8 +166,8 @@ has not decided which repository this goes to; add one later): ruff in `pyprojec
 W, I, B, UP; line length 120; `experiments/learning/` excluded; prompt files exempt from E501
 because wrapping would change the prompt), one mechanical format commit listed in
 `.git-blame-ignore-revs`, `zip(..., strict=True)` where lengths must match. Run
-`scripts/check.sh` (lint + format check + offline tests, ~2 s; `--fix` applies safe fixes)
-before every commit. Stage 1 is complete. Step 11 done (notes:
+`scripts/check.sh` (lint + format check + offline tests + quality gate, ~15 s; `--fast` skips the
+gate; `--fix` applies safe fixes) before every commit. Stage 1 is complete. Step 11 done (notes:
 `experiments/stage1/collections_step11.md`): (a) collections — schema v4 (v3 migrated, backup in
 `data/archive/`), every document in one collection, `rag ingest … --collection NAME` (required),
 `rag search|ask --collection NAME` (filter inside FAISS), `rag collections`; status is read-only.
@@ -228,8 +228,14 @@ answer, source contains instructions); prompt v3 (`ASK_PROMPT`, fenced sources +
 11/11, correct? 53/64 (was 50); relevant prompt injections followed 4/18 with v3 (all flagged),
 0/18 with sanitising; source detector held-out recall 7/12, 0/429 false positives on real chunks.
 **Sanitising is ON by default (user's decision, 2026-11-23); flags stay on too.** Notes:
-`experiments/stage2/guardrails_step17.md`. Next: step 18, regression gate — pitch first.
-Do not start Phase 16.
+`experiments/stage2/guardrails_step17.md`. Step 18 done (zero tolerance, user's choice):
+`rag eval gate` (`src/rag/eval/gate.py`) checks retrieval on papers/hr-demo/injection and replays
+213 stored answers through the guardrails against the committed `eval/baseline.json`; any drop,
+any question leaving the top 5, or any flag change fails. Intended changes: `rag eval gate --update
+"reason"` (keeps a history). `scripts/check.sh` runs it (~15 s total; `--fast` skips). **Run
+scripts/check.sh before every commit; if the gate fails on purpose, update the baseline with a
+reason in the same commit.** Notes: `experiments/stage2/gate_step18.md`. Next: Stage 3, step 19
+(API) — pitch first. Do not start Phase 16.
 
 ### Phase 7 close-out (2026-09-20)
 

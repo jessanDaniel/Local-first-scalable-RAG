@@ -254,6 +254,80 @@ def sheet(args) -> int:
     return 0
 
 
+def gate(args) -> int:
+    """Quality gate: retrieval and guardrail replay vs eval/baseline.json, zero tolerance."""
+    import time
+
+    from rag.eval import gate as g
+    from rag.eval.runner import git_commit
+    from rag.index.current import StaleIndexError
+    from rag.search import make_searcher
+
+    start = time.perf_counter()
+    settings = get_settings()
+    if not settings.db_path.exists():
+        print("quality gate skipped: no database on this machine (data/ is not in git)")
+        return 0
+    conn = db.open_db(settings.db_path)
+    try:
+        searcher = make_searcher(conn, settings.retrieval_mode, settings.rerank)
+    except StaleIndexError as exc:
+        print(f"quality gate FAILED: {exc}")
+        return 1
+    retrieval = g.retrieval_snapshot(conn, searcher)
+    flags = g.replay_flags(conn, answers_dir())
+    base = searcher.base if searcher.mode == "rerank" else searcher
+    config = {
+        "retriever": base.mode,
+        "rerank": getattr(searcher, "strategy", "off"),
+        **{k: v for k, v in retriever_config(searcher, conn).items() if k != "index_build"},
+    }
+    previous = g.load_baseline()
+
+    if args.update:
+        baseline = g.write_baseline(retrieval, flags, config, args.update, git_commit(), previous)
+        for name, snap in baseline["retrieval"].items():
+            m = snap["metrics"]
+            print(
+                f"{name:10} hit@1 {m['hit@1']}/{snap['n']}  hit@5 {m['hit@5']}/{snap['n']}  "
+                f"hit@10 {m['hit@10']}/{snap['n']}  mrr {m['mrr']:.3f}"
+            )
+        print(f"guardrail replay: {len(baseline['flags'] or {})} stored answers")
+        print(f"baseline recorded in {g.BASELINE_PATH.relative_to(g.PROJECT_ROOT)}: {args.update}")
+        return 0
+    if previous is None:
+        print('quality gate FAILED: no baseline yet; record one with rag eval gate --update "initial baseline"')
+        return 1
+
+    failures, improvements = g.compare_retrieval(previous["retrieval"], retrieval)
+    if flags is None:
+        print("guardrail replay skipped: the stored answer runs are not on this machine")
+    elif previous.get("flags") is not None:
+        failures += g.compare_flags(previous["flags"], flags)
+    changed = {
+        k for k in set(config) | set(previous.get("config", {})) if config.get(k) != previous.get("config", {}).get(k)
+    }
+    if changed:
+        print(
+            "note: settings differ from the baseline's: "
+            + ", ".join(f"{k} {previous['config'].get(k)!r} -> {config.get(k)!r}" for k in sorted(changed))
+        )
+    for line in improvements:
+        print(f"better  {line}")
+    for line in failures:
+        print(f"WORSE   {line}")
+    seconds = time.perf_counter() - start
+    if failures:
+        print(
+            f"quality gate FAILED ({len(failures)} regressions, {seconds:.0f} s). If intended, record it: "
+            'rag eval gate --update "why"'
+        )
+        return 1
+    note = f"; {len(improvements)} improvements: record them with --update" if improvements else ""
+    print(f"quality gate passed: {', '.join(g.GATE_SETS)} retrieval + guardrail replay ({seconds:.0f} s){note}")
+    return 0
+
+
 def rescore_answers(args) -> int:
     """Redo the automatic checks on a stored answer run (after a check was improved)."""
     import json
@@ -294,6 +368,7 @@ def run(args) -> int:
         "sheet": sheet,
         "labels": labels,
         "rescore": rescore_answers,
+        "gate": gate,
     }
     try:
         return actions[args.action](args)
