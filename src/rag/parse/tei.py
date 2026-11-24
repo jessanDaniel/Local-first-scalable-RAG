@@ -1,6 +1,6 @@
 """GROBID TEI XML -> ParsedDocument. No network: works on a saved TEI file.
 
-The rules come from parsing QLoRA (experiments/stage1/grobid_feasibility.md):
+The rules come from parsing QLoRA (arXiv 2305.14314) by hand:
 
 - Numbered headings ("3", "5.1") form the section tree. A parent that GROBID
   did not emit (5.1 with no "5") is simply left out of the path.
@@ -13,7 +13,7 @@ The rules come from parsing QLoRA (experiments/stage1/grobid_feasibility.md):
   their paths start with "Appendix". GROBID sometimes leaves the appendix in
   <body>: a lettered heading ("A Extended derivations") after at least two
   numbered sections switches the rest of the body to appendix paths.
-  (Checked on the first 10 papers: experiments/stage1/seed10_parse_review.md.)
+  (Checked by hand on the first 10 papers.)
 - Acknowledgements, funding and references are not body text.
 - A figure or table counts as a caption only if it is labelled "Figure N" or
   "Table N"; the rest (e.g. a chat example GROBID boxed as a figure) is dropped.

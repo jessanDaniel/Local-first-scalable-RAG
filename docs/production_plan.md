@@ -584,13 +584,4 @@ spans, the same shape as `eval_questions.jsonl`. Then: ablations (dense vs BM25 
    backup, PyMuPDF fallback; arXiv HTML dropped as not general enough). The service runs as
    native processes.
 
-Progress: step 18 done — quality gate in `scripts/check.sh` (retrieval + guardrail replay vs `eval/baseline.json`, zero tolerance; `experiments/stage2/gate_step18.md`). Step 17 done — guardrails (flag, don't block), prompt v3, injection tests; 4/5 decision-rule checks pass, injection needs sanitising (user's call) (`experiments/stage2/guardrails_step17.md`). Step 16 done — answer-level eval, 15 labels (by Claude, user delegated): 8 correct, 1 partial, 1 wrong, 5 right refusals; every refusal cites sources (`experiments/stage2/answers_step16.md`). Step 15b done — reranker switch (off|fused|replace); fused is `rag ask`'s default (papers Hit@1 26/40, MRR 0.755; `experiments/stage2/rerank_fused_step15b.md`). Stage 2 step 15 done — cross-encoder reranking opt-in (bge Hit@5 37/40, MRR 0.695, 1.8 s/query; default stays hybrid; `experiments/stage2/rerank_step15.md`). Step 14 done — hybrid (dense + BM25, RRF), papers MRR 0.675 vs dense 0.574, `rag ask` uses hybrid (`experiments/stage2/hybrid_step14.md`). Step 13 done — hand-written BM25, papers Hit@5 34/40 vs dense 29/40 (`experiments/stage2/bm25_step13.md`); HNSW + corpus growth moved to Stage 4. Eval v0 built (baseline papers Hit@5 28/40; `experiments/stage1/eval_v0.md`). Stage 1 complete, plus step 11 (collections, text/Markdown + `hr-demo`, title checks; see
-`experiments/stage1/collections_step11.md`); steps 1–10 (10: ruff config + `scripts/check.sh`, no hook yet; 9: one `rag` command with `status`, see
-`experiments/stage1/cli_step9.md`; 8: `rag.ask` cited answers, smoke check in
-`experiments/stage1/answer_seed10.md`; 7: bge-small embeddings + exact FAISS index, `rag.search`, see
-`experiments/stage1/dense_seed10.md`; 6: chunker v2-350, 400 chunks from 10 papers, see
-`experiments/stage1/chunk_seed10.md`; 5d: generic documents — `doc_id`, schema v3, `rag.ingest arxiv|files`; 5c: 10 papers ingested, all ok, 0 fallback; review in
-`experiments/stage1/seed10_parse_review.md`; 5b: 5b: `rag/parse/` parser interface + GROBID TEI → sections with pages; schema v2) (GROBID 0.8.2 native on the default JDK 17; see
-`experiments/stage1/grobid_feasibility.md`) (step 4: `rag/models.py` + SQLite store, schema v1; step 3: config, LLM factory, timeouts/retries, token counts, typed `Generation`).
-Earlier: (git repo; `src/rag/` installed package, no `sys.path`
-hacks; learning scripts in `experiments/learning/`; companion doc in `docs/archive/`).
+Progress: see §0.2 (done steps are struck through) and `docs/results.md` for the measured numbers.

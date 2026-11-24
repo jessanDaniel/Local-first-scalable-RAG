@@ -78,8 +78,7 @@ class Settings(BaseSettings):
     # replace (its order is final). "off" never loads the model. Override per command with --rerank.
     rerank: Literal["off", "fused", "replace"] = "off"  # default for rag search and rag eval
     # `rag ask` adds generation (6-13 s), so the reranker's ~1.8 s is a small share there. Fused won
-    # the step-15b decision rule (papers Hit@1 26 vs 22, MRR 0.755 vs 0.675;
-    # experiments/stage2/rerank_fused_step15b.md).
+    # the step-15b decision rule (papers Hit@1 26 vs 22, MRR 0.755 vs 0.675; docs/results.md).
     ask_rerank: Literal["off", "fused", "replace"] = "fused"
     # Answer prompt (rag/answer/prompt.py) and post-generation guardrails (rag/answer/guardrails.py,
     # step 17: flag, don't block; refusal citations are stripped).
@@ -87,12 +86,12 @@ class Settings(BaseSettings):
     ask_guardrails: bool = True
     # Remove instruction-like sentences from sources before generation (prompt-injection defence).
     # On by the user's decision (2026-11-23): relevant injections followed 4/18 -> 0/18, 0/429 real
-    # chunks affected; held-out recall 7/12, so the flags stay on too (experiments/stage2/guardrails_step17.md).
+    # chunks affected; held-out recall 7/12, so the flags stay on too.
     ask_sanitize_sources: bool = True
     # Cross-encoder reranking (Stage 2 step 15): the retriever's top
     # `rerank_candidates` are rescored and the best `rerank_keep` kept. Both models were approved by the
     # user; bge measured better than ms-marco-MiniLM-L-6-v2 (papers Hit@5 37 vs 34, MRR 0.695 vs 0.661)
-    # but costs ~1.8 s per query, so retrieval_mode stays hybrid (experiments/stage2/rerank_step15.md).
+    # but costs ~1.8 s per query, so retrieval_mode stays hybrid.
     rerank_model: str = "BAAI/bge-reranker-base"
     rerank_candidates: int = Field(default=100, ge=1)
     rerank_keep: int = Field(default=20, ge=1)

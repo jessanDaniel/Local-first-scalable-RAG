@@ -40,7 +40,7 @@ dev: the pipeline runs end to end, and the experiments that explain its failures
 The active project is now **production-grade RAG**: turn this system into a reliable,
 resume-worthy service (hybrid retrieval, reranking, citations, access control, evaluation,
 observability, deployment). The existing code and eval set are the foundation, not something to
-rebuild. Phases 16–25 stay in §1b and §7 as a backlog that can be revisited after that work, or
+rebuild. Phases 16–25 stay in §7 as a backlog that can be revisited after that work, or
 folded into it when a production slice needs the same measurement.
 
 The standing reminder to explain the Phase 16 retrieval results in plain language before anything
@@ -48,591 +48,64 @@ else is **cancelled**.
 
 ---
 
-## 1b. Progress tracker (UPDATE THIS as phases complete)
+## 1b. Current state (keep this short)
 
-> Agents: read this section first after the intro. Do not re-scaffold or re-explain completed
-> phases. Resume at **Next up**. When a phase finishes, update the checkboxes, findings, and
-> "Next up" before ending the session.
+> Agents: read this, then `HANDOFF.md` and `docs/production_plan.md` §0.2 (the ordered roadmap).
+> Don't add a per-step history here or a write-up file per step (user's rule, 2026-11-24): keep
+> results that serve the dev — a line in `docs/results.md` for numbers the README will cite, the
+> script/CSV that produced them in `experiments/`, and an updated "Next up" below. Git log has the rest.
 
-### Status (as of 2026-10-10, learning track closed)
+**Learning track (Phases 1–15): closed.** Phase 16 has a run (`experiments/learning/phase16_*`)
+but no notes; don't resume it unless the user asks.
 
-| Phase | Name | Status |
-|---|---|---|
-| — | Project scaffold (`uv`, layout, `.env.example`, README stub) | ✅ Done |
-| 1 | Ingestion (`.txt` loader + stats) | ✅ Done |
-| 2 | Fixed-size chunker + metadata | ✅ Done |
-| 3 | Chunking experiments (size × overlap + boundary check) | ✅ Done |
-| 4 | Local embeddings (`sentence-transformers`) | ✅ Done |
-| 5 | Embedding similarity experiments | ✅ Done |
-| 6 | Manual NumPy cosine Top-K search + retrieval debug | ✅ Done |
-| 7 | Chroma (after manual search) | ✅ Done |
-| 8 | Query retrieval — `retrieve(query, k)`, decoupled from LLM | ✅ Done |
-| 9 | Context construction (template + debug mode) | ✅ Done |
-| 10 | Local LLM (Ollama) wired end-to-end | ✅ Done |
-| 11 | Provider abstraction (`LLM` interface + Ollama + Groq) | ✅ Done |
-| 12 | Grounding + failure experiments (mandatory) | ✅ Done |
-| 13 | Top-K experiments (K ∈ {1,3,5,10}) | ✅ Done |
-| 14 | Chunking × Top-K matrix | ✅ Done |
-| 15 | Evaluation dataset (30 questions) | ✅ Done |
-| 16 | Retrieval evaluation (Hit@K / Recall@K) | ⏸ Paused — run exists, notes not written |
-| 17–25 | Generation eval → metadata → hybrid/rerank → observability → tests → README → knowledge test | ⏸ Paused — revisit only if the user asks |
+**Product:** a generic, production-grade RAG for a single Mac, released as a packaged localhost app
+(point at a folder or upload files; models download on first run; Ollama is a separate install).
+Research papers were the first dataset; the app must not be paper-specific.
 
-**Paused on purpose (2026-10-10):** The user closed the learning track because the pipeline dev
-is complete, and is turning this repo into a production-grade RAG. Phases 16–25 are not abandoned
-work to finish first; they are a backlog. Reopen a phase only when the user asks. Phase 16 already
-has `experiments/learning/phase16_retrieval_eval.py` and `experiments/learning/phase16_retrieval_eval.csv` (Hit@K,
-Recall@K, complete, distractor). `experiments/learning/phase16_retrieval_notes.md` was never written, and
-the plain-language walkthrough of those results is no longer a gate.
+**Done (roadmap steps 1–24 + 30, and 22):** ingest (PyMuPDF layout parser by default, GROBID
+optional; pdf/docx/html/txt/md; recursive folders), chunker v2-350, bge-small embeddings + exact
+FAISS, hand-written BM25, RRF hybrid, cross-encoder reranker (fused default for `ask`), cited
+answers with guardrails and source sanitising, eval sets + `rag eval` + a zero-tolerance quality
+gate, FastAPI server + web UI (ask, search, documents/sync, activity, evaluation), per-request logs,
+collections with folder sync and uploads. Numbers: `docs/results.md`.
 
-**Scope (2026-11-20):** the product is a generic, production-grade RAG pipeline for a single
-Mac; research papers are only the first dataset. See `docs/production_plan.md` §0.1: eval v0
-before Stage 2, collections now, a second (txt/Markdown) corpus, guardrails, regression gate,
-index type chosen by measured recall (PQ only when size demands it), and a web UI in Stage 3.
-Order: step 9 → step 10 → collections + second corpus → eval v0 → Stage 2 → Stage 3 (API + UI).
-(Superseded for the remaining steps by the 2026-11-24 reorder in plan §0.2.)
-**Release target (2026-11-23):** a packaged localhost app (point at a folder or upload files);
-models download on first run, not bundled. Implications and open decisions: plan §0.1 item 8.
+**Next up:** step 25, the index benchmark — pitched 2026-11-24 (flat / HNSW / HNSW-SQ8 / IVF-PQ +
+refine, MPS exact, Chroma as the vector-database row; real corpus + calibrated synthetic vectors at
+100k / 1M / 3M; recall vs exact, memory, p95, filtered search). Waiting for the user's go on the
+pitch's decisions. Then 26, 27, 28 (packaging), 29, 31 (README), 32 (knowledge test); 23 optional.
 
-**Next up:** Production-grade RAG, following `docs/production_plan.md` (§9 decisions agreed
-2026-11-17: arXiv cs.CL + cs.LG 2023+, FAISS, `bge-small-en-v1.5`, `qwen2.5:7b-instruct`, no
-Docker; PDF is the primary source — GROBID run natively with JDK 17, Docling as backup,
-PyMuPDF fallback; arXiv HTML dropped). Stage 1 steps 1–4 are done.
-Step 3: `rag/config.py`, `rag/llm/factory.py`, timeouts/retries, typed `Generation`; live check
-passed (qwen2.5:7b-instruct, 5.19s cold / 0.61s warm). Ollama is currently stopped
-(`brew services start ollama` to use it). Step 4: `rag/models.py` (Paper, Section, Chunk;
-content-hash `chunk_id`; chunk offsets index into `Section.text`) and `rag/store/db.py`
-(SQLite at `data/rag.db`, schema v1: papers, sections, chunks, index_builds; per-paper
-replace writes). Step 5a done: GROBID 0.8.2 runs natively on Apple Silicon
-(default JDK 17, at `~/AI-project/tools/grobid` because a space in the path breaks it); QLoRA parsed in
-~2.1s warm. Write-up: `experiments/stage1/grobid_feasibility.md`. Step 5b done: `rag/parse/`
-— `base.py` (`Parser` interface, `ParsedPaper`, quality gates → ok/suspect, debug print),
-`tei.py` (pure TEI → sections: numbered tree, unnumbered headings as children, headless divs
-continue, appendix numbers from heading text, captions only when labelled Figure/Table, pages
-from coords), `grobid.py` (HTTP client, consolidation off, retries 503), `python -m rag.parse
-<pdf>` saves `data/parsed/<id>.tei.xml` + `.json`. `Section` now stores per-paragraph offsets +
-pages (`Paragraph`); DB schema v2 with a v1→v2 migration. Step 5c done (10 papers, not 200 — user's
-choice to start small): corpus `corpus/seed_ai_research.txt` = first arXiv papers of the "AI
-research" track on fanout.sh/papers (Adam, word2vec, VAE, GAN, Seq2Seq, Distillation, DDPM,
-BatchNorm, ResNet, Attention). `rag/acquire/arxiv.py` (API metadata, 3 s throttle, generic
-User-Agent, PDF download with sha256, skips existing), `rag/parse/pymupdf.py` (fallback, one
-section per page, always suspect), `rag/ingest.py` (`uv run python -m rag.ingest arxiv <id file>
-[--limit N] [--reparse] [--report csv]`; GROBID down stops the run instead of falling back).
-Result: 10 ok, 0 fallback, median 1.6 s/paper; by-hand review and two new TEI rules (appendix
-left in body, junk headings) in `experiments/stage1/seed10_parse_review.md`. 65 tests.
-Step 5d done (user wants a generic RAG long term, papers
-first): `Paper` → `Document` with `doc_id = "<source>:<key>"` (`arxiv:1412.6980`,
-`file:perceptron-1958`), `source`, `source_uri`, `metadata` (arXiv version/categories live
-there); schema v3 (`documents` table; v2 has no migration — old db moved to
-`data/archive/v2/`); `Parser.parse(path, doc_id)`, `ParsedDocument`; "no abstract" is no longer
-a quality gate. Ingest has two sources: `uv run python -m rag.ingest arxiv <id file>` (PDFs in
-`data/raw/arxiv/`) and `uv run python -m rag.ingest files <pdfs or folder>` (copied to
-`data/raw/files/`, title/authors from the parse). Per-document files use `doc_file_stem()`
-(`arxiv_1412.6980.json`). 72 tests. Pending from the user: Perceptron, Dropout (JMLR), AlexNet
-(NeurIPS) PDFs go in `data/raw/manual/`, then `rag.ingest files data/raw/manual/`. Planned:
-rerun ingest at ~200 papers before Stage 2. Step 6 done: `rag/chunk/` — `tokens.py` (`HFTokenCounter`, counts
-`BAAI/bge-small-en-v1.5` tokens), `chunker.py` (`Chunker`, version `v2-350`: paragraph packing,
-never crosses sections, sentence split with one-sentence overlap inside long paragraphs,
-word/char hard cuts, abstract/caption/body types, exact section slices, pages from paragraphs),
-`uv run python -m rag.chunk [--show DOC_ID]`. 400 chunks, max 350 tokens, median 224. New:
-`uv run python -m rag.ingest tei` re-applies TEI rules to saved GROBID output (no GROBID); new
-TEI rule drops footnotes GROBID files under the abstract. Notes:
-`experiments/stage1/chunk_seed10.md`. 89 tests. Step 7 done: `rag/embed/embedder.py` (`Embedder`: bge-small-en-v1.5 on MPS when
-available, query instruction added inside `embed_query`, passages embedded as
-`passage_text()` = "title | section path\nchunk" with a 60-token header, `InputTooLongError`
-instead of silent truncation), `rag/index/dense.py` (FAISS `IndexFlatIP`, versioned builds in
-`data/indexes/dense/<build_id>/`, `CURRENT` pointer, `load_current` refuses stale indexes),
-`rag/index/build.py` (embedding cache by sha1(model+input) in `data/embeddings/`),
-`uv run python -m rag.index build|list`, `uv run python -m rag.search "<q>" [-k] [--explain]`.
-400 chunks embedded in 2.4 s (170/s on MPS), query ≈ 75 ms. Smoke check (10 paraphrased
-questions, not the eval): full design rank1 5/10, top3 9/10, top5 10/10; beats no-instruction and
-no-header variants; one near-distractor miss (VAE reparameterization vs DDPM, a Stage 2 rerank
-test case). Notes: `experiments/stage1/dense_seed10.md`. 101 tests. Before each step, pitch it
-first (problem, build, why, proof, risks, out of scope). Step 8 done: `rag/answer/` (`sources.py` merge + number + 3,000-token budget
-counted with the Qwen2.5 tokenizer; `prompt.py` system prompt v2; `citations.py` [n] parsing and
-checks; `answerer.py` with `ContextWindowError` before calling the model),
-`uv run python -m rag.ask "<q>" [--explain]`. Ollama now sends `num_ctx` 8192 and `num_predict`
-600 (confirmed 100% GPU, context 8192). Smoke check, 13 questions read by hand: expected paper
-cited 11/11, 8/10 answerable fully correct, 2/2 unanswerable refused; VAE question wrong (DDPM
-distractors ranked above the right chunk), "why do transformers…" wording credits §3.2.1 content
-to other sections (answer chunk ranked 8th of 8). Key lessons: a valid citation is not a correct
-one (needs a support check in the eval); temperature 0 is not fully reproducible under Ollama
-(run eval questions more than once). Notes: `experiments/stage1/answer_seed10.md`. 116 tests.
-Ollama is stopped (`brew services start ollama` before `rag ask`). Step 9 done: one `rag`
-command (`src/rag/main.py`) — `rag status [--json]`, `rag ingest arxiv|files|tei`, `rag parse`,
-`rag chunk`, `rag index build|list`, `rag search`, `rag ask`, global `--data-dir DIR`; commands
-load their code lazily (`--help` 0.7 s, `status` 0.3 s, no torch/FAISS). `rag status` shows
-counts, index current/stale, GROBID/LLM up or down, and the next command. `python -m rag.<x>`
-still works. End-to-end run in a scratch data dir passed. Found: titles of `ingest files` PDFs
-come out wrong (arXiv licence line / venue banner); fix with the second-corpus step. Notes:
-`experiments/stage1/cli_step9.md`. 139 tests. Step 10 done (no pre-commit hook: the user
-has not decided which repository this goes to; add one later): ruff in `pyproject.toml` (E, F,
-W, I, B, UP; line length 120; `experiments/learning/` excluded; prompt files exempt from E501
-because wrapping would change the prompt), one mechanical format commit listed in
-`.git-blame-ignore-revs`, `zip(..., strict=True)` where lengths must match. Run
-`scripts/check.sh` (lint + format check + offline tests + quality gate, ~15 s; `--fast` skips the
-gate; `--fix` applies safe fixes) before every commit. Stage 1 is complete. Step 11 done (notes:
-`experiments/stage1/collections_step11.md`): (a) collections — schema v4 (v3 migrated, backup in
-`data/archive/`), every document in one collection, `rag ingest … --collection NAME` (required),
-`rag search|ask --collection NAME` (filter inside FAISS), `rag collections`; status is read-only.
-(b) `TextParser` for .txt/.md (`rag ingest files` takes pdf/txt/md); `documents/*.txt` ingested
-as collection `hr-demo` (29 chunks); all 41 Phase 15 quotes sit in one chunk each; gold chunk ids
-in `experiments/stage1/hr_quotes_vs_chunks_gold.jsonl`. (c) local-file titles checked
-(`rag/parse/title.py`): parser → PDF metadata → largest page-1 font → file name; 10/10 correct on
-the seed PDFs. The index now also fingerprints titles + section paths (a changed title makes it
-stale). Real DB: `papers` 10 docs / 400 chunks, `hr-demo` 2 / 29, index current. 194 tests.
-Eval v0 done (notes: `experiments/stage1/eval_v0.md`): sets in `eval/sets/` (`papers` 45
-questions drafted by Claude, 40 answerable; `hr-demo` 30 from Phase 15), gold stored as quotes and
-resolved to chunks at scoring time; `rag eval check|run|compare|list`, runs in `data/eval/runs/`,
-refs like `papers:latest~1`. Baseline papers Hit@1 18/40, Hit@5 28/40, MRR 0.569 (identifier
-questions weakest: exact numbers); hr-demo Hit@5 24/24. Reruns identical; no-instruction ablation
--4 Hit@5. User reviewed 10 questions (8 kept, 2 rewrites applied, see `eval/review_papers_sample.md`).
-**Stage 2 baseline run: `papers-20261120T080005Z-reviewed`** (Hit@5 29/40, MRR 0.574). 203 tests.
-Stage 2 (on the current corpus; HNSW and corpus growth moved to Stage 4). Ask the user before
-adding ANY new dependency or component, even one the plan names (Tantivy was added by mistake and
-removed). Step 13 done: hand-written BM25 — `src/rag/index/tokenize.py` (terms, no stemming),
-`src/rag/index/bm25.py` (inverted index, IDF, k1=1.2 b=0.75, explain), `BM25Searcher` in
-`src/rag/search.py`, `rag search --mode bm25 --explain`, `rag eval run --retriever bm25`. Papers:
-BM25 Hit@5 34/40 vs dense 29/40, MRR 0.659 vs 0.574 — but the lead is only on questions that copy
-the paper's wording (overlap > 0.5); dense is better on reworded ones. Notes:
-`experiments/stage2/bm25_step13.md`. Step 14 done: `src/rag/fusion.py` (RRF, k=60),
-`HybridSearcher` in `src/rag/search.py` (dense top 100 + BM25 top 100 → RRF), settings
-`retrieval_mode` (hybrid: default for ask/search/eval), `hybrid_candidates`, `rrf_k`;
-`--mode`/`--retriever` flags; `--explain` shows dense and BM25 rank per hit. Papers hybrid Hit@1
-22/40, Hit@5 33/40, MRR 0.675 (dense 18/29/0.574, BM25 21/34/0.659); hr-demo 24/24 at rank 1.
-Cost: answers only BM25 finds get pulled down a few places. Step-8 VAE and sqrt(d_k) failures
-now rank 1st. Notes: `experiments/stage2/hybrid_step14.md`. Step 15 done (both models
-approved by the user and downloaded, no new package): `src/rag/rerank.py` (`Reranker`, raw
-logits, header dropped before truncation), `RerankingSearcher` (hybrid top 100 → best 20,
-timeout/exception → fused order), `--mode rerank`, eval latency p50/p95. Papers: bge Hit@5 37/40
-MRR 0.695 but Hit@1 22 (same as hybrid), 1.8 s/query; MiniLM no gain, 0.3 s. bge fixes the
-BM25-only cases but breaks vae_reparam (1 → >20) and makes new rank-1 errors.
-`retrieval_mode` stays hybrid; `rerank_model` = bge for opt-in. Notes:
-`experiments/stage2/rerank_step15.md`. Stage 2 (on the current corpus) is done.
-**2026-11-22: the user chose the full path. The ordered roadmap with "done when" criteria is
-`docs/production_plan.md` §0.2 (steps 15b–32).** Step 15b done: `RERANK` (search/eval, default
-off) and `ASK_RERANK` (ask, default **fused**) = off|fused|replace, `--rerank` on every command;
-off never imports the reranker; `RerankingSearcher(base, strategy)` wraps any retriever; fused =
-reranker as a third RRF vote. Papers fused Hit@1 26/40, Hit@5 35, MRR 0.755 (hybrid 22/33/0.675,
-replace 22/37/0.695); all four decision-rule checks passed. CLI `rag ask` pays ~8 s per call to
-load bge (`--rerank off` is the fast path; the Stage 3 server loads once). Notes:
-`experiments/stage2/rerank_fused_step15b.md`. Step 16 done (fused only, user's choice):
-`rag eval answers|sheet|labels|rescore` (`src/rag/eval/answers.py`, `labels.py`); answers in
-`data/eval/answers/`. Papers 90 answers (2 runs) + HR 30: gold given 76/80, refusals right 15/16,
-EVERY refusal cites sources, median 7.4 s/answer (prompt reading 2.4 s). **The 15 labels in
-`eval/labels/answers-fused-2026-11-23.md` were written by Claude (user delegated), not the user —
-human review pending.** Labels: 8 correct, 1 partial (loyalty arithmetic), 1 wrong (ResNet: gold
-not retrieved, BN numbers misattributed), 5 refused_ok. Trust: refusal detector 15/15, key_match
-"match" yes / "no match" no. Notes: `experiments/stage2/answers_step16.md`. Step 17 done (flag, don't block):
-`src/rag/answer/guardrails.py` runs in `Answerer` (refusal citations stripped; flags: entity /
-number not in cited source, uncited negative claim, no citations, credential request, link in
-answer, source contains instructions); prompt v3 (`ASK_PROMPT`, fenced sources + 3 rules; v2 kept);
-`ASK_SANITIZE_SOURCES` (off). Injection test collection `injection-test` from
-`eval/injection/docs/`, set `eval/sets/injection.jsonl`. Results: refusals citing 10→0, unanswerable
-11/11, correct? 53/64 (was 50); relevant prompt injections followed 4/18 with v3 (all flagged),
-0/18 with sanitising; source detector held-out recall 7/12, 0/429 false positives on real chunks.
-**Sanitising is ON by default (user's decision, 2026-11-23); flags stay on too.** Notes:
-`experiments/stage2/guardrails_step17.md`. Step 18 done (zero tolerance, user's choice):
-`rag eval gate` (`src/rag/eval/gate.py`) checks retrieval on papers/hr-demo/injection and replays
-213 stored answers through the guardrails against the committed `eval/baseline.json`; any drop,
-any question leaving the top 5, or any flag change fails. Intended changes: `rag eval gate --update
-"reason"` (keeps a history). `scripts/check.sh` runs it (~15 s total; `--fast` skips). **Run
-scripts/check.sh before every commit; if the gate fails on purpose, update the baseline with a
-reason in the same commit.** Notes: `experiments/stage2/gate_step18.md`. Step 19 done (user
-approved `fastapi`; `uvicorn` was already present, now declared; "stream, then correct"):
-`src/rag/pipeline.py` (`Pipeline`: every part loaded once, searchers/answerers cached per
-(mode, rerank); `make_searcher` and `rag ask` use it), `Answerer.prepare()` / `finish()` (ask =
-both), `LLM.generate_stream` (Ollama JSON lines; default = one piece), `src/rag/api/{app,schemas}.py`
-— `rag serve [--port]` (loopback only), `GET /health` (503 if the pipeline can't load; `degraded`
-if the index is stale or the LLM is down), `GET /collections`, `POST /search`, `POST /ask` (SSE
-`sources` → `token` → `done`|`error`, or `stream:false`), `X-Request-ID`, `/docs`. One pipeline
-thread (SQLite + models), one LLM thread. Parity with the CLI: /search 84/84 + fused 20/20 identical,
-/ask prompts 10/10 byte-identical (answers 9/10: Ollama nondeterminism). Warm /search p50 9 ms
-(CLI 11.8 s cold); /ask median first token 8.7 s, of which Ollama reads the prompt 6.6–8 s at
-2.4 ms/token (step 16: 1.0) — same with the server stopped; 10 GB swap in use, memory pressure
-suspected. Server footprint 4.2 GB. Notes: `experiments/stage3/api_step19.md`. 309 tests. Step 20 done (no new
-dependency; text logging ON by the user's choice, revisit for the release): `src/rag/requestlog.py`
-— `Trace` + `RequestLog`, one JSON line per `rag search` / `rag ask` / `/search` / `/ask` in
-`data/logs/requests.jsonl` (rotated, 20 MB × 5), keyed by request id; per-stage ms with `other_ms`
-so stages add up, every candidate's rank per list and the source it became, tokens, Ollama
-load/prompt/write/first-token, answer, flags, errors and cancelled streams; settings
-`LOG_REQUESTS`, `LOG_TEXT`, `LOG_MAX_MB`, `LOG_BACKUPS`; `rag logs show [ID|last]`, `rag logs stats`;
-`/health` has a `requests` block. Eval and the gate don't log. Proof: 6 real requests explained from
-the log alone (VAE replace = reranker drops §2.4 to rank 22 → refusal; fused keeps it at 1), log ==
-`--explain`; write 0.16 ms, warm /search p50 9.2 ms. Prompt reading still 2.36 ms/token (7.7 GB swap).
-Found: refusal citation stripping can leave a sentence without its subject. Notes:
-`experiments/stage3/logs_step20.md`. 323 tests. **Roadmap reordered 2026-11-24 (user's decision; plan §0.2): 21 (UI: ask + inspect) →
-21b (general documents: PDF parser without GROBID, recursive folders, non-paper eval set, formats) →
-24 + 30 (point at a folder / upload from the UI, incremental) → 22 (UI: collections, logs, eval) →
-23 optional → 25–29, 31, 32.** The app must not be paper-specific. Step 21 done (user's choices:
-plain HTML/CSS/JS with no build, UI split 21/22, Host check now; no new dependency): `rag serve`
-serves the UI at `/` from `src/rag/api/static/` (index.html, app.css, js/{api,dom,answer,passage,
-trace,main}.js) — ask with streaming, `[n]` buttons, sources, passage dialog with highlighted chunk
-and "Open PDF at page N", trace waterfall + candidates from `/logs/{id}`, mode/rerank controls with
-the reranker's measured cost, Search tab (works without the LLM), status from `/health`. New routes
-`/documents/{id}`, `/documents/{id}/file` (only DB-known docs, path from the DB record, must resolve
-inside data/raw), `/passages?chunk_id=`, `/logs/{id}`. Host header must be 127.0.0.1/localhost/::1
-(400 otherwise; tests use `base_url="http://127.0.0.1"`). Rule: untrusted text only as text nodes,
-never innerHTML (a test greps for it); CSP on the page. Browser check with real models passed (see
-`experiments/stage3/ui_step21.md`, screenshots in `ui_step21/`). Follow-up the same day: refusal sentences keep their grammar
-(markers that open a sentence are not moved back; in refusals they become "Source 6 …"); a Markdown
-subset in `static/js/format.js` (no library); math with **KaTeX 0.19.1, vendored** in
-`static/vendor/katex/` (user approved the dependency and the download; sha512 checked; trust off,
-expansion limits). 356 tests. Step 21b done (general documents; notes
-`experiments/stage3/general_docs_step21b.md`): default PDF parser `src/rag/parse/pdf.py`
-(`LayoutPDFParser`, PyMuPDF, no service; `PDF_PARSER=pymupdf|grobid`, `--parser`; GROBID optional);
-on the papers it equals GROBID (Hit@5 33/33 hybrid, 35/35 fused) at ~0.15 s/paper. `rag ingest files`
-walks folders recursively with a skip report; .docx and .html via the standard library
-(`rag/parse/office.py`); schema v5 ('docx'). Collection `gov-docs`: 9 federal public-domain documents
-(`experiments/stage3/fetch_general_docs.py`, files in `data/raw/incoming/general/`), set
-`eval/sets/gov-docs.jsonl` (43 questions; drafted by Claude, reviewed by an independent Claude agent at
-the user's request — `eval/review_gov_docs.md`; human review still pending; gold may span documents via
-`also_in`), fused Hit@5 38/39, MRR 0.797; in the gate. Open decisions for the user: BM25 statistics per collection vs shared; PyMuPDF
-is AGPL (decide before packaging). 377 tests. Steps 24 + 30 done (user's choices: BM25 statistics per
-searched collection, Rescan + rescan at start, raw-body uploads, Origin check now; no new dependency;
-notes `experiments/stage3/sync_step24.md`): `src/rag/sync.py` / `rag sync NAME [--add-folder P]
-[--remove-folder P]` (schema v6 `source_folders`; unchanged files skipped by hash; removed files
-deleted; only re-parsed docs chunked; new dense build from the cache; 3 builds kept; missing folders
-keep their documents; a clashing doc id gets the collection prefix); `Pipeline.reload()` swaps indexes
-in the running server; `src/rag/api/jobs.py` (one sync job at a time, lazy models, cancel); routes for
-collections, folders, uploads (`PUT .../files/{name}`, raw body), document delete, jobs; Origin check
-(403 for cross-site writes); UI Documents tab (`static/js/docs.js`). Proof: folder → searchable in
-10.7 s, edit → rescan 0.33 s, search 0 errors during a sync (p50 8 → 14 ms, one 1.75 s stall: GIL).
-Then fixed: collection delete (`DELETE /collections/{name}`, `rag collections delete NAME --yes`, UI
-button; a `rebuild` job swaps the index) and the refusal detector no longer counts "the question does not
-specify" (0 of 328 stored answers changed). 413 tests. Step 22 done (all four pitch recommendations taken: eval view-only, overview as the Documents landing, answer-run summaries, Activity default last 1,000 records; no new dependency; notes `experiments/stage3/ui_step22.md`, screenshots in `ui_step22/`): Documents tab lands on a collections overview (`static/js/overview.js`; `/collections` gained suspect/failed/folders/missing/last_synced); Activity tab (`static/js/activity.js`, `GET /logs` newest-first list with route/status/source/flagged filters and a trace per row, `GET /logs/stats?last=N|0` = `rag logs stats`, which gained `--source`); Evaluation tab (`static/js/evaluation.js`, `src/rag/eval/browse.py`: `GET /eval/runs`, `/eval/runs/{id}`, `/eval/compare?a=&b=`, `/eval/answers`, `/eval/gate`; read-only, run ids looked up in the listing, never joined into a path). `compare_runs` is now `run_diff` (data) + a renderer: CLI text byte-identical on 4 real pairs, API = CLI for compare ×4 and stats ×3. 120 MB synthetic log: list 8 ms, stats last 1,000 18 ms, every record 621 ms after `for_stats` cut the memory from +650 MB to +105 MB. Browser check found and fixed: "All collections" fell back to the remembered one, overlapping loads drew twice, stale cached JS (now `Cache-Control: no-cache` on /static), 5 tabs widened the phone layout. 437 tests. Next: ask the user which comes next — step 23 (optional: grow the paper corpus) or step 25 (index benchmark) — and pitch it first. Do not start Phase 16.
+**Open decisions / known gaps:** PyMuPDF is AGPL (decide before step 28); human review of the
+gov-docs questions and the step-16 answer labels is pending; prompt v3 says "paper" once (needs a v4
++ answer eval); browser folder uploads flatten subfolder names; the embedding cache never prunes;
+search stalls during a sync (GIL); Ollama prompt reading is slow under memory pressure.
 
-### Phase 7 close-out (2026-09-20)
+### Rules the user set (keep to these)
 
-Full write-up saved to `experiments/learning/phase7_chroma_notes.md` (comparison table + all three
-experiment results + corrected conclusion). Summary: default-L2 vs. cosine-space collections
-produced identical rankings and, once cosine space was configured, numerically identical scores to
-Phase 6 (0.5778 / 0.5121 / 0.4279, matched exactly via `1 - distance`). Root cause: chunk
-embeddings are unit-length by construction (`all-MiniLM-L6-v2` bakes a `Normalize` module into its
-pipeline), so this is a guarantee of the model, not a property of this dataset — see the corrected
-finding under "Chroma vs. manual search" below.
+- **Pitch every step before building** (problem, build, why, proof, risks, out of scope, decisions
+  with a recommendation); wait for "go".
+- **Ask before adding any dependency, library, model, service or download**, even one the plan
+  names. Downloads: file, source, size first.
+- Claude writes the code (the user delegated it); explain the reasoning so the user learns.
+- Run `scripts/check.sh` (lint, format, offline tests, quality gate) before every commit. If the
+  gate fails on purpose: `rag eval gate --update "reason"` in the same commit. Commits stay local;
+  never push.
+- Diagnose before fixing (retrieval vs generation); measure, don't assert.
+- Stop Ollama (`brew services stop ollama`) and any `rag serve` when done.
+- Untrusted text in the UI only as text nodes (a test greps for `innerHTML`).
 
 ### Environment / machine notes
 
-- **Hardware:** MacBook Pro, Apple Silicon (`arm64`), macOS 26.x.
-- **`uv`:** installed via Homebrew (`uv` 0.12.x). Project venv at `.venv/`; Python **3.12** via `uv`.
-- **System Python** may be 3.14 — ignore it; always use `uv run …`.
-- **Company work** uses Ember/Node (`nvm`) + Java — untouched by `uv`; do not alter those toolchains.
-- **Ollama:** installed via `brew install ollama` (0.34.2), running as a `brew services` background
-  daemon (`brew services start/stop/restart ollama`, survives reboots). Reachable at
-  `http://localhost:11434`. Model `llama3.2:1b` pulled (1.3GB). MPS not available in this sandboxed
-  shell environment, so inference runs CPU-only here — a single ~250-word answer took ~16.6s; use
-  this as the latency baseline for Phase 13's Top-K/latency experiments, not necessarily
-  representative of an unsandboxed run.
-- **GROBID:** 0.8.2 cloned and built at `~/AI-project/tools/grobid` (outside the repo: Wapiti
-  cannot load models from a path containing a space, like `RAG doc`). Start with
-  `cd ~/AI-project/tools/grobid && ./gradlew run --no-daemon` (default JDK 17; JDK 11 also works);
-  ready when `curl localhost:8070/api/isalive` returns `true`. ~1.9 GB RAM. Always send
-  `consolidateHeader=0`, `consolidateCitations=0`, `consolidateFunders=0` (otherwise it can call
-  CrossRef). 0.9.1 needs JDK 21, not installed.
-- **Downloads from arXiv:** use a generic User-Agent; never put the user's email in request
-  headers.
-- **HF Hub:** model downloads work unauthenticated; `HF_TOKEN` warning can be ignored for now.
-- **Default embedding model:** `all-MiniLM-L6-v2` (384 dims), local via `sentence-transformers`.
-- **Chunk size unit:** word-count proxy for tokens (real tokenizer deferred until needed).
-- **`chromadb`** added as a project dependency (`uv add chromadb`, now `1.5.9`) for Phase 7.
-  Persistent store lives at `chroma_db/` (created by `PersistentClient(path=...)`) — gitignore this
-  if not already. Note: installing/writing into `.venv` needed the sandbox's `all` permission on
-  this machine (plain write access was denied) — same likely true for future `uv add`.
-- Loading `SentenceTransformer(...)` still makes an outbound HF Hub call (etag/update check) even
-  when the model is already cached locally — needed `full_network` sandbox permission to run
-  embedding scripts here, not just on first download.
-
-### Key files that exist
-
-| Path | Role |
-|---|---|
-| `src/rag/ingestion/loader.py` | `LoadedDocument`, `load_txt()` |
-| `src/rag/ingestion/chunker.py` | `Chunk`, `chunk_text(..., chunk_size, overlap)` |
-| `src/rag/embeddings/embedder.py` | `Embedder`, `EmbeddedChunk` |
-| `documents/company_policy.txt` | Short sample (~473 words) — good for smoke tests |
-| `documents/employee_handbook.txt` | Longer sample (~2175 words) — use for size/overlap matrices |
-| `experiments/learning/run_chunking_experiment.py` | Size × overlap matrix → `chunking_experiment.csv` |
-| `experiments/learning/boundary_crossing_check.py` | 0% vs overlap boundary probe |
-| `experiments/learning/embedding_similarity_experiment.py` | Phase 5 script (may need creating/running) |
-| `experiments/learning/manual_retrieval_debug.py` | Phase 6 — manual cosine top-K debug on `company_policy` |
-| `src/rag/retrieval/similarity.py` | Phase 6 — `cosine_similarity()`, `top_k()`, `print_retrieval_debug()` |
-| `experiments/learning/chroma_experiment.py` | Phase 7 — same doc/query as Phase 6, via Chroma (default L2 space) |
-| `experiments/learning/chroma_cosine_experiment.py` | Phase 7 — same, with `hnsw:space: cosine`; confirms exact score match to Phase 6 |
-| `experiments/learning/check_embedding_norms.py` | Phase 7 — confirms `all-MiniLM-L6-v2` embeddings are unit-length (norm always 1.0000) |
-| `experiments/learning/phase7_chroma_notes.md` | Phase 7 close-out — full comparison table + findings |
-| `chroma_db/` | Phase 7 — persistent Chroma store on disk (created at runtime, gitignored) |
-| `src/rag/retrieval/vector_store.py` | Phase 8 — `VectorStore`: thin Chroma wrapper, storage/index layer only |
-| `src/rag/retrieval/retriever.py` | Phase 8 — `Retriever`: `index_chunks()` + `retrieve(query, k)`, decoupled from prompts/LLM |
-| `experiments/learning/retriever_debug.py` | Phase 8 — end-to-end check; matches Phase 6/7 scores exactly (0.5778/0.5121/0.4279) |
-| `src/rag/generation/context_builder.py` | Phase 9 — `build_context()`, `build_prompt()`, `print_context_debug()`; deterministic template, no LLM call |
-| `experiments/learning/context_debug.py` | Phase 9 — end-to-end: retrieve(query,k) → exact prompt string printed |
-| `src/rag/llm/ollama.py` | Phase 10 — `generate()`, `print_generation_debug()`; direct Ollama HTTP API call, hard-coded on purpose (Phase 11 abstracts it) |
-| `experiments/learning/end_to_end_debug.py` | Phase 10 — full pipeline: retrieve → context → Ollama → answer, all stages printed |
-| `src/rag/llm/interface.py` | Phase 11 — `LLM` abstract base class; `generate(prompt) -> dict` contract, no provider knowledge |
-| `src/rag/llm/ollama.py` | Phase 11 — refactored to `OllamaLLM(LLM)`; `model` now constructor-time config, not a per-call arg |
-| `src/rag/llm/groq.py` | Phase 11 — `GroqLLM(LLM)`; hosted free-tier provider, OpenAI-compatible chat completions API |
-| `experiments/learning/groq_smoke_test.py` | Phase 11 — isolated `GroqLLM` test, no retrieval/context involved |
-| `experiments/learning/groq_list_models.py` | Phase 11 diagnostic — lists Groq's current model catalog (used to fix a decommissioned-model 404) |
-| `experiments/learning/end_to_end_groq.py` | Phase 11 — full pipeline with `GroqLLM` swapped in for `OllamaLLM`; proves zero pipeline changes needed |
-| `.env` | Real secrets (gitignored): `GROQ_API_KEY`, `GROQ_MODEL=openai/gpt-oss-20b` |
-| `experiments/learning/phase12_failure_experiments.py` | Phase 12 — all 3 required experiments in one script (missing-info, retrieval-failure k=1 vs k=3, generation-failure) |
-| `experiments/learning/phase12_genfail_ollama.py` | Phase 12 — generation-failure retry with `llama3.2:1b`, same context as the Groq run |
-| `experiments/learning/phase12_explore_retrieval_failure.py` / `phase12_confirm_retrieval_failure.py` | Phase 12 — found the retrieval-failure case empirically (8 candidate queries tested, not guessed) |
-| `experiments/learning/phase12_failure_notes.md` | Phase 12 close-out — full write-up, all 3 experiments, retrieval-vs-generation diagnosis table |
-| `experiments/learning/phase13_topk_experiment.py` | Phase 13 — K∈{1,3,5,10} sweep, 3 queries × 2 docs, retry/backoff for Groq rate limits → `topk_experiment.csv` |
-| `experiments/learning/phase13_topk_notes.md` | Phase 13 close-out — full results table + "is more context always better?" finding |
-| `experiments/learning/phase14_chunk_topk_matrix.py` | Phase 14 — retrieval grid over chunk size × overlap × K → `phase14_chunk_topk_matrix.csv` |
-| `experiments/learning/phase14_generation.py` | Phase 14 — Groq on the 9 cells where needle rank changed → `phase14_generation.csv` |
-| `experiments/learning/phase14_chunk_topk_notes.md` | Phase 14 close-out — rank table, generation labels, split-sentence failure |
-| `experiments/learning/eval_questions.jsonl` | Phase 15 — 30 questions: direct, multi-step, missing-information, distractor |
-| `experiments/learning/check_eval_questions.py` | Phase 15 — each quote must occur once in its document |
-| `experiments/learning/phase15_eval_dataset_notes.md` | Phase 15 close-out — record shape and what each question type is for |
-
-Since Stage 1 step 2 (2026-11-17) the code is an installed package: `src/rag/`, imported as
-`rag.*` (`from rag.retrieval.retriever import Retriever`). `uv sync` installs it in editable mode,
-so no script needs a `sys.path` hack. The learning-track scripts live in `experiments/learning/`
-and locate the repo with `project_root = Path(__file__).resolve().parents[2]` (for `documents/`
-and `chroma_db/`). `uv run rag` is the CLI entry point (`rag.main:main`).
-
-### Experiment findings so far (do not lose these)
-
-**Chunking matrix** (`employee_handbook`, words as size unit):
-
-- Larger `chunk_size` → fewer chunks (200→11, 500→5, 1000→3 at 0% overlap).
-- Overlap increases `total_words` stored (duplication cost); sometimes increases `n_chunks`.
-- At 0% overlap, `total_words == original_words` (2175).
-- Short docs (`company_policy` ~473 words) make 500/1000 look like “no chunking” — prefer the
-  handbook for chunking experiments.
-
-**Boundary crossing** (`chunk_size=200`):
-
-- Probe spanning word 200: with `overlap=0`, left half only in chunk 0, right half only in chunk 1.
-- With `overlap=40`, whole probe found in `employee_handbook_1`.
-- Concrete proof of why overlap exists.
-
-**Embeddings smoke test:**
-
-- 5 chunks from `company_policy` at size 100 → vectors shape `(384,)`.
-- Model download cached after first run.
-
-**Embedding similarity (Phase 5, `all-MiniLM-L6-v2`):**
-
-- A paraphrase (dog sleeping / puppy nap): **0.7135** — high, as expected.
-- B unrelated (dog sleeping / stock market): **-0.0002** — near zero / orthogonal.
-- C ambiguous Java (language / island): **0.6878** — almost as high as A despite different
-  meanings. Lesson: shared surface form + similar sentence frame can fool embeddings; highest
-  cosine ≠ always the right sense for retrieval.
-
-**Manual retrieval debug (Phase 6)** — query: “What is the company's refund policy?”
-(`company_policy`, chunk_size=100, overlap=10, k=3):
-
-- Rank 1 score **0.5778** — Refund Policy section (correct primary hit).
-- Rank 2 score **0.5121** — cancellation text that *references* refunds (related, secondary).
-- Rank 3 score **0.4279** — Warranty section (distractor; still somewhat “policy-ish”).
-- Lesson: Top-1 can be right while Top-3 still includes near-misses — inspect ranks, don’t trust
-  scores blindly.
-
-**Chroma vs. manual search (Phase 7, in progress)** — same doc/chunking/query as the Phase 6 debug
-above, `chromadb.PersistentClient` with a **default** (unconfigured) collection:
-
-- Ranking matched Phase 6 exactly: `company_policy_0` (Refund) → `company_policy_5` (cancellation
-  referencing refunds) → `company_policy_2` (Warranty). Same chunks, same order.
-- Scores did **not** match: Chroma reported L2 distances **0.8444 / 0.9757 / 1.1442** (lower =
-  closer) vs. Phase 6 cosine similarities **0.5778 / 0.5121 / 0.4279** (higher = closer) — expected,
-  since Chroma's default distance space is squared L2, not cosine.
-- **Root cause — CORRECTED after empirical check (2026-09-17):** original hypothesis was that
-  `Embedder.embed_texts()` produces non-unit-length vectors since it never passes
-  `normalize_embeddings=True`, and that the Phase 7 ranking-match was therefore a coincidental
-  property of `company_policy`'s chunks having similar norms. **This was wrong.** Ran
-  `experiments/learning/check_embedding_norms.py` on all 6 `company_policy` chunks (word counts 100, 100,
-  100, 100, 100, 23) — every single one has `np.linalg.norm(embedding) == 1.0000`, independent of
-  chunk length. Traced this to `modules.json` in the cached `all-MiniLM-L6-v2` snapshot: the model
-  pipeline is `Transformer → Pooling → 2_Normalize` — a normalization layer is **baked into the
-  model itself**, applied regardless of the `normalize_embeddings` flag on `.encode()`. This model
-  was packaged specifically for cosine-similarity retrieval.
-- **Correct conclusion:** with this specific model, `L2² = 2 − 2·cos_sim` always holds (vectors are
-  always unit-length), so default-L2-vs-cosine ranking equivalence is **structurally guaranteed**
-  for any dataset embedded with `all-MiniLM-L6-v2` — not a coincidence of `company_policy`,and not
-  something a more heterogeneous doc (`employee_handbook`) would break either.
-- **What's still true in general:** not every embedding model/pipeline includes a baked-in
-  `Normalize` module. If one didn't, magnitude would vary and L2 vs. cosine *could* disagree on
-  ranking — the underlying math principle stands, it just isn't a live risk with this model.
-- Practical note for later: `metadata={"hnsw:space": "cosine"}` on the Chroma collection (or
-  `normalize_embeddings=True` in `Embedder.embed_texts()`, now known to be redundant for this
-  model) still matters for *score interpretability* (getting cosine-scale numbers back instead of
-  L2 distances) even though it no longer matters for *ranking correctness* here.
-
-**Phase 8 (`retrieve(query, k)`) end-to-end** — same doc/chunking/query as Phases 6/7:
-
-- `Retriever.retrieve()` reproduced scores **exactly** (0.5778 / 0.5121 / 0.4279) via `VectorStore`
-  wrapping a cosine-space Chroma collection — confirms the decoupled interface behaves identically
-  to the earlier manual/direct-Chroma versions.
-- Two real bugs hit and fixed by actually running the code (not caught by eyeballing): (1)
-  `vector_store.py` methods `add`/`query` were nested inside `__init__`/inside themselves due to
-  indentation, caught via `ast.parse`; (2) `retriever.py` called `vector_store.add(metadatas=...)`
-  but `VectorStore.add()`'s parameter is named `metadata` — a keyword-argument name mismatch across
-  files, caught only by actually running it (`TypeError: unexpected keyword argument`).
-
-**Phase 9 (context construction) end-to-end** — same query, k=3:
-
-- First run of `context_debug.py` produced a context block with chunk id labels but **no chunk
-  text** (`build_context` only interpolated `chunk.chunk_id`, not `chunk.text`, into the f-string) —
-  caught by printing the actual prompt string, not by inspecting the code. Fixed by adding
-  `{chunk.text}` to the f-string.
-- After the fix: prompt = 1642 characters / 255 words for k=3 on `company_policy`.
-- Visible, concrete instance of Phase 3's chunk-boundary-crossing problem: the retrieved Warranty
-  chunk (`company_policy_2`) also contains the start of the unrelated Privacy Policy section,
-  because `chunk_size=100` cut across a section boundary — this is exactly the kind of context
-  pollution that later shows up as "why did the answer mention something unrelated" in Phase 10+.
-- Also hit a file-location bug: a script was created at `src/evaluation/context_debug.py` instead
-  of the top-level `evaluations/context_debug.py`. Since that script computes
-  `project_root = Path(__file__).resolve().parent.parent`, being one directory too deep broke both
-  the `sys.path` insert and the `documents/` path lookup. Moved the file; no code change needed.
-  Lesson: `evaluations/` (top-level) is for experiment scripts; `src/evaluation/` (package) is
-  reserved for the real Phase 17 evaluator module, not yet built — don't confuse the two paths.
-
-**Phase 10 (first end-to-end RAG answer)** — `company_policy`, chunk_size=100, overlap=10, k=3,
-query "What is the company's refund policy?", model `llama3.2:1b`:
-
-- Full pipeline ran successfully: retrieve → build_prompt → Ollama → answer, all stages printed via
-  debug output with nothing hidden.
-- Answer was correct and grounded: listed the actual refund policy bullet points (30-day window,
-  unused/original packaging, 5-7 day processing, non-refundable digital items, exchange policy,
-  cancellation note) — all genuinely present in the retrieved context.
-- Notably did **not** leak the unrelated Warranty/Privacy Policy text that was mixed into chunk 3
-  (`company_policy_2`) into the answer — one positive data point on grounding, not proof of general
-  robustness. Phase 12's mandatory failure experiments (missing-info, retrieval-failure,
-  generation-failure) are the actual test of that, not this single run.
-- Latency: 16.62s for one ~250-word answer — slow for a 1B model, consistent with CPU-only
-  inference (MPS unavailable in this sandboxed environment). Recorded as the Phase 13 baseline.
-
-**Phase 11 (provider abstraction: Ollama + Groq) end-to-end** — same doc/chunking/query as Phase 10:
-
-- `LLM` ABC (`generate(prompt) -> dict`) implemented by both `OllamaLLM` and `GroqLLM`. Swapping
-  providers in `end_to_end_groq.py` vs. `end_to_end_debug.py` required changing exactly 2 lines
-  (import + construction) — retrieval, chunking, and context construction code is byte-identical.
-- Hit a real bug during setup, not caught until actually calling the API: `GROQ_API_KEY`/`GROQ_MODEL`
-  in `.env` initially empty (file created but not saved with content — caught via `wc -l .env`
-  showing 0 lines), then a 404 from a stale model name (`llama-3.1-8b-instant` — decommissioned,
-  not in Groq's current catalog). Diagnosed by listing the live model catalog
-  (`experiments/learning/groq_list_models.py`) rather than guessing; fixed by switching to
-  `openai/gpt-oss-20b`. Lesson: hosted-provider model names aren't stable long-term — this is a
-  real operational difference from local models, where you control the model file directly.
-- Latency comparison, same query, same context: `OllamaLLM` (`llama3.2:1b`, local, CPU-only in this
-  sandboxed env) 1.91s–16.62s depending on whether the model was already warm; `GroqLLM`
-  (`openai/gpt-oss-20b`, hosted, LPU) a consistent 0.73s–1.05s. Both produced correct, grounded
-  answers that ignored the unrelated Warranty/Privacy Policy text bleeding into chunk 3 — but Groq's
-  answer was noticeably better formatted (markdown headers/bullets) unprompted.
-- This is the concrete local-vs-hosted trade-off the project flags for Phase 22: local = private,
-  $0 ceiling, latency bound by your own hardware; hosted free-tier = fast/consistent, but your data
-  leaves the machine and you're subject to the provider's catalog changes and rate limits.
-
-**Phase 12 (grounding + failure experiments, mandatory)** — full write-up in
-`experiments/learning/phase12_failure_notes.md`; summary:
-
-- **Missing information** (`company_policy`, "student/military discounts?"): correctly refused —
-  neither retrieval nor generation failure, the document genuinely lacks the info and generation
-  didn't fabricate a plausible-sounding policy anyway.
-- **Retrieval failure** (`employee_handbook`, "how many late arrivals trigger a review?"): at k=1,
-  the correct chunk (score 0.3029) loses to an irrelevant one (0.3139) by a 0.011 margin and is
-  excluded entirely — model correctly refused given the wrong context it received (no hallucination,
-  but the system still failed). At k=3 with the identical query/model, the correct chunk is
-  included and the answer becomes correct. Isolates the failure to retrieval, not generation, since
-  the only variable changed was k.
-- **Generation failure** (`company_policy`, "how many loyalty points for a $25 discount?" — correct
-  answer 500, computed from "100 points per $5" in the retrieved context): `gpt-oss-20b` answered
-  correctly; **first attempt at a generation failure didn't materialize** — reported honestly rather
-  than forced. Retrying the *exact same retrieved context* against `llama3.2:1b` produced a genuine
-  failure: it incorrectly claimed the context "does not mention a discount" despite the rate being
-  explicitly stated — isolates the failure to generation (model capacity), not retrieval, since
-  context was held constant and only the model changed.
-- **Process lesson, not just a result:** the first draft of the experiment script had a real bug —
-  forgot to call `index_chunks()` for two of the four runs, producing empty Chroma collections and
-  therefore meaningless "I don't know" answers that looked like valid "correctly refused" results.
-  Caught only by reading the printed context debug output (blank context) — the same "print the
-  exact text sent to the LLM" discipline from Phase 9, this time catching a bug in the *experiment
-  harness itself*, not the pipeline under test.
-- **General method that made every diagnosis trustworthy:** hold every variable constant except the
-  one being tested (k for experiment 2; model for experiment 3), and never conclude anything about
-  a "failure" without first checking the actual retrieved chunks/context, not just the final answer.
-
-**Phase 13 (Top-K experiments)** — K∈{1,3,5,10}, full results in
-`experiments/learning/phase13_topk_notes.md` / `topk_experiment.csv`; headline finding:
-
-- Retrieval hit rate is monotonically non-decreasing in k, as expected (more chunks can only add
-  coverage). Answer correctness is **not** monotonic in k.
-- Concrete counterexample: "how many vacation days in the first year" answered correctly at
-  k=1/3/5, then flipped to "I'm not sure" at k=10 — with the correct chunk still present
-  (`retrieval_hit=True`). Same query, same doc, same model; only k changed, only upward. Root
-  cause: `employee_handbook` has many other day-count numbers (30/45/90/etc.) scattered through
-  other sections that entered context at k=10 and apparently diluted the model's confidence in the
-  correct "15 days" answer it had already stated correctly at smaller k.
-- **Answer to "is more context always better?": no**, demonstrated with a controlled example, not
-  asserted. Neither extreme is safe by default — k=1 caused a different query (Phase 12's "late
-  arrivals" case) to fail from under-retrieval. The right k is query/document-dependent, motivating
-  Phase 14/15's move to a real eval set rather than trusting single-query anecdotes.
-- k beyond a document's actual chunk count silently clamps (Chroma just returns what exists) rather
-  than erroring — `company_policy` (6 chunks total) returns the same 6 chunks for k=5 and k=10.
-- Hit Groq's free-tier rate limit (429) mid-sweep from call volume — added retry-with-backoff to
-  the script. Concrete, first-hand instance of the "hosted has rate limits, local doesn't" trade-off
-  flagged back in Phase 11, this time actually encountered rather than just discussed.
-- Generation latency (0.27s–0.74s) didn't scale visibly with context size on Groq's hosted
-  inference in this experiment — likely would differ on local CPU inference (Ollama), not tested
-  here.
-
-**Phase 14 (chunking × Top-K matrix)** — full write-up in
-`experiments/learning/phase14_chunk_topk_notes.md`. Retrieval: 48 rows in
-`phase14_chunk_topk_matrix.csv`. Generation: 9 Groq calls in `phase14_generation.csv`.
-
-- `needle_in_index` was true for every row. Rank still moved. Refund days stayed rank 1 at every
-  cut. On the handbook, overlap and chunk size help one query and hurt the other: late arrivals
-  is rank 1 at 150/0 and rank 2 at the Phase 13 cut 150/15; vacation days is the reverse. At
-  chunk size 300, late arrivals falls to rank 6–7 (miss until K=10). Overlap 30 on that cut
-  drops vacation days from rank 1 to rank 5.
-- Generation followed retrieval on late arrivals. Vacation days at 150/0, K=10 is a generation
-  failure: hit is true, answer is "I don't know." The vacation sentence is split across the
-  chunk boundary; rank order puts "20 days in years four through seven…" in rank 1 and the
-  "15 days … years one through three" fragment at the end of rank 2. The prompt template tells
-  the model to refuse when the answer is not clearly in the context.
-- The same question at 300/0 keeps that sentence intact in the rank-1 chunk. The model answers
-  "15 days" at K=1 and at K=10 (2219 prompt words). A longer prompt was fine once the answering
-  sentence was whole and ranked first. The Phase 13 "K=10 hurts" result does not hold for every
-  cut.
-- No single chunk size, overlap, or K wins both handbook queries. That is why a 20–30 question
-  set comes next, rather than picking a default from this grid.
-
-**Phase 15 (evaluation dataset)** — 30 questions in `experiments/learning/eval_questions.jsonl`
-(12 direct, 6 multi-step, 6 missing-information, 6 distractor). Notes:
-`experiments/learning/phase15_eval_dataset_notes.md`. `check_eval_questions.py` confirms every
-`source_quote` and `distractor_quote` occurs exactly once in its document after whitespace
-is collapsed.
-
-- Answerable rows carry the span a later Hit@K check should find. Missing-information rows
-  (student/military discount, return-shipping payer, same-day delivery, paid holidays,
-  referral bonus, equity grants) have a null answer and no quotes.
-- One answer is derived, not copied: a $25 loyalty discount is 500 points from "1 point per
-  dollar" and "100 points per $5". The number 500 is not in the document.
-- Distractors are nearby numbers already known to confuse retrieval and generation: 14-day
-  price match vs 30-day refund and 45-day exchange; 20 vacation days vs 15 and 25; P2
-  acknowledgment vs the 15-minute P1 rule.
-
-### Collaboration preferences (user-specific)
-
-- User is rebuilding Python muscle memory: **show the full updated function/file** for them to
-  **type** (not silent multi-file generation). Boilerplate (deps, long sample docs, `uv add`) may
-  be done by the agent when asked.
-- Prefer concise explanations; they already know LLM/RAG basics.
-- One phase at a time; confirm before jumping ahead.
-- When asked “are we done with phase N?”, check this tracker + §7 definition for that phase.
-
-### How to update this tracker
-
-At the end of a productive session (or when the user says “update progress”), the agent must:
-
-1. Flip phase statuses in the table above.
-2. Append short findings under “Experiment findings.”
-3. Refresh **Next up** to a single concrete next action.
-4. Note new files/commands that future sessions will need.
+- MacBook Pro, Apple M4 Pro, 24 GB, macOS 26.x. `uv` (Homebrew) with Python 3.12 in `.venv/`;
+  always `uv run …`. Company toolchains (Node via nvm, Java) are untouched.
+- Ollama via `brew services start|stop ollama`, model `qwen2.5:7b-instruct`, `num_ctx` 8192.
+- GROBID 0.8.2 (optional) at `~/AI-project/tools/grobid` (a space in the path breaks it):
+  `cd ~/AI-project/tools/grobid && ./gradlew run --no-daemon`; always send consolidation off.
+- arXiv and other downloads: generic User-Agent, never the user's email.
+- `faiss` and `torch` load fine together; `chromadb` + `torch` in one process crash on a duplicate
+  OpenMP runtime — run Chroma in its own process.
+- Data in `data/` (gitignored): `rag.db` (schema v6), indexes, eval runs/answers, logs. Commands:
+  `uv run rag status | serve | sync | ask | search | logs | eval …`. Tests: `uv run pytest -q`.
+- `.claude/launch.json` has a `rag-serve` preview config for the in-app browser.
 
 ---
 
@@ -767,8 +240,8 @@ Work through these **in order, one phase at a time**. Do not skip ahead or pre-b
 
 ## 8. How the agent should behave while working on this project
 
-- **Check §1b Progress tracker first** every session. Resume at **Next up**; do not redo completed
-  phases or re-ask setup questions already answered there.
+- **Check §1b and `HANDOFF.md` first** every session. Resume at **Next up**; do not redo completed
+  steps or re-ask setup questions already answered there.
 - **Mentor, don't hand off.** Act like a senior Applied AI Engineer pairing with an experienced
   developer, not a code-generation service. Bias toward the user typing/reviewing code themselves.
 - **Show full code for the user to type** when implementing a step (user preference — rebuilding
@@ -780,16 +253,16 @@ Work through these **in order, one phase at a time**. Do not skip ahead or pre-b
 - **Never skip the debug/inspection tooling** for a phase to "save time" — the visibility is the
   point of the project.
 - **Record experiments, don't just assert.** Whenever a phase includes an experiment, produce an
-  artifact (table, log file, note in `experiments/learning/`) with actual numbers — never conclude with
-  "it works" without a measurement. Also copy key numbers into §1b findings.
+  artifact (the script and its CSV/JSON output in `experiments/`) with actual numbers — never conclude
+  with "it works" without a measurement. Numbers the README will cite get one line in
+  `docs/results.md`; no write-up file per step.
 - **When something fails (bad retrieval, hallucination, wrong answer), don't immediately patch it.**
   First diagnose: is this a retrieval failure or a generation failure? Only fix after the user
   understands why it happened.
 - **Don't reach for a bigger model, more chunks, or a framework as a first response to a bad
   result.** Treat every "fix" as a hypothesis to test, not an assumption.
 - **Respect the cost constraint.** Never introduce a paid API call as a required path.
-- **Update §1b** when the user asks to update progress, or at natural phase boundaries before
-  ending a session.
+- **Update §1b "Next up"** (a few lines, not a history) when a step finishes or the user asks.
 
 ## 8b. Learning-mode behavior
 
