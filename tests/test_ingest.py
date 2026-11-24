@@ -9,7 +9,7 @@ from rag.config import Settings
 from rag.ingest import Ingestor, parse_and_store
 from rag.models import Document, Section
 from rag.parse.base import ParsedDocument, ParseError, Parser, ParserUnavailableError
-from rag.parse.pymupdf import FALLBACK_ISSUE, PyMuPDFParser
+from rag.parse.pdf import LayoutPDFParser
 from rag.store import db
 
 DOC = "arxiv:1412.6980"
@@ -71,7 +71,7 @@ def run(conn, tmp_path, primary, fallback=None):
     pdf = write_pdf(tmp_path / "paper.pdf", ["Some body text on page one.", "More text. References"])
     document = make_document()
     db.upsert_document(conn, document)
-    return parse_and_store(document, pdf, conn, primary, fallback or PyMuPDFParser(), tmp_path / "parsed")
+    return parse_and_store(document, pdf, conn, primary, fallback or LayoutPDFParser(), tmp_path / "parsed")
 
 
 def test_grobid_success_is_stored_as_ok(conn, tmp_path):
@@ -83,12 +83,12 @@ def test_grobid_success_is_stored_as_ok(conn, tmp_path):
     assert (tmp_path / "parsed" / "arxiv_1412.6980.json").exists()
 
 
-def test_grobid_failure_falls_back_to_pymupdf(conn, tmp_path):
+def test_grobid_failure_falls_back_to_the_layout_parser(conn, tmp_path):
     result = run(conn, tmp_path, FakeParser("grobid", error=ParseError("HTTP 500")))
     assert result.used_fallback and result.status == "suspect"
-    assert result.parser.startswith("pymupdf")
+    assert result.parser.startswith("pdf-layout")
     stored = db.get_document(conn, DOC)
-    assert FALLBACK_ISSUE in stored.parse_error and "HTTP 500" in stored.parse_error
+    assert "HTTP 500" in stored.parse_error and "no headings found" in stored.parse_error
     sections = db.get_sections(conn, DOC)
     assert [s.path for s in sections] == ["Page 1", "Page 2"]
     assert sections[1].paragraphs[0].page_start == 2
@@ -112,16 +112,11 @@ def test_grobid_down_stops_instead_of_falling_back(conn, tmp_path):
     assert db.get_document(conn, DOC).parse_status == "pending"
 
 
-def test_pymupdf_stops_at_references(tmp_path):
+def test_layout_parser_without_headings_stops_at_references(tmp_path):
     pdf = write_pdf(tmp_path / "p.pdf", ["Intro text.", "Method text.", "References", "[1] A paper."])
-    parsed = PyMuPDFParser().parse(pdf, "file:p")
+    parsed = LayoutPDFParser().parse(pdf, "file:p")
     assert [s.path for s in parsed.sections] == ["Page 1", "Page 2"]
     assert parsed.n_pages == 4
-
-
-def test_pymupdf_reads_pdf_title(tmp_path):
-    pdf = write_pdf(tmp_path / "p.pdf", ["Body."], title="The  Perceptron")
-    assert PyMuPDFParser().parse(pdf, "file:p").title == "The Perceptron"
 
 
 # --- local files ----------------------------------------------------------------
@@ -130,8 +125,9 @@ def test_pymupdf_reads_pdf_title(tmp_path):
 @pytest.fixture
 def ingestor(tmp_path):
     ing = Ingestor(Settings(_env_file=None, data_dir=tmp_path / "data"))
-    ing._checked_grobid = True  # no GROBID in tests
-    ing.primary = FakeParser("grobid", result=lambda doc_id: good_parse(doc_id, "The Perceptron", ["Frank Rosenblatt"]))
+    ing.layout = FakeParser(
+        "pdf-layout", result=lambda doc_id: good_parse(doc_id, "The Perceptron", ["Frank Rosenblatt"])
+    )
     yield ing
     ing.close()
 
@@ -150,7 +146,7 @@ def test_local_file_is_copied_and_titled_from_the_parse(ingestor, tmp_path):
 
 
 def test_a_bad_parser_title_is_replaced_and_the_document_flagged(ingestor, tmp_path):
-    ingestor.primary = FakeParser(
+    ingestor.layout = FakeParser(
         "grobid", result=lambda doc_id: good_parse(doc_id, "Published as a conference paper at ICLR 2015")
     )
     original = write_pdf(tmp_path / "adam.pdf", ["Body text."], title="Adam: A Method for Stochastic Optimization")
@@ -166,11 +162,11 @@ def test_local_file_is_skipped_until_it_changes(ingestor, tmp_path):
     original = write_pdf(tmp_path / "notes.pdf", ["Version one."])
     ingestor.ingest_files([original])
     [again] = ingestor.ingest_files([original])
-    assert again.status == "skipped" and ingestor.primary.calls == 1
+    assert again.status == "skipped" and ingestor.layout.calls == 1
 
     write_pdf(original, ["Version two, longer."])
     [changed] = ingestor.ingest_files([original])
-    assert changed.status == "ok" and ingestor.primary.calls == 2
+    assert changed.status == "ok" and ingestor.layout.calls == 2
 
 
 def test_two_files_with_the_same_name_are_refused(ingestor, tmp_path):
@@ -201,8 +197,9 @@ def test_unsupported_file_types_are_refused(ingestor, tmp_path):
 
 
 def test_text_and_markdown_files_skip_grobid(ingestor, tmp_path):
+    ingestor.pdf_parser = "grobid"
     ingestor._checked_grobid = False  # GROBID "not running": text must not need it
-    ingestor.primary = FakeParser("grobid", error=AssertionError("GROBID must not be called for text"))
+    ingestor.grobid = FakeParser("grobid", error=AssertionError("GROBID must not be called for text"))
     notes = tmp_path / "notes.md"
     notes.write_text("# Notes\n\n## Setup\n\nInstall it.\n\n## Use\n\nRun it.\n")
     [result] = ingestor.ingest_files([notes])
@@ -221,6 +218,7 @@ def test_folders_expand_to_supported_files(tmp_path):
 
 
 def test_reapply_tei_uses_saved_grobid_output(ingestor):
+    ingestor.grobid = FakeParser("grobid", error=AssertionError("GROBID must not be called"))
     tei = (Path(__file__).parent / "fixtures" / "sample.tei.xml").read_text()
     ingestor.parsed_dir.mkdir(parents=True)
     (ingestor.parsed_dir / "arxiv_1412.6980.tei.xml").write_text(tei)
@@ -243,4 +241,23 @@ def test_reapply_tei_uses_saved_grobid_output(ingestor):
     assert db.get_document(ingestor.conn, DOC).title == "Adam"  # source metadata still wins
     assert by_id["arxiv:2006.11239"].status == "skipped"
     assert "no saved TEI" in by_id["arxiv:2006.11239"].issues
-    assert ingestor.primary.calls == 0  # GROBID was never asked
+    assert ingestor.grobid.calls == 0  # GROBID was never asked
+
+
+def test_pdfs_ingest_without_grobid_by_default(tmp_path):
+    """The default parser needs no service: GROBID being down doesn't stop anything."""
+    ing = Ingestor(Settings(_env_file=None, data_dir=tmp_path / "data", grobid_url="http://127.0.0.1:9"))
+    pdf = write_pdf(tmp_path / "Report.pdf", ["Some body text on page one.", "More body text on page two."])
+    [result] = ing.ingest_files([pdf])
+    ing.close()
+    assert result.status in ("ok", "suspect") and result.parser.startswith("pdf-layout")
+
+
+def test_grobid_parser_stops_when_grobid_is_down(tmp_path):
+    ing = Ingestor(
+        Settings(_env_file=None, data_dir=tmp_path / "data", grobid_url="http://127.0.0.1:9"), pdf_parser="grobid"
+    )
+    pdf = write_pdf(tmp_path / "Report.pdf", ["Some body text."])
+    with pytest.raises(ParserUnavailableError, match="--parser pymupdf"):
+        ing.ingest_files([pdf])
+    ing.close()

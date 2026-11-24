@@ -31,6 +31,11 @@ class Settings(BaseSettings):
     # Generic on purpose: never put personal details (e.g. an email) in request headers.
     http_user_agent: str = "rag-papers-research/0.1"
 
+    # PDF parser (step 21b): "pymupdf" = rag.parse.pdf, no service, any kind of PDF (the default);
+    # "grobid" = GROBID for scientific papers (needs the GROBID server; falls back to pymupdf on a
+    # parse error). Override per run with `rag ingest ... --parser`.
+    pdf_parser: Literal["pymupdf", "grobid"] = "pymupdf"
+
     grobid_url: str = "http://localhost:8070"
     grobid_timeout_seconds: float = Field(default=180.0, gt=0)
     grobid_max_retries: int = Field(default=3, ge=0)

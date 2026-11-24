@@ -170,7 +170,7 @@ class _SectionBuilder:
         self.doc_id = doc_id
         self.sections: list[Section] = []
         self.stack: list[tuple[int, str]] = []  # (level, heading) of the current path
-        self.paragraphs: list[str] = []
+        self.paragraphs: list[tuple[str, int | None, int | None]] = []  # (text, page_start, page_end)
         self.current = (PREAMBLE, 1, PREAMBLE)  # heading, level, path
 
     def heading(self, text: str, level: int) -> None:
@@ -180,16 +180,15 @@ class _SectionBuilder:
         self.stack.append((level, text))
         self.current = (text, len(self.stack), PATH_SEPARATOR.join(h for _, h in self.stack))
 
-    def paragraph(self, text: str) -> None:
+    def paragraph(self, text: str, page_start: int | None = None, page_end: int | None = None) -> None:
         if text.strip():
-            self.paragraphs.append(text)
+            self.paragraphs.append((text, page_start, page_end))
 
     def _flush(self) -> None:
         if self.paragraphs:
             heading, level, path = self.current
-            paragraphs = [(p, None, None) for p in self.paragraphs]
             self.sections.append(
-                Section.from_paragraphs(self.doc_id, len(self.sections), heading, level, path, paragraphs)
+                Section.from_paragraphs(self.doc_id, len(self.sections), heading, level, path, self.paragraphs)
             )
         self.paragraphs = []
 

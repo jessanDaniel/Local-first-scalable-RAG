@@ -9,8 +9,10 @@ abstract, dates come from there, not from the PDF), PDF downloaded to
 data/raw/arxiv/. `files`: local PDFs, copied to data/raw/files/; title and
 authors come from the parse, or the file name when the parse has none.
 
-Every document then goes the same way: GROBID, PyMuPDF if GROBID fails,
-document + sections written to the database as ok / suspect / failed.
+Every document then goes the same way: the PDF parser (PDF_PARSER / --parser: "pymupdf", the
+layout parser in rag/parse/pdf.py, by default; "grobid" for papers, falling back to pymupdf on a
+parse error), or the text parser for .txt/.md; document + sections written to the database as
+ok / suspect / failed.
 Documents already parsed are skipped unless --reparse (a local file whose
 content changed is always parsed again). Each parse is also dumped to
 data/parsed/<doc>.json, and GROBID's TEI to <doc>.tei.xml, for inspection.
@@ -32,7 +34,8 @@ from rag.config import Settings, get_settings
 from rag.models import DEFAULT_COLLECTION, Document, check_collection_id, doc_file_stem, make_doc_id
 from rag.parse.base import ParsedDocument, ParseError, Parser, ParserUnavailableError
 from rag.parse.grobid import GrobidParser
-from rag.parse.pymupdf import PyMuPDFParser, pdf_title_candidates
+from rag.parse.pdf import LayoutPDFParser
+from rag.parse.pymupdf import pdf_title_candidates
 from rag.parse.tei import tei_to_parsed
 from rag.parse.text import TEXT_SUFFIXES, TextParser
 from rag.parse.title import choose_title
@@ -192,14 +195,21 @@ def pick_title(parsed: ParsedDocument, source_path: Path) -> tuple[str, str, lis
 class Ingestor:
     """What every source shares: the database, the parsers, the output folders."""
 
-    def __init__(self, settings: Settings, reparse: bool = False, collection: str = DEFAULT_COLLECTION):
+    def __init__(
+        self,
+        settings: Settings,
+        reparse: bool = False,
+        collection: str = DEFAULT_COLLECTION,
+        pdf_parser: str | None = None,
+    ):
         self.settings = settings
+        self.pdf_parser = pdf_parser or settings.pdf_parser
         self.reparse = reparse
         self.collection = check_collection_id(collection)
         self.parsed_dir = settings.data_dir / "parsed"
         self.conn = db.open_db(settings.db_path)
-        self.primary = GrobidParser.from_settings(settings, tei_dir=self.parsed_dir)
-        self.fallback = PyMuPDFParser()
+        self.grobid = GrobidParser.from_settings(settings, tei_dir=self.parsed_dir)
+        self.layout = LayoutPDFParser()
         self.text_parser = TextParser()
         self._checked_grobid = False
 
@@ -221,9 +231,11 @@ class Ingestor:
     def parse(self, document: Document, pdf_path: Path, **timing) -> IngestResult:
         if pdf_path.suffix.lower() in TEXT_SUFFIXES:
             primary, fallback = self.text_parser, None  # no service needed, nothing to fall back to
-        else:
-            primary, fallback = self.primary, self.fallback
+        elif self.pdf_parser == "grobid":
+            primary, fallback = self.grobid, self.layout
             self._require_grobid()
+        else:
+            primary, fallback = self.layout, None
         db.upsert_document(self.conn, replace(document, title=document.title or pdf_path.stem))
         result = parse_and_store(document, pdf_path, self.conn, primary, fallback, self.parsed_dir, **timing)
         print(
@@ -235,9 +247,10 @@ class Ingestor:
 
     def _require_grobid(self) -> None:
         if not self._checked_grobid:
-            if not self.primary.is_alive():
+            if not self.grobid.is_alive():
                 raise ParserUnavailableError(
-                    f"GROBID is not running at {self.primary.base_url}; see AGENTS.md for the start command"
+                    f"GROBID is not running at {self.grobid.base_url}; start it (see AGENTS.md) "
+                    "or use the default parser (--parser pymupdf)"
                 )
             self._checked_grobid = True
 
@@ -409,7 +422,12 @@ def document_paths(inputs: list[Path]) -> list[Path]:
 
 def run(parsed_args) -> int:
     collection = getattr(parsed_args, "collection", None)  # tei re-applies rules in place: no collection
-    ingestor = Ingestor(get_settings(), reparse=parsed_args.reparse, collection=collection or DEFAULT_COLLECTION)
+    ingestor = Ingestor(
+        get_settings(),
+        reparse=parsed_args.reparse,
+        collection=collection or DEFAULT_COLLECTION,
+        pdf_parser=getattr(parsed_args, "parser", None),
+    )
     if collection and db.ensure_collection(ingestor.conn, collection):
         print(f"created collection {collection!r}")
     try:

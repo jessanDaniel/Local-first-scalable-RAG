@@ -60,12 +60,18 @@ def build_parser() -> argparse.ArgumentParser:
         sub.add_argument(
             "--collection", required=True, help="collection to add the documents to (created if new), e.g. papers"
         )
+        sub.add_argument(
+            "--parser",
+            choices=["pymupdf", "grobid"],
+            help="PDF parser (default: PDF_PARSER setting, pymupdf; grobid needs the GROBID server)",
+        )
     for sub in (arxiv, files, tei):
         sub.add_argument("--reparse", action="store_true", help="parse again even if already parsed")
         sub.add_argument("--report", type=Path, help="write per-document results to this CSV")
 
-    parse = command("parse", "rag.parse.__main__:run", "debug view: parse one PDF with GROBID, save TEI + JSON")
+    parse = command("parse", "rag.parse.__main__:run", "debug view: parse one PDF, print its sections, save JSON")
     parse.add_argument("pdf", type=Path)
+    parse.add_argument("--parser", choices=["pymupdf", "grobid"], help="default: PDF_PARSER setting (pymupdf)")
     parse.add_argument("--doc-id", help='defaults to "file:<pdf name without .pdf>"')
 
     chunk = command("chunk", "rag.chunk.__main__:run", "chunk every parsed document (safe to rerun)")

@@ -18,6 +18,7 @@ import hashlib
 import json
 import re
 import sqlite3
+import unicodedata
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -90,26 +91,37 @@ def file_sha1(path: Path) -> str:
     return hashlib.sha1(path.read_bytes()).hexdigest()
 
 
+TYPOGRAPHY = str.maketrans({"’": "'", "‘": "'", "“": '"', "”": '"', "−": "-", "–": "-", "—": "-", "‐": "-"})
+
+
 def normal(text: str) -> str:
     """Whitespace-insensitive form used to match quotes against chunk text."""
     return " ".join(text.split())
 
 
+def squash(text: str) -> str:
+    """For matching a quote: typography and spacing ignored. A gold quote names a passage, not its
+    typesetting: different parsers give "LSTM's" / "LSTM’s", "-log 4" / "−log 4", "deﬁne" / "define",
+    "p g" / "pg" (a subscript), "152layer" / "152-layer" (a line-end hyphen), and the passage is the
+    same."""
+    return "".join(unicodedata.normalize("NFKC", text).translate(TYPOGRAPHY).split()).replace("-", "")
+
+
 def find_quote(quote: str, chunks: list[tuple[str, str]]) -> QuoteCheck:
     """chunks: (chunk_id, text) of the quote's document."""
-    target = normal(quote)
-    holders = [chunk_id for chunk_id, text in chunks if target in normal(text)]
+    target = squash(quote)
+    holders = [chunk_id for chunk_id, text in chunks if target in squash(text)]
     if len(holders) == 1:
         return QuoteCheck("", quote, "one chunk", holders)
     if holders:
         return QuoteCheck("", quote, "several chunks", holders)
     # Split across a boundary? The longest leading part sits in one chunk, the longest trailing part
     # in another, and together they cover the quote.
-    words = target.split()
-    texts = [(chunk_id, normal(text)) for chunk_id, text in chunks]
+    words = normal(quote).split()
+    texts = [(chunk_id, squash(text)) for chunk_id, text in chunks]
 
     def holder(part: list[str]) -> str | None:
-        joined = " ".join(part)
+        joined = squash(" ".join(part))
         return next((chunk_id for chunk_id, text in texts if joined in text), None)
 
     head_end, head_chunk = next(((i, c) for i in range(len(words) - 1, 0, -1) if (c := holder(words[:i]))), (0, None))

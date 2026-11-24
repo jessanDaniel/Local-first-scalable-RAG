@@ -1,0 +1,105 @@
+{
+ "parse_seconds_total": 1.49,
+ "papers": [
+  {
+   "doc_id": "arxiv:1301.3781",
+   "status": "ok",
+   "seconds": 0.1,
+   "grobid_sections": 22,
+   "layout_sections": 22,
+   "grobid_words": 4701,
+   "layout_words": 5390,
+   "issues": ""
+  },
+  {
+   "doc_id": "arxiv:1312.6114",
+   "status": "ok",
+   "seconds": 0.26,
+   "grobid_sections": 22,
+   "layout_sections": 21,
+   "grobid_words": 6754,
+   "layout_words": 6207,
+   "issues": ""
+  },
+  {
+   "doc_id": "arxiv:1406.2661",
+   "status": "ok",
+   "seconds": 0.09,
+   "grobid_sections": 11,
+   "layout_sections": 14,
+   "grobid_words": 3529,
+   "layout_words": 3791,
+   "issues": ""
+  },
+  {
+   "doc_id": "arxiv:1409.3215",
+   "status": "ok",
+   "seconds": 0.08,
+   "grobid_sections": 18,
+   "layout_sections": 19,
+   "grobid_words": 4692,
+   "layout_words": 4890,
+   "issues": ""
+  },
+  {
+   "doc_id": "arxiv:1412.6980",
+   "status": "ok",
+   "seconds": 0.11,
+   "grobid_sections": 14,
+   "layout_sections": 19,
+   "grobid_words": 6919,
+   "layout_words": 6602,
+   "issues": ""
+  },
+  {
+   "doc_id": "arxiv:1502.03167",
+   "status": "ok",
+   "seconds": 0.12,
+   "grobid_sections": 16,
+   "layout_sections": 17,
+   "grobid_words": 6541,
+   "layout_words": 6620,
+   "issues": ""
+  },
+  {
+   "doc_id": "arxiv:1503.02531",
+   "status": "ok",
+   "seconds": 0.09,
+   "grobid_sections": 18,
+   "layout_sections": 20,
+   "grobid_words": 5164,
+   "layout_words": 5323,
+   "issues": ""
+  },
+  {
+   "doc_id": "arxiv:1512.03385",
+   "status": "ok",
+   "seconds": 0.16,
+   "grobid_sections": 18,
+   "layout_sections": 18,
+   "grobid_words": 7559,
+   "layout_words": 8549,
+   "issues": ""
+  },
+  {
+   "doc_id": "arxiv:1706.03762",
+   "status": "ok",
+   "seconds": 0.2,
+   "grobid_sections": 26,
+   "layout_sections": 24,
+   "grobid_words": 4553,
+   "layout_words": 4606,
+   "issues": ""
+  },
+  {
+   "doc_id": "arxiv:2006.11239",
+   "status": "ok",
+   "seconds": 0.25,
+   "grobid_sections": 23,
+   "layout_sections": 18,
+   "grobid_words": 8352,
+   "layout_words": 6346,
+   "issues": ""
+  }
+ ]
+}
