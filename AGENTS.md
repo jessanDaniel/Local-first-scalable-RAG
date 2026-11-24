@@ -89,6 +89,7 @@ Mac; research papers are only the first dataset. See `docs/production_plan.md` �
 before Stage 2, collections now, a second (txt/Markdown) corpus, guardrails, regression gate,
 index type chosen by measured recall (PQ only when size demands it), and a web UI in Stage 3.
 Order: step 9 → step 10 → collections + second corpus → eval v0 → Stage 2 → Stage 3 (API + UI).
+(Superseded for the remaining steps by the 2026-11-24 reorder in plan §0.2.)
 **Release target (2026-11-23):** a packaged localhost app (point at a folder or upload files);
 models download on first run, not bundled. Implications and open decisions: plan §0.1 item 8.
 
@@ -259,7 +260,12 @@ load/prompt/write/first-token, answer, flags, errors and cancelled streams; sett
 the log alone (VAE replace = reranker drops §2.4 to rank 22 → refusal; fused keeps it at 1), log ==
 `--explain`; write 0.16 ms, warm /search p50 9.2 ms. Prompt reading still 2.36 ms/token (7.7 GB swap).
 Found: refusal citation stripping can leave a sentence without its subject. Notes:
-`experiments/stage3/logs_step20.md`. 323 tests. Next: steps 21–22 (web UI) — pitch first. Do not
+`experiments/stage3/logs_step20.md`. 323 tests. **Roadmap reordered 2026-11-24 (user's decision; plan §0.2): 21 (UI: ask + inspect) →
+21b (general documents: PDF parser without GROBID, recursive folders, non-paper eval set, formats) →
+24 + 30 (point at a folder / upload from the UI, incremental) → 22 (UI: collections, logs, eval) →
+23 optional → 25–29, 31, 32.** The app must not be paper-specific. Step 21 was pitched; open
+questions for the user: plain JS with no build vs React, split 21/22, Host-header check now or in
+step 29. Next: step 21 once those are answered. Do not
 start Phase 16.
 
 ### Phase 7 close-out (2026-09-20)

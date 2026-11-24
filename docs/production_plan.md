@@ -98,17 +98,23 @@ a model, a service) is asked about before it is added.
 | ~~18~~ ✅ | Regression gate: `scripts/check.sh` runs a fast retrieval eval and fails on a drop beyond a set tolerance | A deliberately worse config fails the check |
 | ~~19~~ ✅ | API (FastAPI): `/search`, `/ask` (streaming), `/collections`, `/health` (from `rag status`), request ids, models loaded once | Endpoints tested; the same answers as the CLI |
 | ~~20~~ ✅ | Observability: one structured log record per request (stage timings, candidates, scores, tokens, model, rerank on/off, fallbacks); metrics per stage | A request can be explained from its log alone |
-| 21–22 | Web UI, served by the same process: ask with streaming, clickable citations opening the PDF page, the per-stage trace, the reranker toggle with its time cost, collections, eval runs | Usable end to end in a browser |
-| 23 | Grow the corpus (~200 papers, then as far as the Mac allows) + new baselines | Eval rerun; the cost of distractors measured |
-| 24 | Incremental ingest + index rebuilds without downtime | Adding papers doesn't require a full rebuild by hand |
+| 21 | Web UI, part 1 (ask and inspect), served by `rag serve`: ask with streaming, clickable citations opening the PDF page (or the text section), the per-stage trace from the step-20 log, mode/rerank controls with the reranker's time cost, a search tab that works without the LLM, status from `/health` | Usable end to end in a browser; untrusted text never rendered as HTML |
+| 21b | **General documents** (new, 2026-11-24): a default PDF parser that works without GROBID, measured on ordinary PDFs (manuals, reports, slides; GROBID stays optional for papers); recursive folders; an eval set of non-paper documents; decide which extra formats (docx, html, …) are worth a dependency; reword paper-specific prompt wording | A folder of mixed non-paper documents is answerable with measured retrieval quality; ingest no longer stops when GROBID is down |
+| 24 + 30 | **Point at a folder and upload, from the UI** (steps 24 and 30 brought forward and merged): add a folder or files to a collection through the API and UI, pick up new / changed / deleted files, index rebuilds without downtime | A file added to a watched folder or uploaded is answerable within a minute, without a manual rebuild |
+| 22 | Web UI, part 2: collections, recent requests and `rag logs stats`, eval runs and comparisons | The rest of the system visible in the browser |
+| 23 | *Optional now:* grow the paper corpus (~200 papers, then as far as the Mac allows) + new baselines | Eval rerun; the cost of distractors measured |
 | 25 | Index benchmark: flat vs HNSW vs SQ8 vs IVF-PQ (+ rescoring), plus one vector-database row; real corpus + synthetic vectors at 1M+ | Memory / p95 / recall-vs-exact table; the index type chosen by the numbers |
-| 26 | Reranker comparison at scale (hybrid / fused / replace) | Default rechecked with the larger corpus |
+| 26 | Reranker comparison at scale (hybrid / fused / replace), on papers and the general-documents set | Default rechecked with the larger and more varied corpus |
 | 27 | Load test: concurrent `/search` p50/p95/p99; `/ask` separately | Numbers in the README |
-| 28 | Native service: `launchd`, start/stop, logs, keep Ollama and GROBID optional | Survives a reboot |
-| 29 | Access: API keys, rate limits, collection-level access enforced in every index | Tests prove a key can't read another collection |
-| 30 | Upload: PDF/txt/md into a private collection through the API and UI | An uploaded file is answerable within a minute |
+| 28 | Packaging (see §0.1 item 8; packager to be decided): the app installs, downloads models on first run, checks for Ollama, keeps GROBID optional | Installs and runs on a clean Mac account |
+| 29 | Access for a localhost app: Host / Origin checks and DNS-rebinding protection (API keys only if it ever leaves localhost) | Tests prove a foreign web page can't read the API |
 | 31 | README: architecture, design decisions, every measured result | Readable by someone who has never seen the repo |
 | 32 | Knowledge test (AGENTS.md §9, adapted to the production system): the user answers unaided | Done when the user can explain every stage |
+
+**Reordered 2026-11-24 (user's decision):** the release target is "point at a folder of any
+documents and ask", so general documents (21b) and folder/upload ingest (24 + 30) come right after
+the first UI step; growing the paper corpus (23) became optional. Step numbers were kept so older
+notes still match.
 
 Rough size: ~18 steps. At the pace so far that's 5–7 working sessions; the UI and access steps
 may take longer.
