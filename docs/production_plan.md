@@ -103,7 +103,7 @@ a model, a service) is asked about before it is added.
 | ~~24 + 30~~ ✅ | **Point at a folder and upload, from the UI** (steps 24 and 30 brought forward and merged): add a folder or files to a collection through the API and UI, pick up new / changed / deleted files, index rebuilds without downtime | A file added to a watched folder or uploaded is answerable within a minute, without a manual rebuild |
 | ~~22~~ ✅ | Web UI, part 2: collections, recent requests and `rag logs stats`, eval runs and comparisons | The rest of the system visible in the browser |
 | 23 | *Optional now:* grow the paper corpus (~200 papers, then as far as the Mac allows) + new baselines | Eval rerun; the cost of distractors measured |
-| 25 | Index benchmark: flat vs HNSW vs SQ8 vs IVF-PQ (+ rescoring), plus one vector-database row; real corpus + synthetic vectors at 1M+ | Memory / p95 / recall-vs-exact table; the index type chosen by the numbers |
+| ~~25~~ ✅ | Index benchmark: flat vs HNSW vs SQ8 vs IVF-PQ (+ rescoring), plus one vector-database row; real corpus + synthetic vectors at 1M+ | Memory / p95 / recall-vs-exact table; the index type chosen by the numbers |
 | 26 | Reranker comparison at scale (hybrid / fused / replace), on papers and the general-documents set | Default rechecked with the larger and more varied corpus |
 | 27 | Load test: concurrent `/search` p50/p95/p99; `/ask` separately | Numbers in the README |
 | 28 | Packaging (see §0.1 item 8; packager to be decided): the app installs, downloads models on first run, checks for Ollama, keeps GROBID optional | Installs and runs on a clean Mac account |

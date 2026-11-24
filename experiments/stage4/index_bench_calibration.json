@@ -1,0 +1,136 @@
+{
+ "real": {
+  "top1": 0.91,
+  "top10": 0.8391,
+  "random_pair": 0.5175
+ },
+ "chosen": {
+  "spread": 0.7,
+  "top1": 0.8866,
+  "top10": 0.853,
+  "random_pair": 0.4729
+ },
+ "tried": [
+  {
+   "spread": 0.05,
+   "top1": 0.9993,
+   "top10": 0.9991,
+   "random_pair": 0.5672
+  },
+  {
+   "spread": 0.1,
+   "top1": 0.9972,
+   "top10": 0.9964,
+   "random_pair": 0.5665
+  },
+  {
+   "spread": 0.15,
+   "top1": 0.9937,
+   "top10": 0.9919,
+   "random_pair": 0.5642
+  },
+  {
+   "spread": 0.2,
+   "top1": 0.9889,
+   "top10": 0.9857,
+   "random_pair": 0.5606
+  },
+  {
+   "spread": 0.25,
+   "top1": 0.9829,
+   "top10": 0.9778,
+   "random_pair": 0.5557
+  },
+  {
+   "spread": 0.3,
+   "top1": 0.9756,
+   "top10": 0.9684,
+   "random_pair": 0.5499
+  },
+  {
+   "spread": 0.35,
+   "top1": 0.9672,
+   "top10": 0.9576,
+   "random_pair": 0.5431
+  },
+  {
+   "spread": 0.4,
+   "top1": 0.9579,
+   "top10": 0.9454,
+   "random_pair": 0.5346
+  },
+  {
+   "spread": 0.45,
+   "top1": 0.9477,
+   "top10": 0.9322,
+   "random_pair": 0.526
+  },
+  {
+   "spread": 0.5,
+   "top1": 0.9367,
+   "top10": 0.9178,
+   "random_pair": 0.5164
+  },
+  {
+   "spread": 0.55,
+   "top1": 0.9249,
+   "top10": 0.9027,
+   "random_pair": 0.5069
+  },
+  {
+   "spread": 0.6,
+   "top1": 0.9126,
+   "top10": 0.8867,
+   "random_pair": 0.4961
+  },
+  {
+   "spread": 0.65,
+   "top1": 0.8998,
+   "top10": 0.87,
+   "random_pair": 0.4847
+  },
+  {
+   "spread": 0.7,
+   "top1": 0.8866,
+   "top10": 0.853,
+   "random_pair": 0.4729
+  },
+  {
+   "spread": 0.75,
+   "top1": 0.8729,
+   "top10": 0.8354,
+   "random_pair": 0.4611
+  },
+  {
+   "spread": 0.8,
+   "top1": 0.8593,
+   "top10": 0.8179,
+   "random_pair": 0.4498
+  },
+  {
+   "spread": 0.85,
+   "top1": 0.8458,
+   "top10": 0.8006,
+   "random_pair": 0.438
+  },
+  {
+   "spread": 0.9,
+   "top1": 0.8321,
+   "top10": 0.7825,
+   "random_pair": 0.4258
+  },
+  {
+   "spread": 0.95,
+   "top1": 0.8184,
+   "top10": 0.7649,
+   "random_pair": 0.4141
+  },
+  {
+   "spread": 1.0,
+   "top1": 0.8048,
+   "top10": 0.7471,
+   "random_pair": 0.4023
+  }
+ ],
+ "n_real": 1444
+}

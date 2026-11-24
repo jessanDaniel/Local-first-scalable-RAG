@@ -62,17 +62,14 @@ but no notes; don't resume it unless the user asks.
 (point at a folder or upload files; models download on first run; Ollama is a separate install).
 Research papers were the first dataset; the app must not be paper-specific.
 
-**Done (roadmap steps 1–24 + 30, and 22):** ingest (PyMuPDF layout parser by default, GROBID
+**Done (roadmap steps 1–25 and 30; 23 skipped for now):** ingest (PyMuPDF layout parser by default, GROBID
 optional; pdf/docx/html/txt/md; recursive folders), chunker v2-350, bge-small embeddings + exact
 FAISS, hand-written BM25, RRF hybrid, cross-encoder reranker (fused default for `ask`), cited
 answers with guardrails and source sanitising, eval sets + `rag eval` + a zero-tolerance quality
 gate, FastAPI server + web UI (ask, search, documents/sync, activity, evaluation), per-request logs,
 collections with folder sync and uploads. Numbers: `docs/results.md`.
 
-**Next up:** step 25, the index benchmark — pitched 2026-11-24 (flat / HNSW / HNSW-SQ8 / IVF-PQ +
-refine, MPS exact, Chroma as the vector-database row; real corpus + calibrated synthetic vectors at
-100k / 1M / 3M; recall vs exact, memory, p95, filtered search). Waiting for the user's go on the
-pitch's decisions. Then 26, 27, 28 (packaging), 29, 31 (README), 32 (knowledge test); 23 optional.
+**Next up:** step 25 (index benchmark) is done: the app stays on exact FAISS search (8 ms at 1M chunks, lossless; HNSW loses recall under the collection filter; SQ8 is the fallback if memory runs short). Numbers in `docs/results.md`, script `experiments/stage4/index_bench.py`. Next: step 26 (reranker at scale) — ask the user, pitch first. Then 27, 28 (packaging), 29, 31 (README), 32 (knowledge test); 23 optional.
 
 **Open decisions / known gaps:** PyMuPDF is AGPL (decide before step 28); human review of the
 gov-docs questions and the step-16 answer labels is pending; prompt v3 says "paper" once (needs a v4

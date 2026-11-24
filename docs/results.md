@@ -44,3 +44,35 @@ Parsing: the PyMuPDF layout parser equals GROBID on papers (Hit@5 33/33 hybrid, 
   p50 8 → 14 ms with one 1.75 s stall (PDF parsing holds the GIL).
 - Request log write 0.16 ms. On a full 120 MB log: request list 8 ms, stats over the last 1,000
   requests 18 ms, over every request 621 ms / +105 MB.
+
+## Dense index (step 25)
+
+Script `experiments/stage4/index_bench.py`; rows in `index_bench.csv` (synthetic), `index_bench_real.csv`
+(real corpus + eval sets), calibration in `index_bench_calibration.json`. Top-100 per query, one query at
+a time, FAISS 1.16 on 12 CPU threads, low priority. Synthetic vectors are fitted to the real ones but
+their neighbourhoods are a little flatter (nearest-neighbour cosine 0.89 vs 0.91), so ANN recall leans
+pessimistic.
+
+| 1M vectors | recall@100 | p50 / p95 | memory | build | 1% collection filter, recall@100 |
+|---|---|---|---|---|---|
+| exact (FlatIP, the app today) | 1.000 | 7.4 / 8.3 ms | 1,536 MB | 1 s | 1.000 (1.3 ms) |
+| exact on the GPU (MPS) | 1.000 | 7.6 / 7.7 ms | 1,536 MB | — | — |
+| SQ8, exact scan | 0.990 | 40 / 42 ms | 384 MB | 0.2 s | 0.991 |
+| HNSW M32, efSearch 128 / 256 | 0.924 / 0.977 | 0.7 / 1.3 ms p50 | 1,808 MB | 149 s | **0.234** |
+| HNSW-SQ8 M32, efSearch 256 | 0.972 | 0.9 / 1.1 ms | 656 MB | 114 s | 0.233 |
+| IVF-PQ (4,096 lists, 48 B), nprobe 64 | 0.477 | 0.4 / 0.5 ms | 63 MB | 15 s | 0.348 |
+| IVF-PQ + SQ8 rescoring, nprobe 64 | 0.647 | 0.5 / 0.6 ms | 447 MB | 16 s | 0.354 |
+| Chroma 1.5.9 (HNSW M16, ef 100) | 0.807 | 1.2 / 1.4 ms | 1,865 MB disk, 4.5 GB peak RSS | 254 s | not tested |
+
+- **Choice: the app stays on exact search.** At 1M chunks (~25k papers) it adds 8 ms to a query that
+  already spends ~6 ms embedding, it's lossless, and a collection filter makes it faster, not worse.
+- **HNSW breaks the collection filter:** with 1% of vectors allowed, recall@100 falls to 0.23 (10%: 0.57),
+  because the graph walk can't reach the allowed nodes. Any future ANN switch needs exact search over the
+  allowed subset for filtered queries.
+- **Memory is the real limit, not speed:** 1.5 GB per 1M vectors (calculated for 3M: 4.6 GB exact,
+  1.15 GB SQ8). If memory runs short, SQ8 exact scan keeps recall 0.99 at 4× less memory for ~5× the time.
+- The GPU gives nothing over the CPU at 1M (7.6 vs 7.4 ms) and is slower at 100k (1.2 vs 0.8 ms).
+- IVF-PQ needs far more probes to be usable here; rescoring with full vectors saves no memory over exact.
+- Real corpus (1,444 chunks, 4 eval sets): HNSW and SQ8 leave every set unchanged (recall@100 ≥ 0.99);
+  plain IVF-PQ drops papers dense Hit@1 18 → 13 (hybrid 22 → 20); with rescoring it's identical again.
+- The app's filter code passes generic `SearchParameters`, which IVF indexes refuse (HNSW and SQ8 accept).
