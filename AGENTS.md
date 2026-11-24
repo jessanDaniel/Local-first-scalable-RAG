@@ -69,7 +69,7 @@ answers with guardrails and source sanitising, eval sets + `rag eval` + a zero-t
 gate, FastAPI server + web UI (ask, search, documents/sync, activity, evaluation), per-request logs,
 collections with folder sync and uploads. Numbers: `docs/results.md`.
 
-**Next up:** step 25 (index benchmark) is done: the app stays on exact FAISS search (8 ms at 1M chunks, lossless; HNSW loses recall under the collection filter; SQ8 is the fallback if memory runs short). Numbers in `docs/results.md`, script `experiments/stage4/index_bench.py`. Next: step 26 (reranker at scale) — ask the user, pitch first. Then 27, 28 (packaging), 29, 31 (README), 32 (knowledge test); 23 optional.
+**Next up:** step 25 (index benchmark) is done: the app stays on exact FAISS search (8 ms at 1M chunks, lossless; HNSW loses recall under the collection filter; SQ8 is the fallback if memory runs short). Numbers in `docs/results.md`, script `experiments/stage4/index_bench.py`. Next: step 26 (reranker at scale) was pitched 2026-11-24; waiting for the user's answers (see `HANDOFF.md`). Then 27, 28 (packaging), 29, 31 (README), 32 (knowledge test); 23 optional.
 
 **Open decisions / known gaps:** PyMuPDF is AGPL (decide before step 28); human review of the
 gov-docs questions and the step-16 answer labels is pending; prompt v3 says "paper" once (needs a v4
