@@ -5,6 +5,7 @@ import {
   addFolder,
   cancelJob,
   createCollection,
+  deleteCollection,
   deleteDocument,
   getCollection,
   getJob,
@@ -16,7 +17,7 @@ import { $, clear, el } from "./dom.js";
 
 const SUPPORTED = [".pdf", ".docx", ".html", ".htm", ".txt", ".md", ".markdown", ".text"];
 const TERMINAL = new Set(["done", "failed", "cancelled"]);
-const state = { collection: null, job: null, seen: 0, timer: null, onChanged: () => {} };
+const state = { collection: null, job: null, seen: 0, timer: null, onChanged: () => {}, detail: null };
 
 const suffix = (name) => (name.includes(".") ? name.slice(name.lastIndexOf(".")).toLowerCase() : "");
 
@@ -32,6 +33,7 @@ function message(text, kind = "") {
 export async function showDocs(collection) {
   state.collection = collection || null;
   $("docs-body").hidden = !state.collection;
+  $("delete-collection").hidden = !state.collection;
   $("docs-pick").textContent = state.collection
     ? `Managing “${state.collection}”. Pick another collection at the top, or make a new one.`
     : "Pick a collection at the top, or make a new one.";
@@ -43,6 +45,7 @@ export async function showDocs(collection) {
     message(`Couldn't load ${state.collection}: ${error.message}`);
     return;
   }
+  state.detail = detail;
   renderFolders(detail.folders);
   renderDocuments(detail.documents);
   const running = detail.jobs.find((j) => !TERMINAL.has(j.status));
@@ -109,6 +112,25 @@ async function forgetFolder(path) {
   if (!confirm(`Remove ${path} from “${state.collection}”?\n\nIts documents leave the collection and the index. The files on your computer are not touched.`)) return;
   await act(removeFolder(state.collection, path));
   showDocs(state.collection);
+}
+
+async function forgetCollection() {
+  const name = state.collection;
+  const n = state.detail?.documents.length ?? 0;
+  const folders = state.detail?.folders.length ?? 0;
+  const ok = confirm(
+    `Delete the collection “${name}”?\n\nIts ${n} document${n === 1 ? "" : "s"} leave the app and the index, with their uploaded copies. ` +
+      (folders ? `Its ${folders} folder(s) on your computer are not touched. ` : "") +
+      "This can't be undone (adding the folders again re-reads them).",
+  );
+  if (!ok) return;
+  const result = await act(deleteCollection(name));
+  if (result) {
+    message(`Deleted “${name}” (${result.documents_removed} document${result.documents_removed === 1 ? "" : "s"}). The index is being rebuilt.`);
+    state.collection = null;
+    await state.onCollectionsChanged("");
+    showDocs("");
+  }
 }
 
 async function forgetDocument(d) {
@@ -192,6 +214,8 @@ async function poll() {
 
 export function setupDocs({ onCollectionsChanged }) {
   state.onChanged = () => onCollectionsChanged(state.collection);
+  state.onCollectionsChanged = onCollectionsChanged;
+  $("delete-collection").addEventListener("click", forgetCollection);
   $("new-collection").addEventListener("submit", async (event) => {
     event.preventDefault();
     const name = $("new-name").value.trim();

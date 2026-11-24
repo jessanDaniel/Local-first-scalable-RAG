@@ -83,6 +83,43 @@ class JobManager:
         self.executor.submit(self._run_sync, job, rebuild)
         return job
 
+    def submit_rebuild(self, collection: str, reason: str) -> Job:
+        """Rebuild the index from what the database holds (after a collection was deleted) and swap
+        it in. Queued behind any running sync, like every job."""
+        job = Job(uuid.uuid4().hex[:12], "rebuild", collection, reason)
+        with self.lock:
+            self.jobs[job.id] = job
+            while len(self.jobs) > MAX_JOBS_KEPT:
+                self.jobs.popitem(last=False)
+        self.executor.submit(self._run_rebuild, job)
+        return job
+
+    def _run_rebuild(self, job: Job) -> None:
+        from rag.store import db
+        from rag.sync import rebuild_index
+
+        job.status, job.started = "running", time.time()
+        conn = None
+        try:
+            conn = db.open_db(self.settings.db_path)
+            build_id, n_embedded = rebuild_index(
+                self.settings,
+                conn,
+                self._embedder,
+                self._counter,
+                lambda kind, name, detail="": job.events.append({"kind": kind, "name": name, "detail": detail}),
+            )
+            swapped = self.swap_indexes()
+            job.events.append({"kind": "swapped", "name": "indexes", "detail": f"{swapped}"})
+            job.result = {"build_id": build_id, "n_embedded": n_embedded, "swap": swapped}
+            job.status = "done"
+        except Exception as exc:  # a job must never take the server down
+            job.status, job.error = "failed", f"{type(exc).__name__}: {exc}"
+        finally:
+            if conn is not None:
+                conn.close()
+            job.finished = time.time()
+
     def get(self, job_id: str) -> Job | None:
         return self.jobs.get(job_id)
 

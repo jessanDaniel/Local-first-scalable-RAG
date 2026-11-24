@@ -98,6 +98,58 @@ def prune_builds(indexes_dir: Path, keep: int = KEEP_BUILDS) -> list[str]:
     return removed
 
 
+def rebuild_index(settings: Settings, conn, embedder=None, counter=None, emit=None) -> tuple[str | None, int]:
+    """A new dense build from what the database holds now (the embedding cache supplies every
+    vector already computed), made CURRENT; builds beyond the newest 3 deleted. With no chunks left
+    at all, the CURRENT pointer is removed instead (no index rather than an empty one).
+    Returns (build id or None, chunks newly embedded)."""
+    from rag.index.build import EmbeddingCache, build_dense_index
+
+    emit = emit or (lambda *args: None)
+    indexes_dir = settings.data_dir / "indexes" / "dense"
+    if db.count_chunks(conn) == 0:
+        (indexes_dir / "CURRENT").unlink(missing_ok=True)
+        emit("indexed", "none", "no chunks left in the database: no index")
+        return None, 0
+    if counter is None:
+        from rag.chunk.tokens import HFTokenCounter
+
+        counter = HFTokenCounter(settings.embedding_model)
+    if embedder is None:
+        from rag.embed.embedder import Embedder
+
+        embedder = Embedder(
+            settings.embedding_model, settings.embedding_query_instruction, settings.embedding_batch_size
+        )
+    cache = EmbeddingCache(settings.data_dir / "embeddings" / f"{settings.embedding_model.replace('/', '__')}.npz")
+    built = build_dense_index(conn, embedder, counter, indexes_dir, cache)
+    pruned = prune_builds(indexes_dir)
+    emit("indexed", built.build_id, f"{built.n_chunks} chunks, {built.n_embedded} newly embedded")
+    if pruned:
+        emit("pruned", ", ".join(pruned), f"old builds deleted (keeping {KEEP_BUILDS})")
+    return built.build_id, built.n_embedded
+
+
+def delete_collection(settings: Settings, conn, collection: str) -> dict:
+    """Remove a collection: its documents with their sections and chunks, the app's stored copies,
+    its uploads folder, its folder registrations, and the collection itself. Files in its folders on
+    the user's computer are never touched. The index is the caller's to rebuild (rebuild_index)."""
+    if collection not in {c["collection_id"] for c in db.list_collections(conn)}:
+        raise KeyError(f"no collection {collection}")
+    raw = settings.data_dir / "raw"
+    documents = db.list_documents(conn, collection_id=collection)
+    for document in documents:
+        db.delete_document(conn, document.doc_id)
+        if document.source_uri and under(document.source_uri, raw):
+            Path(document.source_uri).unlink(missing_ok=True)
+    folders = [f["path"] for f in db.source_folders(conn, collection)]
+    uploads = uploads_dir(settings, collection)
+    if uploads.is_dir() and under(str(uploads), raw):
+        shutil.rmtree(uploads)
+    db.delete_collection(conn, collection)
+    return {"collection": collection, "documents_removed": len(documents), "folders_forgotten": folders}
+
+
 def sync_collection(
     settings: Settings,
     collection: str,
@@ -229,36 +281,7 @@ def sync_collection(
         # 6. a new dense build if anything changed
         index_start = time.perf_counter()
         if report.changed or rebuild:
-            from rag.index.build import EmbeddingCache, build_dense_index
-
-            if counter is None:
-                from rag.chunk.tokens import HFTokenCounter
-
-                counter = HFTokenCounter(settings.embedding_model)
-            if embedder is None:
-                from rag.embed.embedder import Embedder
-
-                embedder = Embedder(
-                    settings.embedding_model, settings.embedding_query_instruction, settings.embedding_batch_size
-                )
-            indexes_dir = settings.data_dir / "indexes" / "dense"
-            if db.count_chunks(conn) == 0:  # everything was removed: no index rather than an empty one
-                (indexes_dir / "CURRENT").unlink(missing_ok=True)
-                emit("indexed", "none", "no chunks left in the database: no index")
-                report.seconds["index"] = time.perf_counter() - index_start
-                for folder in present:
-                    db.mark_folder_synced(conn, collection, str(folder))
-                report.seconds["total"] = time.perf_counter() - started
-                return report
-            cache = EmbeddingCache(
-                settings.data_dir / "embeddings" / f"{settings.embedding_model.replace('/', '__')}.npz"
-            )
-            built = build_dense_index(conn, embedder, counter, indexes_dir, cache)
-            report.build_id, report.n_embedded = built.build_id, built.n_embedded
-            pruned = prune_builds(indexes_dir)
-            emit("indexed", built.build_id, f"{built.n_chunks} chunks, {built.n_embedded} newly embedded")
-            if pruned:
-                emit("pruned", ", ".join(pruned), f"old builds deleted (keeping {KEEP_BUILDS})")
+            report.build_id, report.n_embedded = rebuild_index(settings, conn, embedder, counter, emit)
         report.seconds["index"] = time.perf_counter() - index_start
 
         for folder in present:

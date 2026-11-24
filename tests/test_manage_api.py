@@ -213,3 +213,45 @@ def test_startup_rescans_registered_folders(settings, tmp_path):
         [job] = client.get("/jobs").json()
         assert job["reason"] == "startup rescan"
         assert wait(client, job["id"])["result"]["added"] == ["file:visitors"]
+
+
+def test_delete_a_collection_keeps_the_files_on_disk_and_rebuilds_the_index(settings, tmp_path):
+    folder = tmp_path / "office"
+    folder.mkdir()
+    (folder / "visitors.md").write_text(f"# Visitors\n\n## Sign in\n\n{BODY}\n")
+    with app_client(settings) as client:
+        client.post("/collections", json={"name": "office"})
+        wait(client, client.post("/collections/office/folders", json={"path": str(folder)}).json()["job"]["id"])
+        client.put("/collections/office/files/note.md", content=f"# Note\n\n## A\n\n{BODY}".encode())
+        wait(client, client.post("/collections/office/sync").json()["job"]["id"])
+        assert search_ids(client, "visitors badge front desk", "office")
+
+        deleted = client.delete("/collections/office")
+        assert deleted.status_code == 202 and deleted.json()["documents_removed"] == 2
+        assert deleted.json()["folders_forgotten"] == [str(folder.resolve())]
+        assert wait(client, deleted.json()["job"]["id"])["status"] == "done"
+        names = [c["collection_id"] for c in client.get("/collections").json()]
+        gone = client.get("/collections/office")
+        again = client.delete("/collections/office")
+        other = search_ids(client, "refunds within 30 days", "hr-demo")  # other collections still answer
+    assert "office" not in names and gone.status_code == 404 and again.status_code == 404
+    assert (folder / "visitors.md").exists()  # the user's file is untouched
+    assert not (settings.data_dir / "raw" / "uploads" / "office").exists()
+    assert other == ["file:policy"]
+
+
+def test_cli_delete_needs_yes(settings, tmp_path, monkeypatch, capsys):
+    import argparse
+
+    from rag import collections as cli
+    from rag.store import db
+
+    conn = db.open_db(settings.db_path)
+    db.ensure_collection(conn, "scratch")
+    conn.close()
+    monkeypatch.setattr(cli, "get_settings", lambda: settings)
+    monkeypatch.setattr("rag.sync.rebuild_index", lambda *a, **k: (None, 0))
+    assert cli.run(argparse.Namespace(action="delete", name="scratch", yes=False)) == 1
+    assert "Run again with --yes" in capsys.readouterr().out
+    assert cli.run(argparse.Namespace(action="delete", name="scratch", yes=True)) == 0
+    assert cli.run(argparse.Namespace(action="delete", name="scratch", yes=True)) == 1  # gone

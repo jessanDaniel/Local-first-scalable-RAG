@@ -96,16 +96,27 @@ Search leaves out chunks deleted mid-sync instead of failing.
 
 The demo collection was removed afterwards. The gate is unchanged.
 
-## Found along the way
+## Found along the way, and fixed the same day
 
-- **A guardrail edge case:** "the question does not specify a particular floor" counts as a refusal
-  sentence (a sources word plus a negation), so its citation was stripped, leaving "Source
-  mentions". The refusal detector needs to know that "the question" isn't "the sources". Not fixed
-  here.
-- **No way to delete a collection** from the API or UI (the demo collection was removed by hand).
-- **Folder uploads flatten names:** a browser folder upload gives file names without their subfolder,
-  so two files with the same name in different subfolders overwrite each other in the upload folder.
-  Typing the folder's path (synced in place) has no such limit.
+- **A false refusal (fixed).** "The question does not specify a particular floor" counted as a
+  refusal sentence (a sources word plus a negation), so its citation was stripped, leaving "Source
+  mentions". Negations whose subject is the question, query, request, user or "you" no longer count
+  (`NOT_ABOUT_SOURCES` in `rag/answer/guardrails.py`). A marker right after the word "Source(s)"
+  in a real refusal now keeps its number ("Source 6 discusses …"). Replayed on all 328 stored
+  answers: 0 changed refusal status, 0 changed shown text, no flag changed (the gate passes). The fix
+  is narrow: it only affects sentences like the one found.
+- **No way to delete a collection (fixed).** `DELETE /collections/{name}`, `rag collections delete
+  NAME [--yes]` (without `--yes` it only says what would go), and a "Delete this collection" button
+  with a confirmation. It removes the collection's documents, chunks, the app's stored copies, its
+  uploads and its folder registrations; files in its folders are never touched. The index is rebuilt
+  by a new job type (`rebuild`) and swapped in. It is refused with 409 while a job for that collection
+  runs. Checked in the browser: the collection leaves the picker; rebuild 0 new embeddings, swap
+  0.18 s.
+
+Still open:
+- **Folder uploads flatten names:** a browser folder upload gives file names without their
+  subfolder, so two files with the same name in different subfolders overwrite each other in the
+  upload folder. Typing the folder's path (synced in place) has no such limit.
 - **The embedding cache keeps vectors for chunks that no longer exist**; it only grows. Fine at this
   size, worth pruning later.
 

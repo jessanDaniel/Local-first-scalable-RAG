@@ -12,6 +12,7 @@
 
     Adding and keeping documents (steps 24 + 30; every change runs as a background sync job):
     POST   /collections                         {"name", "description"}  create a collection
+    DELETE /collections/{name}                  remove it (its documents, uploads; folders untouched)
     GET    /collections/{name}                  its folders, documents and running jobs
     POST   /collections/{name}/folders          {"path"}  register a folder on this machine, then sync
     DELETE /collections/{name}/folders?path=    forget a folder and its documents, then sync
@@ -493,6 +494,26 @@ def create_app(
         detail = await with_db(work)
         detail["jobs"] = [job_out(j) for j in service.jobs.active(name)]
         return detail
+
+    @app.delete("/collections/{name}", status_code=202)
+    async def remove_collection(name: str, request: Request):
+        """The collection, its documents, chunks, stored copies and uploads. Files in its folders on
+        this computer are not touched. The index is rebuilt in a job and swapped in."""
+        from rag.sync import delete_collection
+
+        service = service_of(request)
+        if service.jobs.active(name):
+            raise HTTPException(409, f"a job for {name} is still running: wait for it or cancel it first")
+
+        def work(conn):
+            try:
+                return delete_collection(settings, conn, name)
+            except KeyError as exc:
+                raise HTTPException(404, str(exc.args[0])) from exc
+
+        result = await with_db(work)
+        job = service.jobs.submit_rebuild(name, f"collection deleted: {name}")
+        return result | {"job": job_out(job)}
 
     @app.post("/collections/{name}/folders", status_code=202)
     async def add_folder(name: str, body: FolderRequest, request: Request):

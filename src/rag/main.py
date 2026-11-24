@@ -80,7 +80,9 @@ def build_parser() -> argparse.ArgumentParser:
     chunk.add_argument("--limit", type=int, help="with --show: only the first N chunks")
 
     collections = command("collections", "rag.collections:run", "list collections with document and chunk counts")
-    collections.add_argument("action", nargs="?", choices=["list"], default="list")
+    collections.add_argument("action", nargs="?", choices=["list", "delete"], default="list")
+    collections.add_argument("name", nargs="?", help="with delete: the collection to remove")
+    collections.add_argument("--yes", action="store_true", help="with delete: really remove it")
 
     evaluate = command("eval", "rag.eval.cli:run", "score retrieval on a question set, save and compare runs")
     actions = evaluate.add_subparsers(dest="action", required=True, metavar="ACTION")

@@ -342,6 +342,14 @@ def mark_folder_synced(conn: sqlite3.Connection, collection_id: str, path: str) 
         )
 
 
+def delete_collection(conn: sqlite3.Connection, collection_id: str) -> None:
+    """The collection row and its folder registrations. Its documents must be deleted first (a
+    document's collection is a plain reference, so this refuses while any remain)."""
+    with conn:
+        conn.execute("DELETE FROM source_folders WHERE collection_id = ?", (collection_id,))
+        conn.execute("DELETE FROM collections WHERE collection_id = ?", (collection_id,))
+
+
 def delete_document(conn: sqlite3.Connection, doc_id: str) -> bool:
     """Remove a document with its sections and chunks (cascade). The stored file is the caller's."""
     with conn:

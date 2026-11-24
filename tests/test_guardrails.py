@@ -222,3 +222,24 @@ def test_markers_opening_a_sentence_are_not_moved_to_the_previous_one():
 def test_an_answer_that_is_not_a_refusal_keeps_sentence_opening_markers():
     text, removed = strip_refusal_citations("Refunds take 30 days. [2] also covers exchanges.")
     assert text == "Refunds take 30 days. [2] also covers exchanges." and removed == 0
+
+
+def test_a_negation_about_the_question_is_not_a_refusal():
+    """Step 24: "the question does not specify a floor" notes an ambiguity; the sources do answer."""
+    from rag.answer.guardrails import is_refusal_sentence
+
+    sentence = "Since the question does not specify a floor, and Source [1] mentions floors 1 and 2, they can."
+    assert not is_refusal_sentence(sentence)
+    assert strip_refusal_citations(sentence) == (sentence, 0)  # its citation stays
+    assert is_refusal_sentence("The provided sources do not specify the floor.")
+    assert is_refusal_sentence("The question asks about GPT-3, but the sources do not mention it.")
+
+
+def test_a_marker_after_the_word_source_keeps_its_number():
+    text, removed = strip_refusal_citations(
+        "The sources do not mention GPT-3, though Source [6] discusses other models and Sources [2][5] do not cover it."
+    )
+    assert text == (
+        "The sources do not mention GPT-3, though Source 6 discusses other models and Sources 2 and 5 do not cover it."
+    )
+    assert removed == 3

@@ -225,3 +225,4 @@ mark { background: var(--mark); color: inherit; padding: 0.05rem 0; border-radiu
 .events .added, .events .updated { color: var(--ok); }
 .events .skipped, .events .unchanged { color: var(--muted); }
 tr.failed td { color: var(--bad); }
+button.danger { background: none; color: var(--bad); border: 1px solid var(--bad); margin-top: 0.6rem; font-weight: 500; }

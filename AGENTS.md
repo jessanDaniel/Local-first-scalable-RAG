@@ -297,8 +297,9 @@ in the running server; `src/rag/api/jobs.py` (one sync job at a time, lazy model
 collections, folders, uploads (`PUT .../files/{name}`, raw body), document delete, jobs; Origin check
 (403 for cross-site writes); UI Documents tab (`static/js/docs.js`). Proof: folder → searchable in
 10.7 s, edit → rescan 0.33 s, search 0 errors during a sync (p50 8 → 14 ms, one 1.75 s stall: GIL).
-Known gaps: no collection delete, refusal detector misreads "the question does not specify". 409
-tests. Next: step 22 (UI part 2: collections, logs, eval views) — pitch first. Do not start Phase 16.
+Then fixed: collection delete (`DELETE /collections/{name}`, `rag collections delete NAME --yes`, UI
+button; a `rebuild` job swaps the index) and the refusal detector no longer counts "the question does not
+specify" (0 of 328 stored answers changed). 413 tests. Next: step 22 (UI part 2: collections, logs, eval views) — pitch first. Do not start Phase 16.
 
 ### Phase 7 close-out (2026-09-20)
 

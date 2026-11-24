@@ -103,3 +103,4 @@ export const uploadFile = (collection, file) =>
     headers: { "Content-Type": "application/octet-stream" },
     body: file,
   });
+export const deleteCollection = (collection) => json(`/collections/${name(collection)}`, send("DELETE"));

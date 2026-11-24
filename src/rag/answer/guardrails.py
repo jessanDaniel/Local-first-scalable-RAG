@@ -54,8 +54,20 @@ NEGATION = re.compile(
 ALWAYS_REFUSAL = re.compile(r"\bnot enough information\b|\bcannot (?:be )?answer", re.IGNORECASE)
 
 
+# A negation about the QUESTION, not the sources: "the question does not specify a floor" is the
+# model noting an ambiguity, not saying the sources lack the answer (step 24 browser check).
+NOT_ABOUT_SOURCES = re.compile(
+    r"\b(?:the|your|this|that)\s+(?:question|query|request|user)\s+(?:does not|doesn't|did not|didn't)\s+\w+"
+    r"|\byou\s+(?:do not|don't|did not|didn't)\s+\w+",
+    re.IGNORECASE,
+)
+
+
 def is_refusal_sentence(sentence: str) -> bool:
-    return bool(ALWAYS_REFUSAL.search(sentence) or (SOURCES_WORD.search(sentence) and NEGATION.search(sentence)))
+    if ALWAYS_REFUSAL.search(sentence):
+        return True
+    about_sources = NOT_ABOUT_SOURCES.sub(" ", sentence)
+    return bool(SOURCES_WORD.search(about_sources) and NEGATION.search(about_sources))
 
 
 def sentences(text: str) -> list[str]:
@@ -250,6 +262,14 @@ MARKER_GROUP = re.compile(r"(?:" + MARKER.pattern + r"\s*)+")
 NAMED_AFTER = re.compile(r"\b(?:in|from|by|of|per|see|to|and|with)\s*$", re.IGNORECASE)
 
 
+SOURCE_BEFORE = re.compile(r"\bsources?\s*$", re.IGNORECASE)
+
+
+def source_numbers(numbers: list[int]) -> str:
+    """[2] -> "2"; [2, 5, 7] -> "2, 5 and 7" (after the word "Source(s)" the model already wrote)."""
+    return source_words(numbers).split(" ", 1)[1]
+
+
 def source_words(numbers: list[int]) -> str:
     """[2] -> "Source 2"; [2, 5] -> "Sources 2 and 5"; [2, 5, 7] -> "Sources 2, 5 and 7"."""
     if len(numbers) == 1:
@@ -266,7 +286,9 @@ def strip_markers_from_refusal(sentence: str) -> tuple[str, int]:
         before = sentence[last : match.start()]
         numbers = sorted({n for m in MARKER.finditer(match.group(0)) for n in marker_numbers(m.group(1))})
         lead = not sentence[: match.start()].strip()
-        if lead or NAMED_AFTER.search(before):
+        if SOURCE_BEFORE.search(before):  # "Source [1] says" -> "Source 1 says", not "Source says"
+            out.append(before + source_numbers(numbers) + (" " if match.group(0)[-1].isspace() else ""))
+        elif lead or NAMED_AFTER.search(before):
             words = source_words(numbers)
             out.append(before + (words if lead else words.lower()) + (" " if match.group(0)[-1].isspace() else ""))
         else:
