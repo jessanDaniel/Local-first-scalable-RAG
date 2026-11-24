@@ -34,6 +34,7 @@ from rag.config import Settings, get_settings
 from rag.models import DEFAULT_COLLECTION, Document, check_collection_id, doc_file_stem, make_doc_id
 from rag.parse.base import ParsedDocument, ParseError, Parser, ParserUnavailableError
 from rag.parse.grobid import GrobidParser
+from rag.parse.office import DocxParser, HTMLDocParser
 from rag.parse.pdf import LayoutPDFParser
 from rag.parse.pymupdf import pdf_title_candidates
 from rag.parse.tei import tei_to_parsed
@@ -43,6 +44,12 @@ from rag.store import db
 
 # The PDF parser reads the body; this issue is covered by the source's metadata or the file name.
 METADATA_ISSUES = {"no title"}
+
+
+@dataclass
+class FoundFile:
+    path: Path
+    key: str  # what the doc_id is made from: the file name, or the path inside the folder given
 
 
 @dataclass
@@ -154,7 +161,8 @@ def store_parsed(
     metadata = dict(document.metadata)
     if document.source == "file":
         # No source metadata: the title is chosen from the parse, the PDF itself, then the file name.
-        title, title_source, rejected = pick_title(parsed, source_path)
+        original = Path(metadata["original_path"]) if metadata.get("original_path") else source_path
+        title, title_source, rejected = pick_title(parsed, source_path, original.stem)
         metadata.update(title_source=title_source, title_rejected=rejected)
         if title_source != "parser":
             issues.append(f"title guessed from {title_source}")
@@ -183,12 +191,13 @@ def store_parsed(
     return document, status, issues
 
 
-def pick_title(parsed: ParsedDocument, source_path: Path) -> tuple[str, str, list[str]]:
+def pick_title(parsed: ParsedDocument, source_path: Path, file_name: str | None = None) -> tuple[str, str, list[str]]:
+    """file_name: the name the user gave the file (not our stored copy's "file_<id>")."""
     candidates = [("parser", parsed.title)]
     if source_path.suffix.lower() == ".pdf":
         from_pdf = pdf_title_candidates(source_path)
         candidates += [("pdf metadata", from_pdf["pdf metadata"]), ("largest font", from_pdf["largest font"])]
-    candidates.append(("file name", source_path.stem))
+    candidates.append(("file name", file_name or source_path.stem))
     return choose_title(candidates)
 
 
@@ -211,6 +220,8 @@ class Ingestor:
         self.grobid = GrobidParser.from_settings(settings, tei_dir=self.parsed_dir)
         self.layout = LayoutPDFParser()
         self.text_parser = TextParser()
+        self.docx_parser = DocxParser()
+        self.html_parser = HTMLDocParser()
         self._checked_grobid = False
 
     def close(self) -> None:
@@ -229,8 +240,13 @@ class Ingestor:
         return existing
 
     def parse(self, document: Document, pdf_path: Path, **timing) -> IngestResult:
-        if pdf_path.suffix.lower() in TEXT_SUFFIXES:
+        suffix = pdf_path.suffix.lower()
+        if suffix in TEXT_SUFFIXES:
             primary, fallback = self.text_parser, None  # no service needed, nothing to fall back to
+        elif suffix == ".docx":
+            primary, fallback = self.docx_parser, None
+        elif suffix in HTML_SUFFIXES:
+            primary, fallback = self.html_parser, None
         elif self.pdf_parser == "grobid":
             primary, fallback = self.grobid, self.layout
             self._require_grobid()
@@ -316,13 +332,14 @@ class Ingestor:
             )
         return results
 
-    def ingest_files(self, paths: list[Path]) -> list[IngestResult]:
+    def ingest_files(self, paths: list[Path] | list[FoundFile]) -> list[IngestResult]:
         files_dir = self.settings.data_dir / "raw" / "files"
         results = []
-        for path in paths:
+        for item in paths:
+            path, key = (item.path, item.key) if isinstance(item, FoundFile) else (item, item.stem)
             source_format = file_format(path)
             sha256 = hashlib.sha256(path.read_bytes()).hexdigest()
-            doc_id = make_doc_id("file", path.stem)
+            doc_id = make_doc_id("file", key)
             original = str(path.resolve())
 
             stored = db.get_document(self.conn, doc_id)
@@ -337,7 +354,7 @@ class Ingestor:
 
             # Keep our own copy, so moving or deleting the original does not break citations.
             files_dir.mkdir(parents=True, exist_ok=True)
-            copy = files_dir / f"{doc_file_stem(doc_id)}{path.suffix.lower()}"
+            copy = files_dir / f"{doc_file_stem(doc_id)}.{source_format}"  # .htm is stored as .html
             shutil.copyfile(path, copy)
             document = Document(
                 doc_id=doc_id,
@@ -398,26 +415,70 @@ def write_report(results: list[IngestResult], path: Path) -> None:
     print(f"report: {path}")
 
 
+HTML_SUFFIXES = {".html": "html", ".htm": "html"}
+FORMATS = {".pdf": "pdf", ".docx": "docx", **TEXT_SUFFIXES, **HTML_SUFFIXES}
+MAX_FILE_BYTES = 200_000_000
+
+
 def file_format(path: Path) -> str:
     suffix = path.suffix.lower()
-    if suffix == ".pdf":
-        return "pdf"
-    if suffix in TEXT_SUFFIXES:
-        return TEXT_SUFFIXES[suffix]
-    supported = ", ".join([".pdf", *TEXT_SUFFIXES])
-    raise ValueError(f"{path}: unsupported file type (supported: {supported})")
+    if suffix in FORMATS:
+        return FORMATS[suffix]
+    raise ValueError(f"{path}: unsupported file type (supported: {', '.join(sorted(FORMATS))})")
 
 
 def document_paths(inputs: list[Path]) -> list[Path]:
-    """Files as given; folders expand to the supported files directly inside them."""
-    supported = {".pdf", *TEXT_SUFFIXES}
-    paths = []
+    """The files to ingest (see find_documents); skipped files are not listed."""
+    return [f.path for f in find_documents(inputs)[0]]
+
+
+def find_documents(inputs: list[Path]) -> tuple[list[FoundFile], list[tuple[Path, str]]]:
+    """Files as given; folders are walked recursively. Returns (files, skipped) where skipped holds
+    every file left out and why: hidden, unsupported type, empty, too large, or the same content as
+    a file already found. Symlinked folders are not followed (no loops). A file inside a folder is
+    keyed by its path in that folder ("policies/travel.pdf" -> "policies-travel"), so two files with
+    the same name in different subfolders get different documents."""
+    import os
+
+    found: list[FoundFile] = []
+    skipped: list[tuple[Path, str]] = []
+    seen: dict[str, Path] = {}
+
+    def consider(path: Path, key: str) -> None:
+        if path.suffix.lower() not in FORMATS:
+            skipped.append((path, f"unsupported type {path.suffix or '(none)'}"))
+            return
+        size = path.stat().st_size
+        if size == 0:
+            skipped.append((path, "empty"))
+            return
+        if size > MAX_FILE_BYTES:
+            skipped.append((path, f"larger than {MAX_FILE_BYTES // 1_000_000} MB"))
+            return
+        digest = hashlib.sha256(path.read_bytes()).hexdigest()
+        if digest in seen:
+            skipped.append((path, f"same content as {seen[digest]}"))
+            return
+        seen[digest] = path
+        found.append(FoundFile(path, key))
+
     for item in inputs:
-        if item.is_dir():
-            paths.extend(sorted(p for p in item.iterdir() if p.suffix.lower() in supported))
-        else:
-            paths.append(item)
-    return paths
+        if not item.is_dir():
+            consider(item, item.stem)
+            continue
+        for folder, dirs, files in os.walk(item, followlinks=False):
+            hidden = [d for d in dirs if d.startswith(".")]
+            for d in hidden:
+                skipped.append((Path(folder) / d, "hidden folder"))
+            dirs[:] = sorted(d for d in dirs if not d.startswith("."))
+            for name in sorted(files):
+                path = Path(folder) / name
+                if name.startswith(".") or name.startswith("~$"):  # hidden files, Word lock files
+                    skipped.append((path, "hidden or temporary file"))
+                    continue
+                relative = path.relative_to(item).with_suffix("")
+                consider(path, "-".join(relative.parts))
+    return found, skipped
 
 
 def run(parsed_args) -> int:
@@ -434,7 +495,10 @@ def run(parsed_args) -> int:
         if parsed_args.source == "arxiv":
             results = ingestor.ingest_arxiv(read_id_file(parsed_args.id_file)[: parsed_args.limit])
         elif parsed_args.source == "files":
-            results = ingestor.ingest_files(document_paths(parsed_args.paths))
+            found, skipped_files = find_documents(parsed_args.paths)
+            for path, why in skipped_files:
+                print(f"skipped  {path}  ({why})")
+            results = ingestor.ingest_files(found)
         else:
             results = ingestor.reapply_tei()
     except ArxivError as exc:

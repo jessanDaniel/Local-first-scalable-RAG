@@ -11,7 +11,16 @@ from pathlib import Path
 from rag.models import Document, doc_file_stem
 from rag.store import db
 
-MEDIA_TYPES = {"pdf": "application/pdf", "txt": "text/plain; charset=utf-8", "md": "text/plain; charset=utf-8"}
+MEDIA_TYPES = {
+    "pdf": "application/pdf",
+    "txt": "text/plain; charset=utf-8",
+    "md": "text/plain; charset=utf-8",
+    "html": "text/html; charset=utf-8",
+    "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+}
+# Never shown inside the browser on this origin: a stored HTML page would run its own scripts here,
+# and a browser can't show a Word file anyway. These are downloaded instead (and the page says so).
+DOWNLOAD_ONLY = {"html", "docx"}
 
 
 def stored_file(data_dir: Path, document: Document) -> Path | None:

@@ -20,7 +20,7 @@ from typing import Literal
 ChunkType = Literal["abstract", "body", "caption", "table"]
 ParseStatus = Literal["pending", "ok", "suspect", "failed"]
 SourceType = Literal["arxiv", "file"]
-SourceFormat = Literal["html", "pdf", "txt", "md"]
+SourceFormat = Literal["html", "pdf", "txt", "md", "docx"]
 
 # A collection groups documents that are searched together (and, in Stage 5, share access rules).
 # Each document belongs to exactly one. Ids are slugs: "papers", "hr-demo".

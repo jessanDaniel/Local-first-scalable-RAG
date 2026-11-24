@@ -268,7 +268,7 @@ def create_app(settings: Settings | None = None, pipeline_factory=None, llm_prob
 
     @app.get("/documents/{doc_id:path}/file")
     async def document_file(doc_id: str, request: Request):
-        from rag.api.documents import MEDIA_TYPES, file_format, stored_file
+        from rag.api.documents import DOWNLOAD_ONLY, MEDIA_TYPES, file_format, stored_file
 
         service = service_of(request)
         pipeline = service.require_pipeline()
@@ -276,10 +276,16 @@ def create_app(settings: Settings | None = None, pipeline_factory=None, llm_prob
         path = stored_file(settings.data_dir, document)
         if path is None:
             raise HTTPException(404, f"no stored file for {doc_id}")
+        fmt = file_format(document)
+        disposition = f'attachment; filename="{path.name}"' if fmt in DOWNLOAD_ONLY else "inline"
         return FileResponse(
             path,
-            media_type=MEDIA_TYPES[file_format(document)],
-            headers={"Content-Disposition": "inline", "X-Content-Type-Options": "nosniff"},
+            media_type=MEDIA_TYPES[fmt],
+            headers={
+                "Content-Disposition": disposition,
+                "X-Content-Type-Options": "nosniff",
+                "Content-Security-Policy": "sandbox",  # even if shown, nothing in it may run
+            },
         )
 
     @app.get("/documents/{doc_id:path}")

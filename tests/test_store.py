@@ -292,6 +292,19 @@ def test_v3_database_migrates_to_collections_without_losing_rows(tmp_path):
     assert db.count_chunks(conn) == 0 and db.get_sections(conn, DOC) == []
 
 
+def test_migrated_database_accepts_word_documents(tmp_path):
+    """v4 -> v5 added 'docx' to the allowed formats (the documents table is rebuilt for it)."""
+    path = tmp_path / "rag.db"
+    make_v3_database(path)
+    conn = db.open_db(path)
+    db.ensure_collection(conn, "docs")
+    db.upsert_document(
+        conn, Document(doc_id="file:handbook", source="file", title="H", source_format="docx", collection_id="docs")
+    )
+    assert db.get_document(conn, "file:handbook").source_format == "docx"
+    assert db.get_document(conn, DOC).collection_id == "papers"  # old rows kept
+
+
 def test_failed_migration_leaves_the_v3_database_untouched(tmp_path, monkeypatch):
     path = tmp_path / "rag.db"
     make_v3_database(path)

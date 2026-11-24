@@ -190,10 +190,10 @@ def test_documents_land_in_the_chosen_collection_and_stay_there(ingestor, tmp_pa
 
 
 def test_unsupported_file_types_are_refused(ingestor, tmp_path):
-    docx = tmp_path / "notes.docx"
-    docx.write_bytes(b"PK")
+    sheet = tmp_path / "numbers.xlsx"
+    sheet.write_bytes(b"PK")
     with pytest.raises(ValueError, match="unsupported file type"):
-        ingestor.ingest_files([docx])
+        ingestor.ingest_files([sheet])
 
 
 def test_text_and_markdown_files_skip_grobid(ingestor, tmp_path):
@@ -212,9 +212,9 @@ def test_text_and_markdown_files_skip_grobid(ingestor, tmp_path):
 def test_folders_expand_to_supported_files(tmp_path):
     from rag.ingest import document_paths
 
-    for name in ["b.pdf", "a.txt", "c.md", "skip.docx"]:
-        (tmp_path / name).write_text("x")
-    assert [p.name for p in document_paths([tmp_path])] == ["a.txt", "b.pdf", "c.md"]
+    for i, name in enumerate(["b.pdf", "a.txt", "c.md", "d.docx", "e.html", "skip.xlsx"]):
+        (tmp_path / name).write_text(f"x{i}")
+    assert [p.name for p in document_paths([tmp_path])] == ["a.txt", "b.pdf", "c.md", "d.docx", "e.html"]
 
 
 def test_reapply_tei_uses_saved_grobid_output(ingestor):

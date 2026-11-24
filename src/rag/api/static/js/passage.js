@@ -41,7 +41,7 @@ export async function showPassage(chunkIds, { title, page } = {}) {
     open.hidden = false;
   } else if (doc.has_file) {
     open.href = fileUrl(doc.doc_id);
-    open.textContent = "Open file";
+    open.textContent = doc.format === "html" || doc.format === "docx" ? `Download .${doc.format}` : "Open file";
     open.hidden = false;
   }
   for (const section of context.sections) {

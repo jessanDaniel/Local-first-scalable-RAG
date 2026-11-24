@@ -15,11 +15,11 @@ from pathlib import Path
 
 from rag.models import Chunk, Document, Paragraph, ParseStatus, Section, check_collection_id
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 
 log = logging.getLogger(__name__)
 
-# Shared by the fresh schema and the v3 -> v4 table rebuild, so the two cannot drift apart.
+# Shared by the fresh schema and the table rebuilds (v3 -> v4, v4 -> v5), so they cannot drift apart.
 DOCUMENTS_TABLE = """
 CREATE TABLE {name} (
     doc_id            TEXT PRIMARY KEY,
@@ -30,7 +30,7 @@ CREATE TABLE {name} (
     abstract          TEXT NOT NULL DEFAULT '',
     published         TEXT,
     source_uri        TEXT,
-    source_format     TEXT CHECK (source_format IN ('html', 'pdf', 'txt', 'md')),
+    source_format     TEXT CHECK (source_format IN ('html', 'pdf', 'txt', 'md', 'docx')),
     source_sha256     TEXT,
     metadata_json     TEXT NOT NULL DEFAULT '{{}}',
     parser            TEXT,
@@ -148,6 +148,16 @@ MIGRATIONS = {
         f"SELECT {DOCUMENT_COLUMNS}, 'papers' FROM documents",
         "DROP TABLE documents",
         "ALTER TABLE documents_v4 RENAME TO documents",
+        *DOCUMENT_INDEXES.strip().split(";"),
+    ],
+    # v5: Word files (step 21b) - 'docx' joins the allowed source formats. A CHECK constraint can't be
+    # changed in place, so the documents table is rebuilt again; every row is copied as it is.
+    4: [
+        DOCUMENTS_TABLE.format(name="documents_v5"),
+        f"INSERT INTO documents_v5 ({DOCUMENT_COLUMNS}, collection_id) "
+        f"SELECT {DOCUMENT_COLUMNS}, collection_id FROM documents",
+        "DROP TABLE documents",
+        "ALTER TABLE documents_v5 RENAME TO documents",
         *DOCUMENT_INDEXES.strip().split(";"),
     ],
 }
