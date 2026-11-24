@@ -53,6 +53,11 @@ class StreamingFakeLLM(LLM):
 
 @pytest.fixture
 def settings(tmp_path):
+    return make_settings(tmp_path)
+
+
+def make_settings(tmp_path):
+    """A data dir with a tiny database: two papers and one HR policy, BM25 retrieval."""
     s = Settings(
         _env_file=None,
         data_dir=tmp_path,
@@ -82,7 +87,8 @@ def settings(tmp_path):
 def client_for(settings, llm=None, llm_probe=lambda: None, factory=None):
     llm = llm or StreamingFakeLLM()
     factory = factory or (lambda: Pipeline(settings, llm=llm, prompt_counter=WordCounter()))
-    return TestClient(create_app(settings, pipeline_factory=factory, llm_probe=llm_probe))
+    # The app only serves Host 127.0.0.1 / localhost (TestClient defaults to "testserver").
+    return TestClient(create_app(settings, pipeline_factory=factory, llm_probe=llm_probe), base_url="http://127.0.0.1")
 
 
 def events(body: str) -> list[tuple[str, dict]]:

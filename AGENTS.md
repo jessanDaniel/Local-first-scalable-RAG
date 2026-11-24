@@ -263,9 +263,18 @@ Found: refusal citation stripping can leave a sentence without its subject. Note
 `experiments/stage3/logs_step20.md`. 323 tests. **Roadmap reordered 2026-11-24 (user's decision; plan §0.2): 21 (UI: ask + inspect) →
 21b (general documents: PDF parser without GROBID, recursive folders, non-paper eval set, formats) →
 24 + 30 (point at a folder / upload from the UI, incremental) → 22 (UI: collections, logs, eval) →
-23 optional → 25–29, 31, 32.** The app must not be paper-specific. Step 21 was pitched; open
-questions for the user: plain JS with no build vs React, split 21/22, Host-header check now or in
-step 29. Next: step 21 once those are answered. Do not
+23 optional → 25–29, 31, 32.** The app must not be paper-specific. Step 21 done (user's choices:
+plain HTML/CSS/JS with no build, UI split 21/22, Host check now; no new dependency): `rag serve`
+serves the UI at `/` from `src/rag/api/static/` (index.html, app.css, js/{api,dom,answer,passage,
+trace,main}.js) — ask with streaming, `[n]` buttons, sources, passage dialog with highlighted chunk
+and "Open PDF at page N", trace waterfall + candidates from `/logs/{id}`, mode/rerank controls with
+the reranker's measured cost, Search tab (works without the LLM), status from `/health`. New routes
+`/documents/{id}`, `/documents/{id}/file` (only DB-known docs, path from the DB record, must resolve
+inside data/raw), `/passages?chunk_id=`, `/logs/{id}`. Host header must be 127.0.0.1/localhost/::1
+(400 otherwise; tests use `base_url="http://127.0.0.1"`). Rule: untrusted text only as text nodes,
+never innerHTML (a test greps for it); CSP on the page. Browser check with real models passed (see
+`experiments/stage3/ui_step21.md`, screenshots in `ui_step21/`). 348 tests. Next: step 21b
+(general documents) — pitch first. Do not
 start Phase 16.
 
 ### Phase 7 close-out (2026-09-20)

@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RAG — ask your documents</title>
+  <link rel="stylesheet" href="/static/app.css">
+  <script type="module" src="/static/js/main.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">RAG <span class="brand-sub">ask your documents</span></div>
+    <label class="collection">
+      <span>Collection</span>
+      <select id="collection"><option value="">All collections</option></select>
+    </label>
+    <button id="status" class="status" type="button" aria-expanded="false" aria-controls="status-panel">
+      <span class="dot"></span><span id="status-text">checking…</span>
+    </button>
+  </header>
+  <section id="status-panel" class="status-panel" hidden></section>
+
+  <nav class="tabs" role="tablist">
+    <button role="tab" id="tab-ask" aria-selected="true" aria-controls="view-ask">Ask</button>
+    <button role="tab" id="tab-search" aria-selected="false" aria-controls="view-search">Search</button>
+  </nav>
+
+  <main>
+    <section id="view-ask" role="tabpanel" aria-labelledby="tab-ask">
+      <form id="ask-form" class="query">
+        <textarea id="question" rows="2" placeholder="Ask a question about your documents…" required></textarea>
+        <div class="controls">
+          <label>Retrieval
+            <select id="ask-mode">
+              <option value="hybrid">hybrid (dense + BM25)</option>
+              <option value="dense">dense</option>
+              <option value="bm25">BM25</option>
+            </select>
+          </label>
+          <label>Reranker
+            <select id="ask-rerank">
+              <option value="fused">fused (vote)</option>
+              <option value="replace">replace</option>
+              <option value="off">off</option>
+            </select>
+          </label>
+          <span id="rerank-cost" class="hint"></span>
+          <span class="spacer"></span>
+          <button id="ask-stop" type="button" class="secondary" hidden>Stop</button>
+          <button id="ask-go" type="submit">Ask</button>
+        </div>
+        <p id="ask-blocked" class="notice" hidden></p>
+      </form>
+
+      <div id="ask-result" class="result" hidden>
+        <div class="answer-col">
+          <div class="answer-head">
+            <h2>Answer</h2>
+            <span id="answer-state" class="pill"></span>
+          </div>
+          <div id="answer" class="answer" aria-live="polite"></div>
+          <ul id="answer-notes" class="notes"></ul>
+          <details id="raw-answer" class="raw" hidden>
+            <summary>What the model wrote (before guardrails)</summary>
+            <pre id="raw-text"></pre>
+          </details>
+        </div>
+        <aside class="sources-col">
+          <h2>Sources <span id="sources-count" class="muted"></span></h2>
+          <ol id="sources" class="sources"></ol>
+        </aside>
+      </div>
+
+      <details id="trace" class="trace" hidden>
+        <summary>How this answer was made <span id="trace-summary" class="muted"></span></summary>
+        <div id="trace-body"></div>
+      </details>
+    </section>
+
+    <section id="view-search" role="tabpanel" aria-labelledby="tab-search" hidden>
+      <form id="search-form" class="query">
+        <input id="query" type="search" placeholder="Search passages (no LLM needed)…" required>
+        <div class="controls">
+          <label>Retrieval
+            <select id="search-mode">
+              <option value="hybrid">hybrid (dense + BM25)</option>
+              <option value="dense">dense</option>
+              <option value="bm25">BM25</option>
+            </select>
+          </label>
+          <label>Reranker
+            <select id="search-rerank">
+              <option value="off">off</option>
+              <option value="fused">fused (vote)</option>
+              <option value="replace">replace</option>
+            </select>
+          </label>
+          <label>Results
+            <select id="search-k">
+              <option>5</option><option selected>10</option><option>20</option>
+            </select>
+          </label>
+          <span class="spacer"></span>
+          <button type="submit">Search</button>
+        </div>
+      </form>
+      <p id="search-meta" class="muted"></p>
+      <ol id="hits" class="hits"></ol>
+    </section>
+  </main>
+
+  <dialog id="passage" class="passage" aria-labelledby="passage-title">
+    <header>
+      <div>
+        <h2 id="passage-title"></h2>
+        <p id="passage-sub" class="muted"></p>
+      </div>
+      <div class="passage-actions">
+        <a id="passage-open" target="_blank" rel="noopener" hidden>Open page</a>
+        <button id="passage-close" type="button" class="secondary" aria-label="Close">Close</button>
+      </div>
+    </header>
+    <div id="passage-body" class="passage-body"></div>
+  </dialog>
+</body>
+</html>

@@ -80,7 +80,7 @@ def ask_parity(settings, questions) -> list[dict]:
     cli = Pipeline(settings, llm=Recording(create_llm(settings)))
     answerer = cli.answerer(settings.retrieval_mode, settings.ask_rerank)
     rows = []
-    with TestClient(app) as client:
+    with TestClient(app, base_url="http://127.0.0.1") as client:
         for q in questions:
             body = {"question": q.question, "collections": [q.collection]}
             api = sse_events(client.post("/ask", json=body).text)[-1][1]
@@ -110,7 +110,7 @@ def main() -> int:
     results: dict = {"when": time.strftime("%Y-%m-%dT%H:%M:%S"), "k": K}
 
     start = time.perf_counter()
-    with TestClient(create_app(settings)) as client:
+    with TestClient(create_app(settings), base_url="http://127.0.0.1") as client:
         results["server_load_seconds"] = client.get("/health").json()["service"]["load_seconds"]
         cli = Pipeline(settings)
         results["search"] = [

@@ -1,9 +1,14 @@
 """The HTTP API: the same pipeline as the CLI, loaded once and kept in memory.
 
-    rag serve                      # http://127.0.0.1:8000, interactive docs at /docs
+    rag serve                      # http://127.0.0.1:8000: the web UI; interactive API docs at /docs
 
+    GET  /                         the web UI (static files in rag/api/static, no build step)
     GET  /health                   rag status as JSON + what the server has loaded; 503 if it can't serve
     GET  /collections              collections with document and chunk counts
+    GET  /documents/{doc_id}       title, format, whether the file can be opened
+    GET  /documents/{doc_id}/file  the stored PDF / text file (only files ingest saved under data/raw)
+    GET  /passages?chunk_id=...    the sections holding these chunks, with ranges to highlight
+    GET  /logs/{request_id}        the step-20 log record of a request (the UI's trace panel)
     POST /search                   {"query": ..., "k": 5, "collections": [...], "mode": ..., "rerank": ...}
     POST /ask                      {"question": ..., "stream": true}  -> server-sent events:
                                      sources   what the model will read (sent before it starts)
@@ -17,6 +22,11 @@ ONE worker thread ("pipeline"): SQLite connections belong to the thread that mad
 searchers keep per-call state, so requests take turns there. Generation (an HTTP call to Ollama)
 runs on a second thread ("llm"), so a 7-second answer doesn't block /search. The event loop only
 moves bytes, so /health answers while both are busy.
+
+Host check. Only requests whose Host header is 127.0.0.1, localhost or ::1 are served (400
+otherwise). Binding to loopback isn't enough on its own: with DNS rebinding, a web page from
+another site can make the browser send requests to 127.0.0.1 under its own host name; the Host
+header gives that away. Origin checks and the rest of localhost hardening are step 29.
 
 Request ids. Every response carries X-Request-ID (the caller's, if it sent a sane one). Every
 /search and /ask writes one record under that id to data/logs/requests.jsonl (rag.requestlog), the
@@ -32,9 +42,12 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from functools import partial
+from pathlib import Path
+from typing import Annotated
 
-from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from rag.api.schemas import (
@@ -53,6 +66,23 @@ from rag.requestlog import RequestLog, Trace, stats
 
 REQUEST_ID = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
 LOOPBACK = {"127.0.0.1", "localhost", "::1"}
+STATIC = Path(__file__).with_name("static")
+# The UI page: scripts, styles and fetches from this origin only; nothing may frame it.
+UI_HEADERS = {
+    "Content-Security-Policy": (
+        "default-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; "
+        "form-action 'none'; frame-ancestors 'none'"
+    ),
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "no-referrer",
+}
+
+
+def host_name(header: str) -> str:
+    """'127.0.0.1:8000' -> '127.0.0.1'; '[::1]:8000' -> '::1'; 'localhost' -> 'localhost'."""
+    if header.startswith("["):
+        return header[1 : header.find("]")] if "]" in header else header
+    return header.rsplit(":", 1)[0] if header.count(":") == 1 else header
 
 
 class Service:
@@ -155,16 +185,24 @@ def create_app(settings: Settings | None = None, pipeline_factory=None, llm_prob
     async def request_id(request: Request, call_next):
         given = request.headers.get("x-request-id", "")
         request.state.request_id = given if REQUEST_ID.match(given) else uuid.uuid4().hex[:16]
-        response = await call_next(request)
+        if host_name(request.headers.get("host", "")).lower() not in LOOPBACK:
+            response = JSONResponse(
+                {"detail": "host not allowed: open the app at http://127.0.0.1 or http://localhost"},
+                status_code=400,
+            )
+        else:
+            response = await call_next(request)
         response.headers["X-Request-ID"] = request.state.request_id
         return response
 
     def service_of(request: Request) -> Service:
         return request.app.state.service
 
-    @app.get("/")
-    async def root():
-        return {"name": "rag", "docs": "/docs", "health": "/health"}
+    app.mount("/static", StaticFiles(directory=STATIC), name="static")
+
+    @app.get("/", include_in_schema=False)
+    async def ui():
+        return FileResponse(STATIC / "index.html", headers=UI_HEADERS)
 
     @app.get("/health")
     async def health(request: Request):
@@ -219,6 +257,68 @@ def create_app(settings: Settings | None = None, pipeline_factory=None, llm_prob
         service = service_of(request)
         pipeline = service.require_pipeline()
         return await service.run(db.list_collections, pipeline.conn)
+
+    def document_or_404(pipeline, doc_id: str):
+        from rag.store import db
+
+        document = db.get_document(pipeline.conn, doc_id)
+        if document is None:
+            raise HTTPException(404, f"no document {doc_id}")
+        return document
+
+    @app.get("/documents/{doc_id:path}/file")
+    async def document_file(doc_id: str, request: Request):
+        from rag.api.documents import MEDIA_TYPES, file_format, stored_file
+
+        service = service_of(request)
+        pipeline = service.require_pipeline()
+        document = await service.run(document_or_404, pipeline, doc_id)
+        path = stored_file(settings.data_dir, document)
+        if path is None:
+            raise HTTPException(404, f"no stored file for {doc_id}")
+        return FileResponse(
+            path,
+            media_type=MEDIA_TYPES[file_format(document)],
+            headers={"Content-Disposition": "inline", "X-Content-Type-Options": "nosniff"},
+        )
+
+    @app.get("/documents/{doc_id:path}")
+    async def document(doc_id: str, request: Request):
+        from rag.api.documents import document_info
+
+        service = service_of(request)
+        pipeline = service.require_pipeline()
+
+        def work():
+            return document_info(pipeline.conn, settings.data_dir, document_or_404(pipeline, doc_id))
+
+        return await service.run(work)
+
+    @app.get("/passages")
+    async def passages(request: Request, chunk_id: Annotated[list[str], Query(min_length=1, max_length=20)]):
+        from rag.api.documents import passage_context
+
+        service = service_of(request)
+        pipeline = service.require_pipeline()
+        context = await service.run(passage_context, pipeline.conn, settings.data_dir, chunk_id)
+        if context is None:
+            raise HTTPException(404, "unknown chunk id, or chunks from more than one document")
+        return context
+
+    @app.get("/logs/{request_id}")
+    async def log_record(request_id: str, request: Request):
+        from rag.requestlog import read_records
+
+        service = service_of(request)
+        for record in reversed(service.log.recent):
+            if record["request_id"] == request_id:
+                return record
+        if service.log.path is not None:
+            records = await asyncio.to_thread(read_records, service.log.path, settings.log_backups)
+            for record in reversed(records):
+                if record["request_id"] == request_id:
+                    return record
+        raise HTTPException(404, f"no logged request {request_id}")
 
     @app.post("/search", response_model=SearchResponse)
     async def search(body: SearchRequest, request: Request):
@@ -390,6 +490,6 @@ def run(args) -> int:
     if host not in LOOPBACK:
         print(f"refusing to listen on {host}: the API has no authentication yet (step 29); use 127.0.0.1")
         return 2
-    print(f"loading the pipeline (models, indexes), then serving http://{host}:{port}  (docs: /docs)")
+    print(f"loading the pipeline (models, indexes), then serving the app at http://{host}:{port}  (API docs: /docs)")
     uvicorn.run(create_app(settings), host=host, port=port, log_level="info")
     return 0
