@@ -1,0 +1,33 @@
+{
+ "idle": {
+  "n": 1191,
+  "p50_ms": 8.2,
+  "p95_ms": 9.3,
+  "max_ms": 156.9,
+  "errors": 0
+ },
+ "during_sync": {
+  "n": 156,
+  "p50_ms": 13.7,
+  "p95_ms": 17.1,
+  "max_ms": 1750.8,
+  "errors": 0
+ },
+ "job": {
+  "status": "done",
+  "added": 7,
+  "seconds": {
+   "parse": 3.65,
+   "chunk": 1.59,
+   "index": 0.36,
+   "total": 5.62
+  },
+  "n_embedded": 0,
+  "swap": {
+   "dense_build": "dense-20261124T110342127896Z",
+   "bm25_chunks": 2447,
+   "seconds": 0.328
+  }
+ },
+ "removed_after": 7
+}

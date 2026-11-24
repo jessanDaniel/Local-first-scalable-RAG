@@ -25,6 +25,7 @@
   <nav class="tabs" role="tablist">
     <button role="tab" id="tab-ask" aria-selected="true" aria-controls="view-ask">Ask</button>
     <button role="tab" id="tab-search" aria-selected="false" aria-controls="view-search">Search</button>
+    <button role="tab" id="tab-docs" aria-selected="false" aria-controls="view-docs">Documents</button>
   </nav>
 
   <main>
@@ -108,6 +109,69 @@
       </form>
       <p id="search-meta" class="muted"></p>
       <ol id="hits" class="hits"></ol>
+    </section>
+
+    <section id="view-docs" role="tabpanel" aria-labelledby="tab-docs" hidden>
+      <div class="panel">
+        <h2>Collection</h2>
+        <p id="docs-pick" class="muted">Pick a collection at the top, or make a new one.</p>
+        <form id="new-collection" class="inline-form">
+          <input id="new-name" placeholder="new-collection-name" pattern="[a-z0-9][a-z0-9-]*" required
+                 title="lower case letters, digits and hyphens">
+          <input id="new-description" placeholder="what's in it (optional)">
+          <button type="submit" class="secondary">Create</button>
+        </form>
+        <p id="docs-message" class="notice" hidden></p>
+      </div>
+
+      <div id="docs-body" hidden>
+        <div class="panel">
+          <div class="panel-head">
+            <h2>Folders on this computer</h2>
+            <button id="rescan" type="button" class="secondary">Rescan</button>
+          </div>
+          <p class="muted">Files in these folders (and their subfolders) are kept in sync: new and changed files are
+            added, deleted ones removed. Type or paste the folder's full path.</p>
+          <ul id="folders" class="rows"></ul>
+          <form id="add-folder" class="inline-form">
+            <input id="folder-path" placeholder="/Users/you/Documents/policies" required>
+            <button type="submit">Add folder</button>
+          </form>
+        </div>
+
+        <div class="panel">
+          <h2>Upload files</h2>
+          <div id="drop" class="drop" tabindex="0">
+            <p>Drop PDF, Word, HTML, text or Markdown files (or a folder) here</p>
+            <p class="muted">or
+              <label class="link">choose files<input id="pick-files" type="file" multiple hidden
+                accept=".pdf,.docx,.html,.htm,.txt,.md,.markdown,.text"></label>
+              ·
+              <label class="link">choose a folder<input id="pick-folder" type="file" webkitdirectory hidden></label>
+            </p>
+          </div>
+          <ul id="uploads" class="rows"></ul>
+        </div>
+
+        <div id="job-panel" class="panel" hidden>
+          <div class="panel-head">
+            <h2>Updating <span id="job-state" class="pill"></span></h2>
+            <button id="job-cancel" type="button" class="secondary">Cancel</button>
+          </div>
+          <p id="job-summary" class="muted"></p>
+          <ul id="job-events" class="events"></ul>
+        </div>
+
+        <div class="panel">
+          <h2>Documents <span id="doc-count" class="muted"></span></h2>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>title</th><th>file</th><th>from</th><th class="num">chunks</th><th>status</th><th></th></tr></thead>
+              <tbody id="doc-rows"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
     </section>
   </main>
 

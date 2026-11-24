@@ -40,7 +40,7 @@ UPLOAD_PREFIX = "upload"
 
 
 class SyncCancelled(Exception):
-    """The sync was asked to stop; what was finished is kept, and the next sync goes on from there."""
+    """Kept for callers that want an exception; sync_collection itself reports report.cancelled."""
 
 
 @dataclass
@@ -64,6 +64,9 @@ class SyncReport:
     build_id: str | None = None
     n_embedded: int = 0
     seconds: dict[str, float] = field(default_factory=dict)
+    # Cancelled: no new file was started after the request, but what was already parsed was chunked
+    # and indexed, so the database and the index agree. The next sync goes on from there.
+    cancelled: bool = False
 
     @property
     def changed(self) -> bool:
@@ -109,6 +112,7 @@ def sync_collection(
     index even if this sync changed nothing (documents were removed before it, say)."""
     from rag.chunk.chunker import Chunker
     from rag.ingest import FoundFile, Ingestor, find_documents
+    from rag.models import make_doc_id
     from rag.parse.base import ParseError
 
     report = SyncReport(collection)
@@ -118,9 +122,12 @@ def sync_collection(
         if on_event is not None:
             on_event(SyncEvent(kind, name, detail))
 
-    def check_cancel() -> None:
+    def cancelled() -> bool:
         if cancel is not None and cancel.is_set():
-            raise SyncCancelled(f"sync of {collection} cancelled")
+            if not report.cancelled:
+                emit("cancelled", collection, "no new files started; finishing what was parsed")
+            report.cancelled = True
+        return report.cancelled
 
     ingestor = Ingestor(settings, collection=collection)
     conn = ingestor.conn
@@ -149,11 +156,21 @@ def sync_collection(
             emit("skipped", str(path), why)
 
         # 3. ingest what is new or changed
+        def own_id(item: FoundFile) -> FoundFile:
+            """Document ids are global. A file whose plain id ("file:readme") another collection
+            already has gets this collection's name in front ("file:team-readme")."""
+            other = db.get_document(conn, make_doc_id("file", item.key))
+            if other is not None and other.collection_id != collection:
+                return FoundFile(item.path, f"{collection}-{item.key}")
+            return item
+
         parse_start = time.perf_counter()
         parsed_docs: list[str] = []
         known_before = {d.doc_id for d in db.list_documents(conn, collection_id=collection)}
         for item in found:
-            check_cancel()
+            if cancelled():
+                break
+            item = own_id(item)
             try:
                 [result] = ingestor.ingest_files([item])
             except (ValueError, ParseError, OSError) as exc:
@@ -172,21 +189,24 @@ def sync_collection(
                 emit("updated" if result.doc_id in known_before else "added", result.doc_id, result.status)
         report.seconds["parse"] = time.perf_counter() - parse_start
 
-        # 4. removals: documents from these folders whose file is gone
-        found_paths = {str(item.path.resolve()) for item in found}
+        # 4. removals: documents from these folders that this sync didn't produce (their file is gone,
+        # is now skipped, or now maps to another id). A file that failed this time keeps its old
+        # document; a cancelled sync didn't see every file, so it removes nothing.
+        produced = {*report.unchanged, *report.added, *report.updated}
+        failed_paths = {str(Path(path).resolve()) for path, _ in report.failed}
         roots = [*present, uploads]
-        for document in db.list_documents(conn, collection_id=collection, source="file"):
+        for document in [] if report.cancelled else db.list_documents(conn, collection_id=collection, source="file"):
             original = document.metadata.get("original_path")
-            if not any(under(original, root) for root in roots) or original in found_paths:
+            if not any(under(original, root) for root in roots) or document.doc_id in produced:
                 continue
-            if Path(original).exists():
-                continue  # still there, but skipped this time (now too large, say): keep it
-            check_cancel()
+            if original and str(Path(original).resolve()) in failed_paths:
+                continue
             db.delete_document(conn, document.doc_id)
             if document.source_uri and under(document.source_uri, settings.data_dir / "raw"):
                 Path(document.source_uri).unlink(missing_ok=True)
             report.removed.append(document.doc_id)
-            emit("removed", document.doc_id, "its file is gone")
+            why = "its file is gone" if not (original and Path(original).exists()) else "its file is no longer ingested"
+            emit("removed", document.doc_id, why)
 
         # 5. chunk the re-parsed documents
         chunk_start = time.perf_counter()
@@ -209,7 +229,6 @@ def sync_collection(
         # 6. a new dense build if anything changed
         index_start = time.perf_counter()
         if report.changed or rebuild:
-            check_cancel()
             from rag.index.build import EmbeddingCache, build_dense_index
 
             if counter is None:

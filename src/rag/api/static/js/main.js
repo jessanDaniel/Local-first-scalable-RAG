@@ -3,6 +3,7 @@
 import { ApiError, askStream, getCollections, getHealth, getLog, search } from "./api.js";
 import { renderFinal, renderStreaming } from "./answer.js";
 import { $, clear, el, pages, seconds, store } from "./dom.js";
+import { setupDocs, showDocs } from "./docs.js";
 import { setupPassageDialog, showPassage } from "./passage.js";
 import { renderTrace, traceSummary } from "./trace.js";
 
@@ -75,19 +76,23 @@ function updateAskAvailability() {
 
 // --- collections ---------------------------------------------------------------------------------
 
-async function loadCollections() {
+// (Re)load the collection picker, keeping the selection (or selecting `pick`); called again after a
+// collection is created or a sync changed document counts.
+async function loadCollections(pick = null) {
   const select = $("collection");
+  const keep = pick ?? select.value ?? store.get("rag.collection");
   try {
     const collections = await getCollections();
+    clear(select).append(el("option", { value: "" }, "All collections"));
     for (const c of collections) {
       select.append(el("option", { value: c.collection_id }, `${c.collection_id} (${c.n_documents} documents)`));
     }
-    const saved = store.get("rag.collection");
-    if (saved !== null && [...select.options].some((o) => o.value === saved)) select.value = saved;
+    const wanted = keep || store.get("rag.collection");
+    if (wanted && [...select.options].some((o) => o.value === wanted)) select.value = wanted;
+    if (pick) store.set("rag.collection", pick);
   } catch {
     /* the status panel already says why */
   }
-  select.addEventListener("change", () => store.set("rag.collection", select.value));
 }
 
 const selectedCollections = () => ($("collection").value ? [$("collection").value] : null);
@@ -98,6 +103,7 @@ function setupTabs() {
   const tabs = [
     ["tab-ask", "view-ask"],
     ["tab-search", "view-search"],
+    ["tab-docs", "view-docs"],
   ];
   for (const [tabId] of tabs) {
     $(tabId).addEventListener("click", () => {
@@ -106,7 +112,8 @@ function setupTabs() {
         $(otherTab).setAttribute("aria-selected", String(active));
         $(otherView).hidden = !active;
       }
-      (tabId === "tab-ask" ? $("question") : $("query")).focus();
+      if (tabId === "tab-docs") showDocs($("collection").value);
+      else (tabId === "tab-ask" ? $("question") : $("query")).focus();
     });
   }
 }
@@ -330,6 +337,11 @@ function start() {
     }
   });
   $("search-form").addEventListener("submit", runSearch);
+  setupDocs({ onCollectionsChanged: (pick) => loadCollections(pick) });
+  $("collection").addEventListener("change", () => {
+    store.set("rag.collection", $("collection").value);
+    if (!$("view-docs").hidden) showDocs($("collection").value);
+  });
   loadCollections();
   refreshHealth();
   setInterval(refreshHealth, 20000);

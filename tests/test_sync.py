@@ -10,7 +10,7 @@ from rag import sync as sync_module
 from rag.config import Settings
 from rag.pipeline import Pipeline
 from rag.store import db
-from rag.sync import SyncCancelled, prune_builds, sync_collection
+from rag.sync import prune_builds, sync_collection
 from tests.test_dense import FakeEmbedder, WordCounter
 
 BODY = " ".join(["Employees book travel through the portal and keep receipts for thirty days."] * 30)
@@ -124,11 +124,14 @@ def test_a_cancelled_sync_keeps_what_it_finished(setup):
         if event.kind == "added":
             cancel.set()
 
-    with pytest.raises(SyncCancelled):
-        sync_collection(
-            settings, "team", on_event=stop_after_first, cancel=cancel, embedder=FakeEmbedder(), counter=WordCounter()
-        )
-    assert len(documents(settings)) == 1  # the first file was finished and kept
+    report = sync_collection(
+        settings, "team", on_event=stop_after_first, cancel=cancel, embedder=FakeEmbedder(), counter=WordCounter()
+    )
+    assert report.cancelled and len(report.added) == 1 and len(documents(settings)) == 1
+    assert report.build_id  # what was finished was chunked and indexed: database and index agree
+    conn = db.open_db(settings.db_path)
+    assert db.count_chunks(conn) > 0
+    conn.close()
     report, _ = run_sync(settings)  # the next sync goes on from there
     assert len(report.added) == 1 and len(report.unchanged) == 1
 
@@ -189,3 +192,36 @@ def test_search_skips_chunks_deleted_before_the_swap(setup):
     assert all(h.chunk.doc_id != "file:travel" for h in hits)  # left out, no error
     assert [h.rank for h in hits] == list(range(1, len(hits) + 1))
     pipeline.close()
+
+
+def test_a_file_whose_id_another_collection_has_gets_the_collection_prefix(setup, tmp_path):
+    settings, _ = setup
+    other = tmp_path / "other"
+    other.mkdir()
+    (other / "travel.md").write_text(f"# Travel elsewhere\n\n## Part\n\n{BODY} Different.\n")
+    conn = db.open_db(settings.db_path)
+    db.ensure_collection(conn, "other")
+    db.add_source_folder(conn, "other", str(other.resolve()))
+    conn.close()
+    sync_collection(settings, "other", embedder=FakeEmbedder(), counter=WordCounter())  # takes file:travel
+    report, _ = run_sync(settings)
+    assert sorted(report.added) == ["file:hr-leave", "file:team-travel"] and report.failed == []
+    assert run_sync(settings)[0].removed == []  # stable on the next sync
+
+
+def test_a_file_that_fails_keeps_its_old_document(setup, monkeypatch):
+    from rag.ingest import Ingestor
+
+    settings, folder = setup
+    run_sync(settings)
+    (folder / "travel.md").write_text(f"# Travel\n\n## Booking\n\n{BODY} changed\n")
+    real = Ingestor.ingest_files
+
+    def flaky(self, items):
+        if any(getattr(i, "key", "") == "travel" for i in items):
+            raise OSError("disk hiccup")
+        return real(self, items)
+
+    monkeypatch.setattr(Ingestor, "ingest_files", flaky)
+    report, _ = run_sync(settings)
+    assert report.failed and report.removed == [] and "file:travel" in documents(settings)

@@ -202,3 +202,26 @@ mark { background: var(--mark); color: inherit; padding: 0.05rem 0; border-radiu
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
 }
+
+/* documents tab */
+.panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.9rem 1rem; margin-top: 1rem; }
+.panel:first-child { margin-top: 0; }
+.panel-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.panel p { margin: 0.3rem 0 0.6rem; }
+.inline-form { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.5rem; }
+.inline-form input { flex: 1 1 14rem; min-width: 0; }
+.rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.35rem; }
+.rows li { display: flex; align-items: center; gap: 0.6rem; justify-content: space-between; font-size: 0.88rem;
+  border: 1px solid var(--border); border-radius: 6px; padding: 0.35rem 0.6rem; overflow-wrap: anywhere; }
+.rows li .muted { font-size: 0.8rem; }
+.rows button, td button { padding: 0.15rem 0.55rem; font-size: 0.8rem; flex-shrink: 0; white-space: nowrap; }
+.drop { border: 2px dashed var(--border); border-radius: var(--radius); padding: 1.1rem; text-align: center; }
+.drop.over { border-color: var(--accent); background: var(--accent-soft); }
+.drop p { margin: 0.2rem 0; }
+.link { color: var(--accent); cursor: pointer; text-decoration: underline; }
+.events { list-style: none; margin: 0; padding: 0; max-height: 16rem; overflow-y: auto; font-size: 0.82rem; font-family: var(--mono); }
+.events li { padding: 0.1rem 0; overflow-wrap: anywhere; }
+.events .failed, .rows .failed { color: var(--bad); }
+.events .added, .events .updated { color: var(--ok); }
+.events .skipped, .events .unchanged { color: var(--muted); }
+tr.failed td { color: var(--bad); }

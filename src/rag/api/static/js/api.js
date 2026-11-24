@@ -75,3 +75,31 @@ export async function askStream(body, handlers, signal) {
     }
   }
 }
+
+// --- adding and keeping documents (steps 24 + 30) ----------------------------------------------
+
+const send = (method, body) => ({
+  method,
+  headers: body === undefined ? {} : { "Content-Type": "application/json" },
+  body: body === undefined ? undefined : JSON.stringify(body),
+});
+const name = (collection) => encodeURIComponent(collection);
+
+export const createCollection = (collection, description) =>
+  json("/collections", send("POST", { name: collection, description }));
+export const getCollection = (collection) => json(`/collections/${name(collection)}`);
+export const addFolder = (collection, path) => json(`/collections/${name(collection)}/folders`, send("POST", { path }));
+export const removeFolder = (collection, path) =>
+  json(`/collections/${name(collection)}/folders?path=${encodeURIComponent(path)}`, send("DELETE"));
+export const syncCollection = (collection) => json(`/collections/${name(collection)}/sync`, send("POST"));
+export const deleteDocument = (docId) => json(`/documents/${docPath(docId)}`, send("DELETE"));
+export const getJob = (id, from = 0) => json(`/jobs/${encodeURIComponent(id)}?events_from=${from}`);
+export const cancelJob = (id) => json(`/jobs/${encodeURIComponent(id)}/cancel`, send("POST"));
+
+// One file per request, its bytes as the body (the server needs no multipart parser).
+export const uploadFile = (collection, file) =>
+  json(`/collections/${name(collection)}/files/${encodeURIComponent(file.name)}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/octet-stream" },
+    body: file,
+  });

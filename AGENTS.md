@@ -287,8 +287,18 @@ walks folders recursively with a skip report; .docx and .html via the standard l
 `eval/sets/gov-docs.jsonl` (43 questions; drafted by Claude, reviewed by an independent Claude agent at
 the user's request — `eval/review_gov_docs.md`; human review still pending; gold may span documents via
 `also_in`), fused Hit@5 38/39, MRR 0.797; in the gate. Open decisions for the user: BM25 statistics per collection vs shared; PyMuPDF
-is AGPL (decide before packaging). 377 tests. Next: steps 24 + 30 (folder/upload from the UI) — pitch
-first. Do not start Phase 16.
+is AGPL (decide before packaging). 377 tests. Steps 24 + 30 done (user's choices: BM25 statistics per
+searched collection, Rescan + rescan at start, raw-body uploads, Origin check now; no new dependency;
+notes `experiments/stage3/sync_step24.md`): `src/rag/sync.py` / `rag sync NAME [--add-folder P]
+[--remove-folder P]` (schema v6 `source_folders`; unchanged files skipped by hash; removed files
+deleted; only re-parsed docs chunked; new dense build from the cache; 3 builds kept; missing folders
+keep their documents; a clashing doc id gets the collection prefix); `Pipeline.reload()` swaps indexes
+in the running server; `src/rag/api/jobs.py` (one sync job at a time, lazy models, cancel); routes for
+collections, folders, uploads (`PUT .../files/{name}`, raw body), document delete, jobs; Origin check
+(403 for cross-site writes); UI Documents tab (`static/js/docs.js`). Proof: folder → searchable in
+10.7 s, edit → rescan 0.33 s, search 0 errors during a sync (p50 8 → 14 ms, one 1.75 s stall: GIL).
+Known gaps: no collection delete, refusal detector misreads "the question does not specify". 409
+tests. Next: step 22 (UI part 2: collections, logs, eval views) — pitch first. Do not start Phase 16.
 
 ### Phase 7 close-out (2026-09-20)
 

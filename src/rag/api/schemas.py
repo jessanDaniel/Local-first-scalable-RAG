@@ -121,6 +121,15 @@ class SourcesEvent(BaseModel):
     retrieval_fallback: str | None
 
 
+class CollectionCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=64, description="lower case letters, digits and hyphens")
+    description: str = Field(default="", max_length=500)
+
+
+class FolderRequest(BaseModel):
+    path: str = Field(min_length=1, max_length=4096, description="a folder on this machine")
+
+
 class CollectionOut(BaseModel):
     collection_id: str
     description: str | None

@@ -106,6 +106,11 @@ class Settings(BaseSettings):
     # API server (`rag serve`, Stage 3 step 19). Loopback only until API keys exist (step 29).
     api_host: str = "127.0.0.1"
     api_port: int = Field(default=8000, ge=1, le=65535)
+    # Rescan every collection's folders when the server starts (step 24): files changed while the app
+    # was closed are picked up.
+    sync_on_start: bool = True
+    # Largest uploaded file, in MB (the same limit folders use).
+    upload_max_mb: float = Field(default=200.0, gt=0)
 
     # Request logs (step 20): one JSON line per `rag search` / `rag ask` / API request in
     # data/logs/requests.jsonl, read with `rag logs show|stats`. LOG_TEXT stores the question, the
