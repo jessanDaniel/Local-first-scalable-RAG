@@ -36,8 +36,12 @@ class Hit:
 
 
 def make_hits(conn, ranked: list[tuple[str, float]]) -> list[Hit]:
-    """(chunk_id, score) best first -> Hits with everything a citation needs, from SQLite."""
+    """(chunk_id, score) best first -> Hits with everything a citation needs, from SQLite.
+
+    A chunk the index knows but the database no longer has (a sync is deleting or replacing its
+    document right now, before the new index is swapped in) is left out, not an error."""
     chunks = {c.chunk_id: c for c in db.get_chunks_by_ids(conn, [chunk_id for chunk_id, _ in ranked])}
+    ranked = [(chunk_id, score) for chunk_id, score in ranked if chunk_id in chunks]
     hits = []
     for rank, (chunk_id, score) in enumerate(ranked, start=1):
         chunk = chunks[chunk_id]

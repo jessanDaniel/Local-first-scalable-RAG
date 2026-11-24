@@ -14,6 +14,8 @@ Searchers and answerers are cheap wrappers around the shared parts and are cache
 from one thread at a time; the server gives it a dedicated worker thread.
 """
 
+import time
+
 from rag.config import Settings, get_settings
 from rag.store import db
 
@@ -28,6 +30,7 @@ class Pipeline:
         self.conn = conn if conn is not None else db.open_db(self.settings.db_path)
         self._llm = llm
         self._dense = None
+        self._embedder = None
         self._bm25 = None
         self._reranker = None
         self._prompt_counter = prompt_counter
@@ -46,8 +49,9 @@ class Pipeline:
 
             s = self.settings
             index = load_current(s.data_dir / "indexes" / "dense", s.embedding_model, self.conn)
-            embedder = Embedder(s.embedding_model, s.embedding_query_instruction, s.embedding_batch_size)
-            self._dense = DenseSearcher(self.conn, index, embedder)
+            if self._embedder is None:
+                self._embedder = Embedder(s.embedding_model, s.embedding_query_instruction, s.embedding_batch_size)
+            self._dense = DenseSearcher(self.conn, index, self._embedder)
         return self._dense
 
     def bm25(self):
@@ -143,6 +147,38 @@ class Pipeline:
                 sanitize_sources=s.ask_sanitize_sources,
             )
         return self._answerers[key]
+
+    def reload(self) -> dict:
+        """Swap in the indexes as they are now (after a sync): the CURRENT dense build and a BM25 index
+        rebuilt from SQLite. The models stay loaded (embedder, reranker, LLM, tokenizer), so this takes
+        milliseconds. New parts are built first and assigned only when ready, so a failure leaves the
+        old ones serving. Run it on the pipeline thread, like every other use of the pipeline."""
+        from rag.index.dense import load_current
+        from rag.search import BM25Searcher, DenseSearcher
+
+        start = time.perf_counter()
+        s = self.settings
+        had_dense = self._dense is not None
+        dense = None
+        if had_dense:
+            index = load_current(s.data_dir / "indexes" / "dense", s.embedding_model, self.conn)
+            dense = DenseSearcher(self.conn, index, self._embedder)
+        bm25 = BM25Searcher.from_db(self.conn) if self._bm25 is not None else None
+        # swap: searchers and answerers are thin wrappers, rebuilt on next use around the new parts
+        if had_dense:
+            self._dense = dense
+        if bm25 is not None:
+            self._bm25 = bm25
+        warm = list(self._searchers)
+        self._searchers.clear()
+        self._answerers.clear()
+        for mode, rerank in warm:
+            self.searcher(mode, rerank)
+        return {
+            "dense_build": dense.index.manifest.build_id if dense else None,
+            "bm25_chunks": bm25.index.n_chunks if bm25 else None,
+            "seconds": round(time.perf_counter() - start, 3),
+        }
 
     def close(self) -> None:
         for searcher in self._searchers.values():

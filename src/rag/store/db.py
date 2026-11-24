@@ -15,7 +15,7 @@ from pathlib import Path
 
 from rag.models import Chunk, Document, Paragraph, ParseStatus, Section, check_collection_id
 
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 
 log = logging.getLogger(__name__)
 
@@ -101,6 +101,14 @@ CREATE INDEX idx_sections_doc ON sections(doc_id);
 CREATE INDEX idx_chunks_doc ON chunks(doc_id);
 CREATE INDEX idx_chunks_section ON chunks(section_id);
 
+CREATE TABLE source_folders (
+    collection_id  TEXT NOT NULL REFERENCES collections(collection_id) ON DELETE CASCADE,
+    path           TEXT NOT NULL,
+    added_at       TEXT NOT NULL DEFAULT (datetime('now')),
+    last_synced    TEXT,
+    PRIMARY KEY (collection_id, path)
+);
+
 CREATE TABLE index_builds (
     build_id         TEXT PRIMARY KEY,
     kind             TEXT NOT NULL CHECK (kind IN ('dense', 'sparse')),
@@ -159,6 +167,16 @@ MIGRATIONS = {
         "DROP TABLE documents",
         "ALTER TABLE documents_v5 RENAME TO documents",
         *DOCUMENT_INDEXES.strip().split(";"),
+    ],
+    # v6: folders a collection is kept in sync with (step 24). Nothing to rebuild.
+    5: [
+        """CREATE TABLE source_folders (
+            collection_id  TEXT NOT NULL REFERENCES collections(collection_id) ON DELETE CASCADE,
+            path           TEXT NOT NULL,
+            added_at       TEXT NOT NULL DEFAULT (datetime('now')),
+            last_synced    TEXT,
+            PRIMARY KEY (collection_id, path)
+        )"""
     ],
 }
 
@@ -287,6 +305,48 @@ def chunk_ids_in_collections(conn: sqlite3.Connection, collection_ids: list[str]
         list(collection_ids),
     )
     return [row[0] for row in rows]
+
+
+# --- source folders (step 24) -----------------------------------------------
+
+
+def add_source_folder(conn: sqlite3.Connection, collection_id: str, path: str) -> bool:
+    """Register a folder to keep this collection in sync with. False if it already was."""
+    with conn:
+        cursor = conn.execute(
+            "INSERT OR IGNORE INTO source_folders (collection_id, path) VALUES (?, ?)", (collection_id, path)
+        )
+    return cursor.rowcount == 1
+
+
+def remove_source_folder(conn: sqlite3.Connection, collection_id: str, path: str) -> bool:
+    with conn:
+        cursor = conn.execute("DELETE FROM source_folders WHERE collection_id = ? AND path = ?", (collection_id, path))
+    return cursor.rowcount == 1
+
+
+def source_folders(conn: sqlite3.Connection, collection_id: str | None = None) -> list[dict]:
+    query = "SELECT collection_id, path, added_at, last_synced FROM source_folders"
+    params: list = []
+    if collection_id is not None:
+        query += " WHERE collection_id = ?"
+        params.append(collection_id)
+    return [dict(row) for row in conn.execute(query + " ORDER BY collection_id, path", params)]
+
+
+def mark_folder_synced(conn: sqlite3.Connection, collection_id: str, path: str) -> None:
+    with conn:
+        conn.execute(
+            "UPDATE source_folders SET last_synced = datetime('now') WHERE collection_id = ? AND path = ?",
+            (collection_id, path),
+        )
+
+
+def delete_document(conn: sqlite3.Connection, doc_id: str) -> bool:
+    """Remove a document with its sections and chunks (cascade). The stored file is the caller's."""
+    with conn:
+        cursor = conn.execute("DELETE FROM documents WHERE doc_id = ?", (doc_id,))
+    return cursor.rowcount == 1
 
 
 # --- documents --------------------------------------------------------------

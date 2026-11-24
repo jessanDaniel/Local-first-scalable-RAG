@@ -12,6 +12,7 @@
                [--collection NAME ...] [--explain]
     rag ask "question" [--mode hybrid|dense|bm25] [--rerank off|fused|replace] [--collection NAME ...] [--explain]
     rag serve [--port 8000]                      # HTTP API on 127.0.0.1, docs at /docs
+    rag sync NAME [--add-folder PATH] [--remove-folder PATH]   # keep a collection in step with its folders
     rag logs show [REQUEST_ID|last] [--json]     # one logged request as a trace
     rag logs stats [--last N] [--route ask|search]
     rag eval check|run --set papers   rag eval compare papers:latest~1 papers:latest   rag eval list
@@ -163,6 +164,13 @@ def build_parser() -> argparse.ArgumentParser:
         "--rerank", choices=["off", "fused", "replace"], help="reranker on top (default: ASK_RERANK setting, fused)"
     )
     ask.add_argument("--explain", action="store_true", help="show retrieval, the exact prompt, tokens, timings")
+
+    sync = command("sync", "rag.sync:run", "bring a collection in step with its folders and uploads")
+    sync.add_argument("collection")
+    sync.add_argument("--add-folder", type=Path, metavar="PATH", help="register this folder for the collection first")
+    sync.add_argument(
+        "--remove-folder", type=Path, metavar="PATH", help="forget this folder and delete its documents first"
+    )
 
     logs = command("logs", "rag.requestlog:run", "per-request logs: one request as a trace, or stats per stage")
     log_actions = logs.add_subparsers(dest="action", required=True, metavar="ACTION")
