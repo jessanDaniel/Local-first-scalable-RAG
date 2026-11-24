@@ -93,6 +93,7 @@ class BM25Searcher:
         self.conn = conn
         self.index = index
         self.last_timings: dict[str, float] = {}
+        self.last_allowed: set[str] | None = None
 
     @classmethod
     def from_db(cls, conn) -> "BM25Searcher":
@@ -106,7 +107,8 @@ class BM25Searcher:
     def rank(self, query: str, n: int, allowed: list[str] | None) -> list[tuple[str, float]]:
         """Top-n (chunk_id, BM25 score) without fetching anything from SQLite."""
         start = time.perf_counter()
-        ranked = self.index.search(query, n, set(allowed) if allowed is not None else None)
+        self.last_allowed = set(allowed) if allowed is not None else None  # for explain: same statistics
+        ranked = self.index.search(query, n, self.last_allowed)
         self.last_timings = {"search_ms": (time.perf_counter() - start) * 1000}
         return ranked
 
@@ -328,7 +330,9 @@ def print_hits(query: str, hits: list[Hit], searcher, explain: bool) -> None:
             if searcher.mode in ("hybrid", "rerank"):
                 print(f"    {describe_ranks(searcher.last_ranks[c.chunk_id])}")
             if searcher.mode == "bm25":
-                parts = [p for p in searcher.index.explain(query, c.chunk_id) if p.tf]  # per-term BM25
+                parts = [
+                    p for p in searcher.index.explain(query, c.chunk_id, searcher.last_allowed) if p.tf
+                ]  # per-term BM25
                 print("    " + "  ".join(f"{p.term}: tf {p.tf} × idf {p.idf:.2f} → {p.score:.2f}" for p in parts))
             text = " ".join(c.text.split())
             print(f"    [{c.chunk_type}, {c.n_tokens} tokens, {c.chunk_id}]")

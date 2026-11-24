@@ -64,3 +64,34 @@ def test_explain_sums_to_the_score(index):
     parts = index.explain(query, top)
     assert sum(p.score for p in parts) == pytest.approx(score)
     assert {p.term: p.tf for p in parts} == {"bleu": 1, "score": 1, "34.81": 1, "34": 1, "81": 1, "transformer": 0}
+
+
+# --- statistics over the searched chunks (step 24) ------------------------------------------------
+
+
+def test_no_filter_and_a_filter_of_everything_score_the_same():
+    from rag.index.bm25 import BM25Index
+
+    docs = [("a", "leave policy for parents"), ("b", "annual leave and sick leave"), ("c", "password rules")]
+    index = BM25Index.build(docs)
+    assert index.search("sick leave", 3) == index.search("sick leave", 3, {"a", "b", "c"})
+
+
+def test_another_collection_cannot_move_a_collections_ranking():
+    """Adding documents full of "leave" elsewhere must not change scores inside {x, y}."""
+    from rag.index.bm25 import BM25Index
+
+    mine = [("x", "parental leave is twelve weeks"), ("y", "the leave request form and the policy text")]
+    others = [(f"o{i}", "leave leave leave annual leave sick leave") for i in range(50)]
+    alone = BM25Index.build(mine).search("parental leave", 2)
+    together = BM25Index.build(mine + others).search("parental leave", 2, {"x", "y"})
+    assert alone == together
+
+
+def test_explain_uses_the_same_statistics_as_the_search():
+    from rag.index.bm25 import BM25Index
+
+    index = BM25Index.build([("x", "parental leave"), ("y", "leave form")] + [(f"o{i}", "leave") for i in range(20)])
+    [(chunk, score)] = index.search("parental leave", 1, {"x", "y"})
+    parts = index.explain("parental leave", chunk, {"x", "y"})
+    assert abs(sum(p.score for p in parts) - score) < 1e-9 and {p.df for p in parts} == {1, 2}

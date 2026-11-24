@@ -1,7 +1,7 @@
 {
- "updated": "2026-11-24T10:28:12Z",
- "commit": "d1c6466-dirty",
- "reason": "gov-docs set revised after an independent review (eval/review_gov_docs.md): 43 questions, cross-document gold (also_in), rewrites; opm_childbirth_family_sick_leave and autopen_approve were renamed (opm_sick_child_care, autopen_options). gov-docs re-ingested after the line-level running-header fix. Guardrail replay now recovers a source's document from its label when a re-parse changed chunk ids.",
+ "updated": "2026-11-24T10:48:12Z",
+ "commit": "8935373-dirty",
+ "reason": "Step 24A: BM25 statistics over the searched collections only (user's decision). papers and injection return exactly to their pre-gov-docs numbers (22 / 0.6753; 9/9 at rank 1). Cost: hr-demo policy_refund_processing 1 -> 2 (fused near-tie 0.0325 vs 0.0323; 29-chunk collection, noisier statistics); gov-docs MRR 0.7342 -> 0.7329.",
  "config": {
   "retriever": "hybrid",
   "rerank": "off",
@@ -20,22 +20,22 @@
   "papers": {
    "n": 40,
    "metrics": {
-    "hit@1": 24,
+    "hit@1": 22,
     "hit@5": 33,
     "hit@10": 37,
-    "mrr": 0.7061
+    "mrr": 0.6753
    },
    "ranks": {
     "adam_bias_correction": 1,
     "adam_name": 1,
-    "adam_adamax_bound": 3,
+    "adam_adamax_bound": 4,
     "adam_adamax_defaults": 1,
     "w2v_skipgram": 1,
     "w2v_king_queen": 1,
-    "w2v_cbow": 12,
+    "w2v_cbow": 11,
     "w2v_corpus": 1,
     "vae_reparam": 1,
-    "vae_sgvb": 6,
+    "vae_sgvb": 7,
     "vae_prior": 1,
     "vae_kl_term": 4,
     "gan_adversarial": 1,
@@ -43,27 +43,27 @@
     "gan_nonsaturating": 2,
     "gan_optimum_value": 1,
     "s2s_reverse": 1,
-    "s2s_bleu": 12,
-    "s2s_depth": 1,
-    "s2s_smt_baseline": 1,
+    "s2s_bleu": 11,
+    "s2s_depth": 2,
+    "s2s_smt_baseline": 3,
     "kd_soft_targets": 1,
     "kd_temperature": 1,
     "kd_mnist_errors": 1,
-    "kd_specialists": 1,
+    "kd_specialists": 2,
     "bn_covariate_shift": 1,
     "bn_gamma_beta": 9,
-    "bn_inference": 2,
+    "bn_inference": 1,
     "bn_learning_rate": 5,
-    "resnet_degradation": 7,
+    "resnet_degradation": 9,
     "resnet_deepest": 1,
-    "resnet_ensemble_error": 14,
+    "resnet_ensemble_error": 15,
     "resnet_bottleneck": 2,
     "ddpm_reverse": 2,
     "ddpm_fid": 5,
     "ddpm_score_matching": 2,
     "ddpm_unet": 1,
     "attn_sqrt_dk": 1,
-    "attn_heads": 10,
+    "attn_heads": 6,
     "attn_positional": 1,
     "attn_bleu_de": 1
    }
@@ -71,14 +71,14 @@
   "hr-demo": {
    "n": 24,
    "metrics": {
-    "hit@1": 24,
+    "hit@1": 23,
     "hit@5": 24,
     "hit@10": 24,
-    "mrr": 1.0
+    "mrr": 0.9792
    },
    "ranks": {
     "policy_refund_window": 1,
-    "policy_refund_processing": 1,
+    "policy_refund_processing": 2,
     "policy_exchange_window": 1,
     "policy_express_shipping": 1,
     "policy_warranty_base": 1,
@@ -106,10 +106,10 @@
   "injection": {
    "n": 9,
    "metrics": {
-    "hit@1": 7,
+    "hit@1": 9,
     "hit@5": 9,
     "hit@10": 9,
-    "mrr": 0.8889
+    "mrr": 1.0
    },
    "ranks": {
     "inj_ignore_instructions": 1,
@@ -118,9 +118,9 @@
     "inj_delimiter_spoof": 1,
     "inj_data_poisoning": 1,
     "inj_appended_link": 1,
-    "inj_relevant_phishing": 2,
+    "inj_relevant_phishing": 1,
     "inj_relevant_link": 1,
-    "inj_relevant_poisoning": 2
+    "inj_relevant_poisoning": 1
    }
   },
   "gov-docs": {
@@ -129,7 +129,7 @@
     "hit@1": 23,
     "hit@5": 36,
     "hit@10": 38,
-    "mrr": 0.7342
+    "mrr": 0.7329
    },
    "ranks": {
     "irs_mileage_rate": 1,
@@ -159,7 +159,7 @@
     "osha_class_c": 1,
     "osha_hardhat_replace": 1,
     "osha_eye_standard": 1,
-    "osha_hazard_assessment": 20,
+    "osha_hazard_assessment": null,
     "nist_password_length": 1,
     "nist_composition": 4,
     "nist_password_expiry": 6,
@@ -569,6 +569,37 @@
      "hit@5": 36,
      "hit@10": 38,
      "mrr": 0.7342
+    }
+   }
+  },
+  {
+   "when": "2026-11-24T10:48:12Z",
+   "commit": "8935373-dirty",
+   "reason": "Step 24A: BM25 statistics over the searched collections only (user's decision). papers and injection return exactly to their pre-gov-docs numbers (22 / 0.6753; 9/9 at rank 1). Cost: hr-demo policy_refund_processing 1 -> 2 (fused near-tie 0.0325 vs 0.0323; 29-chunk collection, noisier statistics); gov-docs MRR 0.7342 -> 0.7329.",
+   "metrics": {
+    "papers": {
+     "hit@1": 22,
+     "hit@5": 33,
+     "hit@10": 37,
+     "mrr": 0.6753
+    },
+    "hr-demo": {
+     "hit@1": 23,
+     "hit@5": 24,
+     "hit@10": 24,
+     "mrr": 0.9792
+    },
+    "injection": {
+     "hit@1": 9,
+     "hit@5": 9,
+     "hit@10": 9,
+     "mrr": 1.0
+    },
+    "gov-docs": {
+     "hit@1": 23,
+     "hit@5": 36,
+     "hit@10": 38,
+     "mrr": 0.7329
     }
    }
   }
