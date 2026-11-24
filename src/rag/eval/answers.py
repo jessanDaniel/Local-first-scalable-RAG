@@ -70,6 +70,7 @@ def check_answer(question: EvalQuestion, answer, gold_ids: list[str]) -> dict:
         {
             "n": s.n,
             "label": s.label,
+            "doc_id": s.doc_id,  # chunk ids change when a document is re-parsed; the document doesn't
             "text": s.text,
             "chunk_ids": s.chunk_ids,
             "cited": s.n in cited,

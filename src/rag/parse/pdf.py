@@ -243,6 +243,32 @@ def drop_headers_and_footers(blocks: list[Block], n_pages: int, report: LayoutRe
             block.drop = True
             report.dropped_header_footer += 1
 
+    # Then line by line: a header line can share a text block with body text ("... meetings held" /
+    # "12 Chapter 1 Travel Publication 463 (2025)" / "on cruise ships."), and would end up inside a
+    # sentence once paragraphs are joined across the page break.
+    def line_in_margin(line: Line, height: float) -> bool:
+        return line.y0 / height < MARGIN or line.y1 / height > 1 - MARGIN
+
+    lines_on: dict[str, set[int]] = {}
+    for block in blocks:
+        for line in block.lines:
+            if not block.drop and line_in_margin(line, block.page_height):
+                lines_on.setdefault(normalized(line.text), set()).add(block.page)
+    for block in blocks:
+        if block.drop or len(block.lines) < 2:
+            continue
+        keep = []
+        for line in block.lines:
+            repeated = len(lines_on.get(normalized(line.text), ())) >= max(3, REPEAT_SHARE * n_pages)
+            if line_in_margin(line, block.page_height) and (PAGE_NUMBER.match(line.text.strip()) or repeated):
+                report.dropped_header_footer += 1
+                continue
+            keep.append(line)
+        if not keep:
+            block.drop = True
+        elif len(keep) < len(block.lines):
+            block.lines = keep
+
 
 def body_size(blocks: list[Block]) -> float:
     chars = Counter()

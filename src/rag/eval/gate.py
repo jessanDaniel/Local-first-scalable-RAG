@@ -16,6 +16,7 @@ so on a machine without it the affected check is skipped with a message, not fai
 """
 
 import json
+import re
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -87,7 +88,12 @@ def replay_flags(conn, answers_dir: Path) -> dict | None:
                 sources = attempt["sources"]
                 first = [s["chunk_ids"][0] for s in sources]
                 chunk_doc = {c.chunk_id: c.doc_id for c in db.get_chunks_by_ids(conn, first)}
-                source_docs = {s["n"]: chunk_doc.get(s["chunk_ids"][0], "") for s in sources}
+                # The stored doc_id, else the chunk's document now, else the "(doc_id)" in the label:
+                # a re-parse gives chunks new ids, and older runs don't store the doc_id.
+                source_docs = {
+                    s["n"]: s.get("doc_id") or chunk_doc.get(s["chunk_ids"][0]) or label_doc_id(s.get("label", ""))
+                    for s in sources
+                }
                 result = check_answer_text(
                     record["question"],
                     attempt.get("raw_answer") or attempt["answer"],
@@ -98,6 +104,12 @@ def replay_flags(conn, answers_dir: Path) -> dict | None:
                 key = f"{run['run_id']}|{record['id']}|{attempt['run']}"
                 flags[key] = sorted({f.kind for f in result.flags})
     return flags
+
+
+def label_doc_id(label: str) -> str:
+    """ "[4] Publication 463 ... (file:tax-irs-p463-...) §1. Travel ..." -> "file:tax-irs-p463-..."."""
+    match = re.search(r"\(([a-z]+:[^)\s]+)\)", label)
+    return match.group(1) if match else ""
 
 
 # --- comparing ----------------------------------------------------------------------------

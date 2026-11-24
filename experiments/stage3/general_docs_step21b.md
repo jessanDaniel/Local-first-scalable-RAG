@@ -114,6 +114,37 @@ reading the 3,200-token prompt.
 corpus-wide BM25 statistics: two injection questions moved from rank 1 to 2 inside their own
 two-chunk documents, and papers Hit@1 rose 22 → 24. Baseline updated with that reason.
 
+## After the review (same day)
+
+The user asked Claude to do the question review in their place. An independent Claude agent
+reviewed the set from the documents alone; findings and changes are in `eval/review_gov_docs.md`.
+The set is now 43 questions (39 answerable). Main changes:
+- gold can span documents (`also_in`), because three OPM documents repeat the same rules;
+- 11 questions rewritten (they copied the document's wording) and 11 widened;
+- 6 new questions: conditional, comparison, scenario, overview and one more trap;
+- the "military" trap turned out answerable and became a question.
+
+The review also surfaced a parser bug: a running header inside a sentence. Repeated margin text is
+now removed line by line.
+
+| Revised set (39) | Hit@1 | Hit@5 | MRR |
+|---|---|---|---|
+| dense | 26 | 38 | 0.782 |
+| BM25 | 14 | 32 | 0.559 |
+| hybrid | 23 | 36 | 0.734 |
+| **hybrid + fused** | **27** | **38** | **0.797** |
+| hybrid + replace | 27 | 36 | 0.784 |
+
+**These numbers are higher than the first run mostly because the measuring stick was corrected**
+(wider and cross-document gold), not because retrieval improved. The ranking of the configurations is
+the same: fused best, dense ahead of BM25. Re-measured against GROBID after the parser fix: papers
+hybrid Hit@5 32 vs 33 (within the target of 2), fused 35 vs 35. The answer run was not repeated for
+the revised questions.
+
+Also fixed: answer runs now store each source's `doc_id`, and the gate's guardrail replay recovers
+the document from the source label for older runs. A re-parse changes chunk ids, which had turned
+into a false `entity_not_in_cited_document` flag.
+
 ## Open questions for the user
 
 - **BM25 statistics per collection or shared?** Today a new folder changes the ranking in every other
@@ -123,7 +154,7 @@ two-chunk documents, and papers Hit@1 rose 22 → 24. Baseline updated with that
   packaged release needs a commercial licence or another PDF library. Decide before step 28.
 - **The prompt still says "paper" once** (v3 rule 7: "the paper, model or subject"). Left alone on
   purpose: changing a measured, versioned prompt needs a v4 and its own answer eval.
-- **The gov-docs questions were written by Claude**; a review of a sample by the user is pending.
+- **The gov-docs questions were written and reviewed by Claude** (two separate passes); a human review is still pending.
 
 ## Limits
 

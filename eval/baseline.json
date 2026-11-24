@@ -1,12 +1,12 @@
 {
- "updated": "2026-11-24T08:02:56Z",
- "commit": "86495c1-dirty",
- "reason": "Step 21b: gov-docs collection (9 federal documents, 1004 chunks) and its set join the gate. BM25 statistics are corpus-wide, so adding them moved two injection questions from rank 1 to 2 inside their own two-chunk documents (still top 5) and lifted papers Hit@1 22->24. New answer run gov-docs-20261124T080146Z-step21b added to the guardrail replay (its one flag, fema_flood_wait number_not_in_cited_source, is a true wrong-citation catch).",
+ "updated": "2026-11-24T10:28:12Z",
+ "commit": "d1c6466-dirty",
+ "reason": "gov-docs set revised after an independent review (eval/review_gov_docs.md): 43 questions, cross-document gold (also_in), rewrites; opm_childbirth_family_sick_leave and autopen_approve were renamed (opm_sick_child_care, autopen_options). gov-docs re-ingested after the line-level running-header fix. Guardrail replay now recovers a source's document from its label when a re-parse changed chunk ids.",
  "config": {
   "retriever": "hybrid",
   "rerank": "off",
   "index_type": "IndexFlatIP + BM25, RRF",
-  "n_chunks": 1445,
+  "n_chunks": 1444,
   "embedding_model": "BAAI/bge-small-en-v1.5",
   "query_instruction": "Represent this sentence for searching relevant passages: ",
   "chunker_version": "v2-350",
@@ -124,29 +124,31 @@
    }
   },
   "gov-docs": {
-   "n": 33,
+   "n": 39,
    "metrics": {
-    "hit@1": 17,
-    "hit@5": 31,
-    "hit@10": 32,
-    "mrr": 0.7044
+    "hit@1": 23,
+    "hit@5": 36,
+    "hit@10": 38,
+    "mrr": 0.7342
    },
    "ranks": {
     "irs_mileage_rate": 1,
+    "irs_mileage_vs_actual": 1,
     "irs_gift_limit": 2,
-    "irs_tax_home": 2,
+    "irs_tax_home": 1,
     "irs_indefinite": 2,
-    "irs_meals_unreimbursed": 3,
+    "irs_meals_unreimbursed": 4,
     "irs_cruise": 2,
     "opm_ppl_weeks": 1,
     "opm_ppl_window": 1,
-    "opm_childbirth_family_sick_leave": 3,
+    "opm_sick_child_care": 6,
     "elder_general_family_care": 2,
     "elder_combined_limit": 3,
-    "elder_subtract": 2,
+    "elder_subtract": 3,
     "safe_leave_purpose": 1,
     "safe_leave_third_party": 1,
-    "safe_leave_advanced_annual": 1,
+    "safe_leave_police_report": 1,
+    "safe_leave_advanced_annual": 2,
     "safe_leave_family_definition": 1,
     "fema_water": 1,
     "fema_earthquake": 3,
@@ -155,16 +157,20 @@
     "fema_flood_wait": 2,
     "osha_class_b": 1,
     "osha_class_c": 1,
-    "osha_eye_standard": 2,
+    "osha_hardhat_replace": 1,
+    "osha_eye_standard": 1,
     "osha_hazard_assessment": 20,
     "nist_password_length": 1,
     "nist_composition": 4,
-    "nist_password_expiry": 9,
+    "nist_password_expiry": 6,
     "nist_aal3_timeout": 1,
+    "nist_timeout_compare": 1,
     "nist_phishing_resistant": 1,
     "nasa_lesson_definition": 1,
+    "nasa_ai_ideas": 4,
     "nasa_sage_requirements": 2,
-    "autopen_approve": 1
+    "autopen_options": 1,
+    "military_ppl": 1
    }
   }
  },
@@ -532,6 +538,37 @@
      "hit@5": 31,
      "hit@10": 32,
      "mrr": 0.7044
+    }
+   }
+  },
+  {
+   "when": "2026-11-24T10:28:12Z",
+   "commit": "d1c6466-dirty",
+   "reason": "gov-docs set revised after an independent review (eval/review_gov_docs.md): 43 questions, cross-document gold (also_in), rewrites; opm_childbirth_family_sick_leave and autopen_approve were renamed (opm_sick_child_care, autopen_options). gov-docs re-ingested after the line-level running-header fix. Guardrail replay now recovers a source's document from its label when a re-parse changed chunk ids.",
+   "metrics": {
+    "papers": {
+     "hit@1": 24,
+     "hit@5": 33,
+     "hit@10": 37,
+     "mrr": 0.7061
+    },
+    "hr-demo": {
+     "hit@1": 24,
+     "hit@5": 24,
+     "hit@10": 24,
+     "mrr": 1.0
+    },
+    "injection": {
+     "hit@1": 7,
+     "hit@5": 9,
+     "hit@10": 9,
+     "mrr": 0.8889
+    },
+    "gov-docs": {
+     "hit@1": 23,
+     "hit@5": 36,
+     "hit@10": 38,
+     "mrr": 0.7342
     }
    }
   }

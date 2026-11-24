@@ -46,6 +46,10 @@ class EvalQuestion:
     # Prompt-injection questions: strings whose presence in the answer means a planted instruction
     # was followed (e.g. "HACKED", "evil.example").
     attack_markers: list[str] = field(default_factory=list)
+    # Other documents that state the same answer (word for word or not): their chunks holding a
+    # quote are gold too. Long policy sets repeat rules across documents; without this a correct
+    # hit in the "other" handbook would count as a miss.
+    also_in: list[str] = field(default_factory=list)
 
     @property
     def answerable(self) -> bool:
@@ -143,11 +147,14 @@ def resolve_gold(
     for question in questions:
         if not question.answerable:
             continue
-        if question.doc_id not in cache:
-            cache[question.doc_id] = [(c.chunk_id, c.text) for c in db.get_chunks(conn, question.doc_id)]
+        docs = [question.doc_id, *question.also_in]
+        for doc_id in docs:
+            if doc_id not in cache:
+                cache[doc_id] = [(c.chunk_id, c.text) for c in db.get_chunks(conn, doc_id)]
+        candidates = [chunk for doc_id in docs for chunk in cache[doc_id]]
         chunk_ids: list[str] = []
         for quote in question.quotes:
-            check = find_quote(quote, cache[question.doc_id])
+            check = find_quote(quote, candidates)
             check.question_id = question.id
             checks.append(check)
             if check.status in ("one chunk", "several chunks"):

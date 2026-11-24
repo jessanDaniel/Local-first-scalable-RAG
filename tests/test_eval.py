@@ -122,6 +122,15 @@ def test_score_and_summarise(conn):
     assert summary["unanswerable"] == {"n": 1, "mean_top1_score": 1.0}
 
 
+def test_gold_can_span_documents_that_repeat_a_rule(conn):
+    """also_in: the same rule stated in another document counts as gold too."""
+    one = EvalQuestion("x", "c", "Delivery time?", "direct", "file:a", ["takes 5 days"])
+    both = EvalQuestion("y", "c", "Delivery time?", "direct", "file:a", ["takes 5 days"], also_in=["file:b"])
+    gold, checks = resolve_gold(conn, [one, both])
+    assert [c.status for c in checks] == ["missing", "one chunk"]
+    assert gold["x"] == [] and gold["y"] == [db.get_chunks(conn, "file:b")[0].chunk_id]
+
+
 # --- saved runs ---------------------------------------------------------------------
 
 

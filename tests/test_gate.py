@@ -65,3 +65,12 @@ def test_no_baseline_file():
     from pathlib import Path
 
     assert load_baseline(Path("/nonexistent/baseline.json")) is None
+
+
+def test_label_doc_id_recovers_the_document_of_an_old_stored_source():
+    from rag.eval.gate import label_doc_id
+
+    label = "[4] Publication 463 Travel, Gift, and Car Expenses (file:tax-irs-p463-x) §1. Travel, pp.12-13"
+    assert label_doc_id(label) == "file:tax-irs-p463-x"
+    assert label_doc_id("[1] Attention Is All You Need (arxiv:1706.03762) §3 Model") == "arxiv:1706.03762"
+    assert label_doc_id("no id here") == ""

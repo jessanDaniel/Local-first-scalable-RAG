@@ -284,9 +284,10 @@ on the papers it equals GROBID (Hit@5 33/33 hybrid, 35/35 fused) at ~0.15 s/pape
 walks folders recursively with a skip report; .docx and .html via the standard library
 (`rag/parse/office.py`); schema v5 ('docx'). Collection `gov-docs`: 9 federal public-domain documents
 (`experiments/stage3/fetch_general_docs.py`, files in `data/raw/incoming/general/`), set
-`eval/sets/gov-docs.jsonl` (37 questions, drafted by Claude, review pending), fused Hit@5 30/33,
-MRR 0.773; in the gate. Open decisions for the user: BM25 statistics per collection vs shared; PyMuPDF
-is AGPL (decide before packaging). 375 tests. Next: steps 24 + 30 (folder/upload from the UI) — pitch
+`eval/sets/gov-docs.jsonl` (43 questions; drafted by Claude, reviewed by an independent Claude agent at
+the user's request — `eval/review_gov_docs.md`; human review still pending; gold may span documents via
+`also_in`), fused Hit@5 38/39, MRR 0.797; in the gate. Open decisions for the user: BM25 statistics per collection vs shared; PyMuPDF
+is AGPL (decide before packaging). 377 tests. Next: steps 24 + 30 (folder/upload from the UI) — pitch
 first. Do not start Phase 16.
 
 ### Phase 7 close-out (2026-09-20)

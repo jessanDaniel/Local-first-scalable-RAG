@@ -58,7 +58,10 @@ def test_auto_outcome_table():
 def fake_answer(text, cited, sources):
     return SimpleNamespace(
         text=text,
-        sources=[SimpleNamespace(n=n, label=f"[{n}] Doc", text=f"text {n}", chunk_ids=ids) for n, ids in sources],
+        sources=[
+            SimpleNamespace(n=n, label=f"[{n}] Doc", text=f"text {n}", chunk_ids=ids, doc_id="file:doc")
+            for n, ids in sources
+        ],
         citations=SimpleNamespace(cited=cited, invalid=[], n_sentences=2, n_cited_sentences=1),
         generation=SimpleNamespace(prompt_tokens=2900, completion_tokens=60, prompt_seconds=5.0, write_seconds=2.0),
         timings={"retrieve_s": 1.8, "generate_s": 7.0, "total_s": 8.9},
