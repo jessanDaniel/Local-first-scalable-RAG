@@ -118,7 +118,14 @@ main { max-width: 1200px; margin: 0 auto; padding: 0.75rem 1.25rem 3rem; }
 .pill[data-kind="refusal"] { background: var(--accent-soft); color: var(--accent); }
 .pill[data-kind="error"] { color: var(--bad); }
 .answer p { margin: 0 0 0.75rem; white-space: pre-wrap; overflow-wrap: anywhere; }
-.answer.streaming p:last-child::after { content: "▍"; color: var(--muted); animation: blink 1s steps(2) infinite; }
+.answer p.heading { margin-top: 1rem; }
+.answer ul, .answer ol { margin: 0 0 0.75rem; padding-left: 1.4rem; }
+.answer li { margin: 0.2rem 0; overflow-wrap: anywhere; }
+.answer code { font-family: var(--mono); font-size: 0.88em; background: var(--surface-2); padding: 0.05rem 0.3rem; border-radius: 4px; }
+.answer .math-block { margin: 0 0 0.75rem; overflow-x: auto; overflow-y: hidden; }
+.answer .math.display { overflow-x: auto; overflow-y: hidden; padding: 0.2rem 0; }
+.answer .katex { font-size: 1.08em; }
+.answer.streaming > :last-child::after { content: "▍"; color: var(--muted); animation: blink 1s steps(2) infinite; }
 @keyframes blink { 50% { opacity: 0; } }
 .cite {
   background: var(--accent-soft); color: var(--accent); padding: 0 0.3rem; margin: 0 0.05rem;

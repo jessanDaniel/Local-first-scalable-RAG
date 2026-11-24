@@ -273,7 +273,11 @@ the reranker's measured cost, Search tab (works without the LLM), status from `/
 inside data/raw), `/passages?chunk_id=`, `/logs/{id}`. Host header must be 127.0.0.1/localhost/::1
 (400 otherwise; tests use `base_url="http://127.0.0.1"`). Rule: untrusted text only as text nodes,
 never innerHTML (a test greps for it); CSP on the page. Browser check with real models passed (see
-`experiments/stage3/ui_step21.md`, screenshots in `ui_step21/`). 348 tests. Next: step 21b
+`experiments/stage3/ui_step21.md`, screenshots in `ui_step21/`). Follow-up the same day: refusal sentences keep their grammar
+(markers that open a sentence are not moved back; in refusals they become "Source 6 …"); a Markdown
+subset in `static/js/format.js` (no library); math with **KaTeX 0.19.1, vendored** in
+`static/vendor/katex/` (user approved the dependency and the download; sha512 checked; trust off,
+expansion limits). 356 tests. Next: step 21b
 (general documents) — pitch first. Do not
 start Phase 16.
 

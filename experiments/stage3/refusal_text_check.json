@@ -1,0 +1,79 @@
+{
+ "answers": 291,
+ "refusals": 32,
+ "text_changed": 9,
+ "changes": [
+  {
+   "run": "papers-20261123T062859Z-fused",
+   "id": "gan_adversarial",
+   "before": "[1] describes a framework where two models are trained against each other: a generative model \\( G \\) that creates data samples to match the training data distribution, and a discriminative model \\( D \\) that distinguishes between real data and the generated samples. This adversarial process is central to the Generative Adversarial Networks (GANs) framework [1] [4]. provides additional details on training GANs on various datasets, including MNIST, but does not describe the specific architecture of the two networks in the question.",
+   "after": "[1] describes a framework where two models are trained against each other: a generative model \\( G \\) that creates data samples to match the training data distribution, and a discriminative model \\( D \\) that distinguishes between real data and the generated samples. This adversarial process is central to the Generative Adversarial Networks (GANs) framework. [1] [4] provides additional details on training GANs on various datasets, including MNIST, but does not describe the specific architecture of the two networks in the question.",
+   "removed_before": 0,
+   "removed_after": 0
+  },
+  {
+   "run": "papers-20261123T062859Z-fused",
+   "id": "gan_adversarial",
+   "before": "[1] describes a framework where two models are trained against each other: a generative model \\( G \\) that creates data samples to match the training data distribution, and a discriminative model \\( D \\) that tries to distinguish between real and generated samples. This adversarial process is central to the Generative Adversarial Networks (GANs) framework [1] [4]. provides additional context by mentioning that GANs were trained on datasets like MNIST, CIFAR-10, and the Toronto Face Database, but does not go into detail about the specific architecture of the generator and discriminator networks.",
+   "after": "[1] describes a framework where two models are trained against each other: a generative model \\( G \\) that creates data samples to match the training data distribution, and a discriminative model \\( D \\) that tries to distinguish between real and generated samples. This adversarial process is central to the Generative Adversarial Networks (GANs) framework. [1] [4] provides additional context by mentioning that GANs were trained on datasets like MNIST, CIFAR-10, and the Toronto Face Database, but does not go into detail about the specific architecture of the generator and discriminator networks.",
+   "removed_before": 0,
+   "removed_after": 0
+  },
+  {
+   "run": "papers-20261123T062859Z-fused",
+   "id": "none_vit_patch",
+   "before": "The provided sources do not contain information about the patch size used by the Vision Transformer. discusses the Transformer model for sequence transduction tasks but does not mention a Vision Transformer or its patch size. Therefore, the patch size used by the Vision Transformer is missing.",
+   "after": "The provided sources do not contain information about the patch size used by the Vision Transformer. Source 8 discusses the Transformer model for sequence transduction tasks but does not mention a Vision Transformer or its patch size. Therefore, the patch size used by the Vision Transformer is missing.",
+   "removed_before": 1,
+   "removed_after": 1
+  },
+  {
+   "run": "papers-20261123T062859Z-fused",
+   "id": "none_vit_patch",
+   "before": "The provided sources do not contain information about the patch size used by the Vision Transformer. discusses the Transformer model for sequence transduction tasks but does not mention a Vision Transformer or its patch size. Therefore, the patch size used by the Vision Transformer is missing.",
+   "after": "The provided sources do not contain information about the patch size used by the Vision Transformer. Source 8 discusses the Transformer model for sequence transduction tasks but does not mention a Vision Transformer or its patch size. Therefore, the patch size used by the Vision Transformer is missing.",
+   "removed_before": 1,
+   "removed_after": 1
+  },
+  {
+   "run": "papers-20261123T062859Z-fused",
+   "id": "none_alexnet_optimizer",
+   "before": "The sources provided do not contain specific information about the optimizer and learning rate used by AlexNet. focus on Adam optimizer and its variants, but do not mention AlexNet. Therefore, I cannot provide the answer to which optimizer and learning rate AlexNet used based on the given sources. discuss the Adam optimizer parameters but do not specify their use in AlexNet.",
+   "after": "The sources provided do not contain specific information about the optimizer and learning rate used by AlexNet. Sources 2, 3, 4, 5, 6, 7 and 8 focus on Adam optimizer and its variants, but do not mention AlexNet. Therefore, I cannot provide the answer to which optimizer and learning rate AlexNet used based on the given sources. Sources 1 and 2 discuss the Adam optimizer parameters but do not specify their use in AlexNet.",
+   "removed_before": 9,
+   "removed_after": 9
+  },
+  {
+   "run": "papers-20261123T062859Z-fused",
+   "id": "none_alexnet_optimizer",
+   "before": "The sources provided do not contain specific information about the optimizer and learning rate used by AlexNet. focus on Adam optimizer and its variants, but do not mention AlexNet. Therefore, I cannot provide the answer to which optimizer and learning rate AlexNet used based on the given sources. discuss the Adam optimizer parameters but do not specify their use in AlexNet.",
+   "after": "The sources provided do not contain specific information about the optimizer and learning rate used by AlexNet. Sources 2, 3, 4, 5, 6, 7 and 8 focus on Adam optimizer and its variants, but do not mention AlexNet. Therefore, I cannot provide the answer to which optimizer and learning rate AlexNet used based on the given sources. Sources 1 and 2 discuss the Adam optimizer parameters but do not specify their use in AlexNet.",
+   "removed_before": 9,
+   "removed_after": 9
+  },
+  {
+   "run": "papers-20261123T082735Z-v3-guard",
+   "id": "none_gpt3_params",
+   "before": "The sources do not mention the number of parameters in GPT-3. discusses the number of parameters in models like LSUN and CelebA-HQ, but does not provide information about GPT-3.",
+   "after": "The sources do not mention the number of parameters in GPT-3. Source 6 discusses the number of parameters in models like LSUN and CelebA-HQ, but does not provide information about GPT-3.",
+   "removed_before": 1,
+   "removed_after": 1
+  },
+  {
+   "run": "papers-20261123T082735Z-v3-guard",
+   "id": "none_vit_patch",
+   "before": "The sources provided do not mention any patch size used by the Vision Transformer. The sources discuss the Transformer model for sequence transduction tasks and residual learning for image recognition, but do not provide information about the patch size used in a Vision Transformer. discusses attention mechanisms but does not specify a patch size.",
+   "after": "The sources provided do not mention any patch size used by the Vision Transformer. The sources discuss the Transformer model for sequence transduction tasks and residual learning for image recognition, but do not provide information about the patch size used in a Vision Transformer. Source 8 discusses attention mechanisms but does not specify a patch size.",
+   "removed_before": 1,
+   "removed_after": 1
+  },
+  {
+   "run": "papers-20261123T082735Z-v3-guard",
+   "id": "none_alexnet_optimizer",
+   "before": "The sources provided do not mention the optimizer and learning rate used by AlexNet. The information is not covered in the given references. discusses distillation of knowledge from large models to small models but does not refer to AlexNet specifically. describes the Adam optimizer used in a different context. Therefore, the sources do not provide the answer to which optimizer and learning rate AlexNet used.",
+   "after": "The sources provided do not mention the optimizer and learning rate used by AlexNet. The information is not covered in the given references. Source 5 discusses distillation of knowledge from large models to small models but does not refer to AlexNet specifically. Source 1 describes the Adam optimizer used in a different context. Therefore, the sources do not provide the answer to which optimizer and learning rate AlexNet used.",
+   "removed_before": 2,
+   "removed_after": 2
+  }
+ ]
+}

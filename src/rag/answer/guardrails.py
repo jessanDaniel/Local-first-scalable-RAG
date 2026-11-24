@@ -232,26 +232,66 @@ class GuardResult:
     removed_citations: int = 0  # markers stripped from refusal sentences
 
 
-TRAILING_MARKERS = re.compile(r"([.!?])((?:\s*\[\s*\d+\s*(?:[,;–-]\s*\d+\s*)*\])+)")
+# Only when what follows is the end, a line break or a new sentence (capital letter, quote, digit):
+# in "GPT-3. [2][5] discuss X" the markers are the next sentence's subject, not trailing citations.
+TRAILING_MARKERS = re.compile(r"([.!?])((?:\s*\[\s*\d+\s*(?:[,;–-]\s*\d+\s*)*\])+)(?=\s*(?:$|\n|[A-Z\"'“(\d*-]))")
 
 
 def attach_trailing_markers(text: str) -> str:
     """ "... GPT-3. [1][2]" -> "... GPT-3 [1][2]." : markers written after the full stop belong to that
-    sentence (otherwise sentence splitting makes them a sentence of their own)."""
+    sentence (otherwise sentence splitting makes them a sentence of their own). Not when they start
+    the next sentence ("GPT-3. [2] discusses X")."""
     return TRAILING_MARKERS.sub(lambda m: f"{m.group(2).rstrip()}{m.group(1)}", text)
 
 
+MARKER_GROUP = re.compile(r"(?:" + MARKER.pattern + r"\s*)+")
+# A marker group the sentence can't lose: it starts the sentence ("[2][5] discuss ...") or follows a
+# preposition ("in [3]", "according to [2]"). Deleting it would leave "discuss ..." / "in ,".
+NAMED_AFTER = re.compile(r"\b(?:in|from|by|of|per|see|to|and|with)\s*$", re.IGNORECASE)
+
+
+def source_words(numbers: list[int]) -> str:
+    """[2] -> "Source 2"; [2, 5] -> "Sources 2 and 5"; [2, 5, 7] -> "Sources 2, 5 and 7"."""
+    if len(numbers) == 1:
+        return f"Source {numbers[0]}"
+    return f"Sources {', '.join(map(str, numbers[:-1]))} and {numbers[-1]}"
+
+
+def strip_markers_from_refusal(sentence: str) -> tuple[str, int]:
+    """One refusal sentence without its [n] markers. A group that is part of the grammar (subject, or
+    after a preposition) becomes words, so the sentence still reads; any other group is removed."""
+    removed = len(MARKER.findall(sentence))
+    out, last = [], 0
+    for match in MARKER_GROUP.finditer(sentence):
+        before = sentence[last : match.start()]
+        numbers = sorted({n for m in MARKER.finditer(match.group(0)) for n in marker_numbers(m.group(1))})
+        lead = not sentence[: match.start()].strip()
+        if lead or NAMED_AFTER.search(before):
+            words = source_words(numbers)
+            out.append(before + (words if lead else words.lower()) + (" " if match.group(0)[-1].isspace() else ""))
+        else:
+            out.append(before.rstrip() + (" " if match.group(0)[-1].isspace() else ""))
+        last = match.end()
+    out.append(sentence[last:])
+    sentence = "".join(out).rstrip()
+    sentence = re.sub(r"\s+([.!?,;:])", r"\1", sentence)
+    return sentence, removed
+
+
 def strip_refusal_citations(text: str) -> tuple[str, int]:
-    """Remove [n] markers from refusal sentences only; other sentences keep theirs."""
+    """Remove [n] markers from refusal sentences; other sentences keep theirs. In a refusal answer, a
+    sentence that opens with markers ("[2][5] discuss X, but not Y") comments on what the sources
+    hold: it loses them too, as words ("Sources 2 and 5 discuss ...")."""
     text = attach_trailing_markers(text)
+    refusal_answer = is_refusal(text)
     out, removed, last = [], 0, 0
     for a, b in sentence_spans(text, 0, len(text)):
         sentence = text[a:b]
         out.append(text[last:a])
-        if is_refusal_sentence(sentence):
-            removed += len(MARKER.findall(sentence))
-            sentence = re.sub(r"\s*" + MARKER.pattern, "", sentence).rstrip()
-            sentence = re.sub(r"\s+([.!?])$", r"\1", sentence)
+        opens_with_marker = bool(MARKER_GROUP.match(sentence.lstrip()))
+        if is_refusal_sentence(sentence) or (refusal_answer and opens_with_marker):
+            sentence, n = strip_markers_from_refusal(sentence)
+            removed += n
         out.append(sentence)
         last = b
     out.append(text[last:])

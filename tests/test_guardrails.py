@@ -171,3 +171,54 @@ def test_sanitising_is_on_by_default():
     from rag.config import Settings
 
     assert Settings(_env_file=None).ask_sanitize_sources is True
+
+
+# --- refusal sentences keep their grammar (step 21 follow-up) -------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("answer", "shown"),
+    [
+        (  # the case seen in the UI: markers as the subject of the next sentence
+            "The sources do not mention GPT-3. [6] discusses the parameters of other models, "
+            "but does not provide information about GPT-3.",
+            "The sources do not mention GPT-3. Source 6 discusses the parameters of other models, "
+            "but does not provide information about GPT-3.",
+        ),
+        (
+            "The sources do not mention AlexNet. [2][3][5] focus on Adam, but do not mention AlexNet.",
+            "The sources do not mention AlexNet. Sources 2, 3 and 5 focus on Adam, but do not mention AlexNet.",
+        ),
+        (
+            "The sources do not mention it. [1, 2] discuss related work.",
+            "The sources do not mention it. Sources 1 and 2 discuss related work.",
+        ),
+        (  # after a preposition: words, lower case
+            "According to [2], the sources do not give the number.",
+            "According to source 2, the sources do not give the number.",
+        ),
+        (  # trailing markers on a refusal sentence: simply removed
+            "The context does not specify it [2] [3]; the papers do not either.",
+            "The context does not specify it; the papers do not either.",
+        ),
+    ],
+)
+def test_refusal_markers_become_words_when_the_sentence_needs_them(answer, shown):
+    text, removed = strip_refusal_citations(answer)
+    assert text == shown
+    assert removed == answer.count("[")  # still counted as removed citations
+
+
+def test_markers_opening_a_sentence_are_not_moved_to_the_previous_one():
+    from rag.answer.guardrails import attach_trailing_markers
+
+    assert attach_trailing_markers("Refunds take 30 days. [1] Exchanges take 45. [2]") == (
+        "Refunds take 30 days [1]. Exchanges take 45 [2]."
+    )
+    assert attach_trailing_markers("Refunds take 30 days. [1]\n\nMore.") == "Refunds take 30 days [1].\n\nMore."
+    assert attach_trailing_markers("X is Y. [2] mentions Z.") == "X is Y. [2] mentions Z."
+
+
+def test_an_answer_that_is_not_a_refusal_keeps_sentence_opening_markers():
+    text, removed = strip_refusal_citations("Refunds take 30 days. [2] also covers exchanges.")
+    assert text == "Refunds take 30 days. [2] also covers exchanges." and removed == 0
