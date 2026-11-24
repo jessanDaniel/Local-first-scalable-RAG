@@ -1,10 +1,10 @@
 {
- "parse_seconds_total": 1.49,
+ "parse_seconds_total": 1.61,
  "papers": [
   {
    "doc_id": "arxiv:1301.3781",
    "status": "ok",
-   "seconds": 0.1,
+   "seconds": 0.11,
    "grobid_sections": 22,
    "layout_sections": 22,
    "grobid_words": 4701,
@@ -14,11 +14,11 @@
   {
    "doc_id": "arxiv:1312.6114",
    "status": "ok",
-   "seconds": 0.26,
+   "seconds": 0.28,
    "grobid_sections": 22,
    "layout_sections": 21,
    "grobid_words": 6754,
-   "layout_words": 6207,
+   "layout_words": 6205,
    "issues": ""
   },
   {
@@ -26,39 +26,39 @@
    "status": "ok",
    "seconds": 0.09,
    "grobid_sections": 11,
-   "layout_sections": 14,
+   "layout_sections": 17,
    "grobid_words": 3529,
-   "layout_words": 3791,
+   "layout_words": 3780,
    "issues": ""
   },
   {
    "doc_id": "arxiv:1409.3215",
    "status": "ok",
-   "seconds": 0.08,
+   "seconds": 0.09,
    "grobid_sections": 18,
-   "layout_sections": 19,
+   "layout_sections": 20,
    "grobid_words": 4692,
-   "layout_words": 4890,
+   "layout_words": 4883,
    "issues": ""
   },
   {
    "doc_id": "arxiv:1412.6980",
    "status": "ok",
-   "seconds": 0.11,
+   "seconds": 0.12,
    "grobid_sections": 14,
-   "layout_sections": 19,
+   "layout_sections": 20,
    "grobid_words": 6919,
-   "layout_words": 6602,
+   "layout_words": 6596,
    "issues": ""
   },
   {
    "doc_id": "arxiv:1502.03167",
    "status": "ok",
-   "seconds": 0.12,
+   "seconds": 0.13,
    "grobid_sections": 16,
    "layout_sections": 17,
    "grobid_words": 6541,
-   "layout_words": 6620,
+   "layout_words": 6615,
    "issues": ""
   },
   {
@@ -74,27 +74,27 @@
   {
    "doc_id": "arxiv:1512.03385",
    "status": "ok",
-   "seconds": 0.16,
+   "seconds": 0.18,
    "grobid_sections": 18,
-   "layout_sections": 18,
+   "layout_sections": 20,
    "grobid_words": 7559,
-   "layout_words": 8549,
+   "layout_words": 8540,
    "issues": ""
   },
   {
    "doc_id": "arxiv:1706.03762",
    "status": "ok",
-   "seconds": 0.2,
+   "seconds": 0.22,
    "grobid_sections": 26,
-   "layout_sections": 24,
+   "layout_sections": 25,
    "grobid_words": 4553,
-   "layout_words": 4606,
+   "layout_words": 4605,
    "issues": ""
   },
   {
    "doc_id": "arxiv:2006.11239",
    "status": "ok",
-   "seconds": 0.25,
+   "seconds": 0.26,
    "grobid_sections": 23,
    "layout_sections": 18,
    "grobid_words": 8352,
