@@ -135,6 +135,13 @@ class CollectionOut(BaseModel):
     description: str | None
     n_documents: int
     n_chunks: int
+    # The overview on the Documents tab (step 22).
+    created_at: str | None = None
+    n_suspect: int = 0  # parsed, but a quality gate raised a doubt
+    n_failed: int = 0
+    n_folders: int = 0
+    n_missing_folders: int = 0  # registered, but not a folder on this machine any more
+    last_synced: str | None = None  # the most recent folder sync (UTC)
 
 
 # --- converters ------------------------------------------------------------------------------

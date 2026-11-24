@@ -1,9 +1,11 @@
-// The page: status, collections, the Ask and Search tabs.
+// The page: status, collections, the Ask and Search tabs, and the tab switching for the others.
 
 import { ApiError, askStream, getCollections, getHealth, getLog, search } from "./api.js";
 import { renderFinal, renderStreaming } from "./answer.js";
+import { setupActivity, showActivity } from "./activity.js";
 import { $, clear, el, pages, seconds, store } from "./dom.js";
 import { setupDocs, showDocs } from "./docs.js";
+import { setupEvaluation, showEvaluation } from "./evaluation.js";
 import { setupPassageDialog, showPassage } from "./passage.js";
 import { renderTrace, traceSummary } from "./trace.js";
 
@@ -80,16 +82,16 @@ function updateAskAvailability() {
 // collection is created or a sync changed document counts.
 async function loadCollections(pick = null) {
   const select = $("collection");
-  const keep = pick ?? select.value ?? store.get("rag.collection");
+  // pick "" means "All collections" on purpose: don't fall back to the remembered one.
+  const wanted = pick !== null ? pick : select.value || store.get("rag.collection");
   try {
     const collections = await getCollections();
     clear(select).append(el("option", { value: "" }, "All collections"));
     for (const c of collections) {
       select.append(el("option", { value: c.collection_id }, `${c.collection_id} (${c.n_documents} documents)`));
     }
-    const wanted = keep || store.get("rag.collection");
-    if (wanted && [...select.options].some((o) => o.value === wanted)) select.value = wanted;
-    if (pick) store.set("rag.collection", pick);
+    select.value = wanted && [...select.options].some((o) => o.value === wanted) ? wanted : "";
+    if (pick !== null) store.set("rag.collection", pick);
   } catch {
     /* the status panel already says why */
   }
@@ -100,20 +102,22 @@ const selectedCollections = () => ($("collection").value ? [$("collection").valu
 // --- tabs ----------------------------------------------------------------------------------------
 
 function setupTabs() {
+  // [tab, panel, what to do when it opens]
   const tabs = [
-    ["tab-ask", "view-ask"],
-    ["tab-search", "view-search"],
-    ["tab-docs", "view-docs"],
+    ["tab-ask", "view-ask", () => $("question").focus()],
+    ["tab-search", "view-search", () => $("query").focus()],
+    ["tab-docs", "view-docs", () => showDocs($("collection").value)],
+    ["tab-activity", "view-activity", showActivity],
+    ["tab-eval", "view-eval", showEvaluation],
   ];
-  for (const [tabId] of tabs) {
+  for (const [tabId, , onOpen] of tabs) {
     $(tabId).addEventListener("click", () => {
       for (const [otherTab, otherView] of tabs) {
         const active = otherTab === tabId;
         $(otherTab).setAttribute("aria-selected", String(active));
         $(otherView).hidden = !active;
       }
-      if (tabId === "tab-docs") showDocs($("collection").value);
-      else (tabId === "tab-ask" ? $("question") : $("query")).focus();
+      onOpen();
     });
   }
 }
@@ -338,6 +342,8 @@ function start() {
   });
   $("search-form").addEventListener("submit", runSearch);
   setupDocs({ onCollectionsChanged: (pick) => loadCollections(pick) });
+  setupActivity();
+  setupEvaluation();
   $("collection").addEventListener("change", () => {
     store.set("rag.collection", $("collection").value);
     if (!$("view-docs").hidden) showDocs($("collection").value);

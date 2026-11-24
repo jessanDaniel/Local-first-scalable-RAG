@@ -104,3 +104,20 @@ export const uploadFile = (collection, file) =>
     body: file,
   });
 export const deleteCollection = (collection) => json(`/collections/${name(collection)}`, send("DELETE"));
+
+// --- activity and evaluation (step 22): read-only -----------------------------------------------
+
+const query = (params) => {
+  const parts = Object.entries(params)
+    .filter(([, v]) => v !== null && v !== undefined && v !== "" && v !== false)
+    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`);
+  return parts.length ? `?${parts.join("&")}` : "";
+};
+
+export const getLogs = (filters) => json(`/logs${query(filters)}`);
+export const getLogStats = (filters) => json(`/logs/stats${query(filters)}`);
+export const getEvalRuns = (set) => json(`/eval/runs${query({ set })}`);
+export const getEvalRun = (runId) => json(`/eval/runs/${encodeURIComponent(runId)}`);
+export const compareRuns = (a, b) => json(`/eval/compare${query({ a, b })}`);
+export const getAnswerRuns = () => json("/eval/answers");
+export const getGate = () => json("/eval/gate", {}, { acceptStatus: [404] });

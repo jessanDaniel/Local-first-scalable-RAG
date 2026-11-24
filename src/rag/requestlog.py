@@ -1,7 +1,7 @@
 """Per-request logs: one JSON line per search or answer, enough to explain it afterwards.
 
     rag logs show [REQUEST_ID | last]     one request as a readable trace
-    rag logs stats [--last N] [--route ask|search]
+    rag logs stats [--last N] [--route ask|search] [--source api|cli]
                                           p50 / p95 per stage, error / fallback / refusal rates
 
 Records go to data/logs/requests.jsonl (rotated by size: requests.1.jsonl is the previous file).
@@ -314,6 +314,104 @@ def read_records(path: Path, backups: int = 5) -> list[dict]:
     return records
 
 
+def iter_newest(path: Path, backups: int = 5):
+    """Records newest first, across the rotated files, parsed one line at a time: a caller that
+    wants the last 50 stops after 50 instead of parsing up to 120 MB (step 22: the web UI's list)."""
+    for file in [path] + [rotated(path, i) for i in range(1, backups + 1)]:
+        if not file.exists():
+            continue
+        for line in reversed(file.read_bytes().splitlines()):
+            if line.strip():
+                try:
+                    yield json.loads(line)
+                except json.JSONDecodeError:
+                    continue  # a line cut short by a crash
+
+
+def matches(
+    record: dict,
+    route: str | None = None,
+    source: str | None = None,
+    status: str | None = None,
+    flagged: bool = False,
+) -> bool:
+    """The filters of `rag logs stats` and the web UI's request list. flagged: answers with at
+    least one guardrail flag (searches have none)."""
+    if route and record.get("route") != route:
+        return False
+    if source and record.get("source") != source:
+        return False
+    if status and record.get("status") != status:
+        return False
+    return not flagged or bool((record.get("answer") or {}).get("flags"))
+
+
+def newest(records, limit: int | None, offset: int = 0, keep=None, **filters) -> list[dict]:
+    """Up to `limit` matching records (all if None), newest first, skipping the first `offset`.
+    keep: a function applied to each record kept (e.g. `for_stats`), so a long window doesn't hold
+    every full record in memory."""
+    out = []
+    skipped = 0
+    for record in records:
+        if not matches(record, **filters):
+            continue
+        if skipped < offset:
+            skipped += 1
+            continue
+        out.append(keep(record) if keep else record)
+        if limit is not None and len(out) >= limit:
+            break
+    return out
+
+
+def for_stats(record: dict) -> dict:
+    """Only what `stats` reads. The full log (120 MB at the rotation limit) held as full records
+    took 650 MB; this keeps the server's memory flat when the UI asks for every record."""
+    answer = record.get("answer")
+    llm = record.get("llm")
+    return {
+        "route": record["route"],
+        "status": record["status"],
+        "ts": record.get("ts"),
+        "fallback": record.get("fallback"),
+        "timings_ms": record.get("timings_ms") or {},
+        "answer": {"refusal": answer.get("refusal"), "flags": answer.get("flags")} if answer else None,
+        "llm": {"prompt_tokens": llm.get("prompt_tokens")} if llm else None,
+    }
+
+
+def brief(record: dict) -> dict:
+    """One row of the request list: what was asked, how, how long, how it ended. The full record
+    stays at /logs/{id}."""
+    s = record.get("settings") or {}
+    t = record.get("timings_ms") or {}
+    answer = record.get("answer")
+    return {
+        "request_id": record["request_id"],
+        "ts": record.get("ts"),
+        "source": record.get("source"),
+        "route": record.get("route"),
+        "status": record.get("status"),
+        "error": record.get("error"),
+        "query": record.get("query"),
+        "text_logged": record.get("text_logged", True),
+        "mode": s.get("mode"),
+        "rerank": s.get("rerank"),
+        "collections": s.get("collections"),
+        "total_ms": t.get("total_ms"),
+        "first_token_ms": t.get("request_first_token_ms"),
+        "n_candidates": len(record.get("candidates") or []),
+        "fallback": record.get("fallback"),
+        "answer": None
+        if not answer
+        else {
+            "refusal": answer.get("refusal"),
+            "cited": len(answer.get("cited") or []),
+            "flags": [f["kind"] for f in answer.get("flags") or []],
+        },
+    }
+
+
 # --- summaries ----------------------------------------------------------------------------------
 
 
@@ -517,19 +615,18 @@ def run(parsed_args) -> int:
     if parsed_args.action == "show":
         wanted = parsed_args.request_id or "last"
         if wanted == "last":
-            matches = records[-1:]
+            found = records[-1:]
         else:
-            matches = [r for r in records if r["request_id"].startswith(wanted)]
-        if not matches:
+            found = [r for r in records if r["request_id"].startswith(wanted)]
+        if not found:
             print(f"no request {wanted} in {path}")
             return 1
         if parsed_args.json:
-            print(json.dumps(matches[-1], indent=1, ensure_ascii=False))
+            print(json.dumps(found[-1], indent=1, ensure_ascii=False))
         else:
-            print(show(matches[-1]))
+            print(show(found[-1]))
         return 0
-    if parsed_args.route:
-        records = [r for r in records if r["route"] == parsed_args.route]
+    records = [r for r in records if matches(r, route=parsed_args.route, source=parsed_args.source)]
     records = records[-parsed_args.last :]
     summary = stats(records)
     if parsed_args.json:

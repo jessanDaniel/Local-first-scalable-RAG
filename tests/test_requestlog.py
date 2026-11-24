@@ -223,7 +223,7 @@ def test_rag_logs_command(settings, monkeypatch, capsys):
     assert "request abc123" in capsys.readouterr().out
     assert requestlog.run(argparse.Namespace(action="show", request_id="zzz", json=False)) == 1
     capsys.readouterr()
-    assert requestlog.run(argparse.Namespace(action="stats", last=50, route=None, json=True)) == 0
+    assert requestlog.run(argparse.Namespace(action="stats", last=50, route=None, source=None, json=True)) == 0
     assert json.loads(capsys.readouterr().out)["search"]["ok"] == 1
 
 

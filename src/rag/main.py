@@ -14,7 +14,7 @@
     rag serve [--port 8000]                      # HTTP API on 127.0.0.1, docs at /docs
     rag sync NAME [--add-folder PATH] [--remove-folder PATH]   # keep a collection in step with its folders
     rag logs show [REQUEST_ID|last] [--json]     # one logged request as a trace
-    rag logs stats [--last N] [--route ask|search]
+    rag logs stats [--last N] [--route ask|search] [--source api|cli]
     rag eval check|run --set papers   rag eval compare papers:latest~1 papers:latest   rag eval list
 
 `--data-dir DIR` (before the command) points everything at another data folder,
@@ -182,6 +182,7 @@ def build_parser() -> argparse.ArgumentParser:
     log_stats = log_actions.add_parser("stats", help="p50 / p95 per stage, error / fallback / refusal counts")
     log_stats.add_argument("--last", type=int, default=200, help="only the last N requests (default 200)")
     log_stats.add_argument("--route", choices=["ask", "search"])
+    log_stats.add_argument("--source", choices=["api", "cli"])
     log_stats.add_argument("--json", action="store_true")
 
     serve = command("serve", "rag.api.app:run", "run the HTTP API (search, ask with streaming, health)")

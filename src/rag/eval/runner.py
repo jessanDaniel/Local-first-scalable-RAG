@@ -182,13 +182,39 @@ def fmt(metric: str, value, n: int) -> str:
     return f"{value:.3f}"
 
 
+def retriever_and_rerank(config: dict) -> tuple[str, str]:
+    """(retriever, rerank) of a run, for runs of every age: runs before step 13 have no retriever
+    (dense); runs before 15b used retriever "rerank", which meant hybrid + replace."""
+    retriever = config.get("retriever", "dense")
+    rerank = config.get("rerank", "replace" if retriever == "rerank" else "off")
+    return ("hybrid" if retriever == "rerank" else retriever), rerank
+
+
+def run_brief(run: dict) -> dict:
+    """One line of a run list (the web UI's Runs table): headline metrics and what was run."""
+    retriever, rerank = retriever_and_rerank(run["config"])
+    overall = run["summary"]["overall"]
+    return {
+        "run_id": run["run_id"],
+        "set": run["set"],
+        "label": run.get("label"),
+        "created": run["created"],
+        "retriever": retriever,
+        "rerank": rerank,
+        "collections": sorted({q["collection"] for q in run["questions"] if q.get("collection")}),
+        "n_chunks": run["config"].get("n_chunks"),
+        "git_commit": run["config"].get("git_commit"),
+        "n": overall.get("n", 0),
+        **{m: overall.get(m) for m in ("hit@1", "hit@5", "hit@10", "mrr")},
+        "latency_ms": run["summary"].get("latency_ms"),
+        "fallbacks": run["summary"].get("fallbacks", 0),
+    }
+
+
 def print_run(run: dict) -> None:
     s, c = run["summary"], run["config"]
     print(f"run {run['run_id']}")
-    retriever = c.get("retriever", "dense")
-    rerank = c.get("rerank", "replace" if retriever == "rerank" else "off")  # runs before 15b: "rerank" = replace
-    if retriever == "rerank":
-        retriever = "hybrid"
+    retriever, rerank = retriever_and_rerank(c)
     print(
         f"  {retriever}: index {c['index_build']} ({c['index_type']}, {c['n_chunks']} chunks), "
         f"chunker {c['chunker_version']}, filter {'on' if c['collection_filter'] else 'off'}, commit {c['git_commit']}"
@@ -233,31 +259,27 @@ def print_run(run: dict) -> None:
             print(f"    {q['id']:28} rank {rank:<4} overlap {q['overlap']}  top-1 from {q['top1_doc']}")
 
 
-def compare_runs(a: dict, b: dict) -> list[str]:
-    lines = [f"A = {a['run_id']}", f"B = {b['run_id']}"]
+def run_diff(a: dict, b: dict) -> dict:
+    """What changed from run A to run B, as data: the config keys that differ, every metric with its
+    delta, latency, and the questions whose first gold rank moved (+ = better in B), with the top-k
+    lines they crossed. `compare_runs` prints it; the web UI shows the same dict."""
     if a["set"] != b["set"]:
         raise ValueError(f"runs are of different sets ({a['set']} vs {b['set']}): nothing to compare")
-    changed = {
-        k: (a["config"].get(k), b["config"].get(k))
-        for k in set(a["config"]) | set(b["config"])
+    config_changes = [
+        {"key": k, "a": a["config"].get(k), "b": b["config"].get(k)}
+        for k in sorted(set(a["config"]) | set(b["config"]))
         if a["config"].get(k) != b["config"].get(k) and k not in ("git_commit",)
-    }
-    for key, (va, vb) in sorted(changed.items()):
-        lines.append(f"config {key}: {va!r} -> {vb!r}")
+    ]
     sa, sb = a["summary"]["overall"], b["summary"]["overall"]
-    lines.append(f"\n{'metric':10} {'A':>14} {'B':>14} {'B - A':>8}")
+    metrics_rows = []
     for metric in METRIC_ROWS:
         va, vb = sa.get(metric), sb.get(metric)
-        if metric.startswith("hit@"):
-            delta = f"{vb - va:+d}"
-        else:
-            delta = f"{vb - va:+.3f}"
-        lines.append(f"{metric:10} {fmt(metric, va, sa['n']):>14} {fmt(metric, vb, sb['n']):>14} {delta:>8}")
-
+        delta = None if va is None or vb is None else (vb - va if metric.startswith("hit@") else round(vb - va, 4))
+        metrics_rows.append({"metric": metric, "a": va, "b": vb, "delta": delta})
+    latency = []
     la, lb = a["summary"].get("latency_ms"), b["summary"].get("latency_ms")
     if la and lb:
-        for key in ("p50", "p95"):
-            lines.append(f"{'latency ' + key:10} {la[key]:>11.0f} ms {lb[key]:>11.0f} ms {lb[key] - la[key]:>+6.0f} ms")
+        latency = [{"key": key, "a": la[key], "b": lb[key], "delta": lb[key] - la[key]} for key in ("p50", "p95")]
     ranks_a = {q["id"]: q.get("first_rank") for q in a["questions"] if q["answerable"]}
     flips = []
     for q in b["questions"]:
@@ -265,14 +287,47 @@ def compare_runs(a: dict, b: dict) -> list[str]:
             continue
         ra, rb = ranks_a[q["id"]], q.get("first_rank")
         if ra != rb:
-            key = (ra or MAX_K + 1) - (rb or MAX_K + 1)
-            flips.append((key, q["id"], ra, rb))
-    if flips:
-        lines.append(f"\nquestions whose first gold rank changed ({len(flips)}; + = better in B):")
-        for key, qid, ra, rb in sorted(flips, key=lambda f: -abs(f[0])):
+            change = (ra or MAX_K + 1) - (rb or MAX_K + 1)
             crossed = [k for k in (1, 5, 10) if ((ra or 99) <= k) != ((rb or 99) <= k)]
-            mark = f"  crosses top-{','.join(map(str, crossed))}" if crossed else ""
-            lines.append(f"  {key:+3d}  {qid:28} {ra or '>' + str(MAX_K):>4} -> {rb or '>' + str(MAX_K):<4}{mark}")
+            flips.append({"id": q["id"], "a": ra, "b": rb, "change": change, "crosses": crossed})
+    flips.sort(key=lambda f: -abs(f["change"]))
+    ids_b = {q["id"] for q in b["questions"]}
+    return {
+        "a": a["run_id"],
+        "b": b["run_id"],
+        "set": a["set"],
+        "n": {"a": sa["n"], "b": sb["n"]},
+        "config_changes": config_changes,
+        "metrics": metrics_rows,
+        "latency_ms": latency,
+        "flips": flips,
+        "only_in_a": sorted(set(ranks_a) - ids_b),
+        "only_in_b": sorted({q["id"] for q in b["questions"] if q["answerable"]} - set(ranks_a)),
+        "max_k": MAX_K,
+    }
+
+
+def compare_runs(a: dict, b: dict) -> list[str]:
+    """`rag eval compare`: run_diff as text."""
+    d = run_diff(a, b)
+    lines = [f"A = {d['a']}", f"B = {d['b']}"]
+    for change in d["config_changes"]:
+        lines.append(f"config {change['key']}: {change['a']!r} -> {change['b']!r}")
+    lines.append(f"\n{'metric':10} {'A':>14} {'B':>14} {'B - A':>8}")
+    for row in d["metrics"]:
+        metric, va, vb = row["metric"], row["a"], row["b"]
+        delta = f"{row['delta']:+d}" if metric.startswith("hit@") else f"{vb - va:+.3f}"
+        lines.append(f"{metric:10} {fmt(metric, va, d['n']['a']):>14} {fmt(metric, vb, d['n']['b']):>14} {delta:>8}")
+    for row in d["latency_ms"]:
+        key = row["key"]
+        lines.append(f"{'latency ' + key:10} {row['a']:>11.0f} ms {row['b']:>11.0f} ms {row['delta']:>+6.0f} ms")
+    if d["flips"]:
+        lines.append(f"\nquestions whose first gold rank changed ({len(d['flips'])}; + = better in B):")
+        for f in d["flips"]:
+            mark = f"  crosses top-{','.join(map(str, f['crosses']))}" if f["crosses"] else ""
+            ra = f["a"] or ">" + str(MAX_K)
+            rb = f["b"] or ">" + str(MAX_K)
+            lines.append(f"  {f['change']:+3d}  {f['id']:28} {ra:>4} -> {rb:<4}{mark}")
     else:
         lines.append("\nno question changed rank")
     return lines

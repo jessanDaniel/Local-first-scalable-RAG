@@ -10,6 +10,15 @@
     GET  /passages?chunk_id=...    the sections holding these chunks, with ranges to highlight
     GET  /logs/{request_id}        the step-20 log record of a request (the UI's trace panel)
 
+    Activity and evaluation (step 22; read-only, nothing here runs an evaluation):
+    GET  /logs?route=&source=&status=&flagged=&limit=&offset=   recent requests, newest first
+    GET  /logs/stats?last=N&route=&source=                      rag logs stats as JSON (last=0: all)
+    GET  /eval/runs?set=           retrieval runs with headline metrics
+    GET  /eval/runs/{run_id}       one run: config, by type, every question's first gold rank
+    GET  /eval/compare?a=&b=       rag eval compare as data
+    GET  /eval/answers             answer runs with their automatic summaries
+    GET  /eval/gate                the quality-gate baseline and its history
+
     Adding and keeping documents (steps 24 + 30; every change runs as a background sync job):
     POST   /collections                         {"name", "description"}  create a collection
     DELETE /collections/{name}                  remove it (its documents, uploads; folders untouched)
@@ -60,7 +69,7 @@ from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from functools import partial
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
@@ -293,6 +302,10 @@ def create_app(
             )
         else:
             response = await call_next(request)
+            if request.url.path.startswith("/static/"):
+                # Revalidate every time (a 304 when unchanged): without it the browser may keep
+                # running yesterday's scripts against today's page after the app is updated.
+                response.headers.setdefault("Cache-Control", "no-cache")
         response.headers["X-Request-ID"] = request.state.request_id
         return response
 
@@ -355,7 +368,27 @@ def create_app(
     async def collections(request: Request):
         from rag.store import db
 
-        return await with_db(db.list_collections)  # works before any index exists
+        def work(conn):  # works before any index exists
+            rows = db.list_collections(conn)
+            by_status: dict[str, dict[str, int]] = {}
+            for cid, status, n in conn.execute(
+                "SELECT collection_id, parse_status, COUNT(*) FROM documents GROUP BY collection_id, parse_status"
+            ):
+                by_status.setdefault(cid, {})[status] = n
+            folders = db.source_folders(conn)
+            for row in rows:
+                mine = [f for f in folders if f["collection_id"] == row["collection_id"]]
+                counts = by_status.get(row["collection_id"], {})
+                row |= {
+                    "n_suspect": counts.get("suspect", 0),
+                    "n_failed": counts.get("failed", 0),
+                    "n_folders": len(mine),
+                    "n_missing_folders": sum(not Path(f["path"]).is_dir() for f in mine),
+                    "last_synced": max((f["last_synced"] for f in mine if f["last_synced"]), default=None),
+                }
+            return rows
+
+        return await with_db(work)
 
     def document_or_404(pipeline, doc_id: str):
         from rag.store import db
@@ -651,6 +684,119 @@ def create_app(
             raise HTTPException(404, f"no job {job_id}")
         found.cancel.set()
         return {"job": found.id, "status": found.status, "cancel_requested": True}
+
+    # --- activity and evaluation (step 22): read-only views of the request log and stored results ---
+
+    def log_records(service: Service):
+        """Newest first: the log file with its rotated files, or (file logging off) the records kept
+        in memory since the server started."""
+        from rag.requestlog import iter_newest
+
+        if service.log.path is not None:
+            return iter_newest(service.log.path, settings.log_backups)
+        return reversed(list(service.log.recent))
+
+    @app.get("/logs")
+    async def log_list(
+        request: Request,
+        route: Literal["ask", "search"] | None = None,
+        source: Literal["api", "cli"] | None = None,
+        status: Literal["ok", "error", "cancelled"] | None = None,
+        flagged: bool = False,
+        limit: Annotated[int, Query(ge=1, le=200)] = 50,
+        offset: Annotated[int, Query(ge=0)] = 0,
+    ):
+        """Recent requests, newest first, one summary row each (the full record: /logs/{id})."""
+        from rag.requestlog import brief, newest
+
+        service = service_of(request)
+
+        def work():
+            filters = {"route": route, "source": source, "status": status, "flagged": flagged}
+            rows = newest(log_records(service), limit + 1, offset, **filters)
+            return {
+                "records": [brief(r) for r in rows[:limit]],
+                "more": len(rows) > limit,
+                "offset": offset,
+                "log_text": service.log.log_text,
+                "log": str(service.log.path) if service.log.path else None,
+            }
+
+        return await asyncio.to_thread(work)
+
+    @app.get("/logs/stats")
+    async def log_stats(
+        request: Request,
+        last: Annotated[int, Query(ge=0)] = 1000,
+        route: Literal["ask", "search"] | None = None,
+        source: Literal["api", "cli"] | None = None,
+    ):
+        """`rag logs stats --last N [--route R] [--source S]` as JSON; last=0 means every record."""
+        from rag.requestlog import for_stats, newest
+
+        service = service_of(request)
+
+        def work():
+            records = newest(log_records(service), last or None, keep=for_stats, route=route, source=source)
+            return {
+                "n_records": len(records),
+                "last": last or None,
+                "newest": records[0]["ts"] if records else None,
+                "oldest": records[-1]["ts"] if records else None,
+                "routes": stats(records),
+            }
+
+        return await asyncio.to_thread(work)
+
+    runs_dir = settings.data_dir / "eval" / "runs"
+    answers_dir = settings.data_dir / "eval" / "answers"
+
+    @app.get("/eval/runs")
+    async def eval_runs(set_name: Annotated[str | None, Query(alias="set")] = None):
+        """Retrieval runs (`rag eval run`), newest first, with their headline metrics."""
+        from rag.eval.browse import list_retrieval_runs
+
+        return await asyncio.to_thread(list_retrieval_runs, runs_dir, set_name)
+
+    @app.get("/eval/runs/{run_id}")
+    async def eval_run(run_id: str):
+        """One run: its config, summary by question type, and every question's first gold rank."""
+        from rag.eval.browse import retrieval_run_detail
+
+        detail = await asyncio.to_thread(retrieval_run_detail, runs_dir, run_id)
+        if detail is None:
+            raise HTTPException(404, f"no run {run_id}")
+        return detail
+
+    @app.get("/eval/compare")
+    async def eval_compare(a: str, b: str):
+        """`rag eval compare A B` as data: config changes, metric deltas, questions that moved."""
+        from rag.eval.browse import compare
+
+        try:
+            return await asyncio.to_thread(compare, runs_dir, a, b)
+        except KeyError as exc:
+            raise HTTPException(404, exc.args[0]) from exc
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from exc
+
+    @app.get("/eval/answers")
+    async def eval_answers():
+        """Answer runs (`rag eval answers`): config and the automatic summary of each."""
+        from rag.eval.browse import list_answer_runs
+
+        return await asyncio.to_thread(list_answer_runs, answers_dir)
+
+    @app.get("/eval/gate")
+    async def eval_gate():
+        """The committed quality-gate baseline (eval/baseline.json): metrics per set, history."""
+        from rag.eval import gate
+        from rag.eval.browse import gate_summary
+
+        summary = await asyncio.to_thread(gate_summary, gate.BASELINE_PATH)
+        if summary is None:
+            raise HTTPException(404, "no gate baseline yet (rag eval gate --update)")
+        return summary
 
     @app.get("/logs/{request_id}")
     async def log_record(request_id: str, request: Request):

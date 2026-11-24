@@ -14,6 +14,7 @@ import {
   uploadFile,
 } from "./api.js";
 import { $, clear, el } from "./dom.js";
+import { renderOverview } from "./overview.js";
 
 const SUPPORTED = [".pdf", ".docx", ".html", ".htm", ".txt", ".md", ".markdown", ".text"];
 const TERMINAL = new Set(["done", "failed", "cancelled"]);
@@ -34,10 +35,18 @@ export async function showDocs(collection) {
   state.collection = collection || null;
   $("docs-body").hidden = !state.collection;
   $("delete-collection").hidden = !state.collection;
+  $("overview").hidden = Boolean(state.collection);
+  $("docs-all").hidden = !state.collection;
   $("docs-pick").textContent = state.collection
     ? `Managing “${state.collection}”. Pick another collection at the top, or make a new one.`
-    : "Pick a collection at the top, or make a new one.";
-  if (!state.collection) return;
+    : "Pick a collection below or at the top, or make a new one.";
+  if (!state.collection) {
+    renderOverview(async (name) => {
+      await state.onCollectionsChanged(name);
+      showDocs(name);
+    });
+    return;
+  }
   let detail;
   try {
     detail = await getCollection(state.collection);
@@ -216,6 +225,10 @@ export function setupDocs({ onCollectionsChanged }) {
   state.onChanged = () => onCollectionsChanged(state.collection);
   state.onCollectionsChanged = onCollectionsChanged;
   $("delete-collection").addEventListener("click", forgetCollection);
+  $("docs-all").addEventListener("click", async () => {
+    await onCollectionsChanged("");
+    showDocs("");
+  });
   $("new-collection").addEventListener("submit", async (event) => {
     event.preventDefault();
     const name = $("new-name").value.trim();

@@ -26,6 +26,8 @@
     <button role="tab" id="tab-ask" aria-selected="true" aria-controls="view-ask">Ask</button>
     <button role="tab" id="tab-search" aria-selected="false" aria-controls="view-search">Search</button>
     <button role="tab" id="tab-docs" aria-selected="false" aria-controls="view-docs">Documents</button>
+    <button role="tab" id="tab-activity" aria-selected="false" aria-controls="view-activity">Activity</button>
+    <button role="tab" id="tab-eval" aria-selected="false" aria-controls="view-eval">Evaluation</button>
   </nav>
 
   <main>
@@ -122,7 +124,13 @@
           <button type="submit" class="secondary">Create</button>
         </form>
         <p id="docs-message" class="notice" hidden></p>
+        <button id="docs-all" type="button" class="secondary" hidden>‹ All collections</button>
         <button id="delete-collection" type="button" class="danger" hidden>Delete this collection</button>
+      </div>
+
+      <div id="overview" class="panel">
+        <h2>All collections</h2>
+        <div id="overview-body"></div>
       </div>
 
       <div id="docs-body" hidden>
@@ -172,6 +180,126 @@
             </table>
           </div>
         </div>
+      </div>
+    </section>
+
+    <section id="view-activity" role="tabpanel" aria-labelledby="tab-activity" hidden>
+      <div class="panel">
+        <div class="panel-head">
+          <h2>Timings and rates</h2>
+          <div class="controls">
+            <label>Window
+              <select id="stats-window">
+                <option value="100">last 100 requests</option>
+                <option value="1000" selected>last 1,000 requests</option>
+                <option value="0">every logged request</option>
+              </select>
+            </label>
+            <label>From
+              <select id="stats-source">
+                <option value="">app and CLI</option>
+                <option value="api">app (API)</option>
+                <option value="cli">CLI</option>
+              </select>
+            </label>
+            <button id="activity-refresh" type="button" class="secondary">Refresh</button>
+          </div>
+        </div>
+        <p id="stats-meta" class="muted"></p>
+        <div id="stats-body"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">
+          <h2>Recent requests</h2>
+          <div class="controls">
+            <label>Route
+              <select id="logs-route">
+                <option value="">ask and search</option>
+                <option value="ask">ask</option>
+                <option value="search">search</option>
+              </select>
+            </label>
+            <label>Status
+              <select id="logs-status">
+                <option value="">any</option>
+                <option value="ok">ok</option>
+                <option value="error">error</option>
+                <option value="cancelled">cancelled</option>
+              </select>
+            </label>
+            <label>From
+              <select id="logs-source">
+                <option value="">app and CLI</option>
+                <option value="api">app (API)</option>
+                <option value="cli">CLI</option>
+              </select>
+            </label>
+            <label class="check"><input id="logs-flagged" type="checkbox"> flagged answers only</label>
+          </div>
+        </div>
+        <p id="logs-meta" class="muted"></p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>time</th><th>route</th><th>from</th><th>question / query</th><th>retrieval</th><th class="num">total</th><th>result</th></tr></thead>
+            <tbody id="log-rows"></tbody>
+          </table>
+        </div>
+        <button id="logs-more" type="button" class="secondary more" hidden>Show older</button>
+      </div>
+
+      <div id="activity-trace" class="panel" hidden>
+        <div class="panel-head">
+          <div>
+            <h2 id="activity-trace-title"></h2>
+            <p id="activity-trace-sub" class="muted"></p>
+          </div>
+          <button id="activity-trace-close" type="button" class="secondary">Close</button>
+        </div>
+        <div id="activity-trace-body" class="trace-body"></div>
+      </div>
+    </section>
+
+    <section id="view-eval" role="tabpanel" aria-labelledby="tab-eval" hidden>
+      <div class="panel">
+        <div class="panel-head">
+          <h2>Retrieval runs</h2>
+          <div class="controls">
+            <label>Set <select id="runs-set"></select></label>
+            <button id="runs-compare" type="button" disabled>Compare A → B</button>
+            <button id="eval-refresh" type="button" class="secondary">Refresh</button>
+          </div>
+        </div>
+        <p id="runs-meta" class="muted"></p>
+        <div id="runs-table"></div>
+        <p class="muted small">This page only reads results. Runs are made with <code>rag eval run --set NAME --label …</code>,
+          so each one keeps the configuration it was run with.</p>
+      </div>
+
+      <div id="eval-compare" class="panel" hidden>
+        <div class="panel-head">
+          <h2>A → B</h2>
+          <button id="eval-compare-close" type="button" class="secondary">Close</button>
+        </div>
+        <div id="eval-compare-body" class="trace-body"></div>
+      </div>
+
+      <div id="eval-detail" class="panel" hidden>
+        <div class="panel-head">
+          <h2 id="eval-detail-title"></h2>
+          <button id="eval-detail-close" type="button" class="secondary">Close</button>
+        </div>
+        <div id="eval-detail-body" class="trace-body"></div>
+      </div>
+
+      <div class="panel">
+        <h2>Answer runs</h2>
+        <div id="answers-body"></div>
+      </div>
+
+      <div class="panel">
+        <h2>Quality gate</h2>
+        <div id="gate-body" class="trace-body"></div>
       </div>
     </section>
   </main>
