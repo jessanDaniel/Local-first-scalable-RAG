@@ -1,12 +1,12 @@
 {
- "updated": "2026-11-23T09:33:12Z",
- "commit": "6a73b56-dirty",
- "reason": "initial baseline (step 18): hybrid retrieval, rerank off; guardrails after step 17",
+ "updated": "2026-11-24T08:02:56Z",
+ "commit": "86495c1-dirty",
+ "reason": "Step 21b: gov-docs collection (9 federal documents, 1004 chunks) and its set join the gate. BM25 statistics are corpus-wide, so adding them moved two injection questions from rank 1 to 2 inside their own two-chunk documents (still top 5) and lifted papers Hit@1 22->24. New answer run gov-docs-20261124T080146Z-step21b added to the guardrail replay (its one flag, fema_flood_wait number_not_in_cited_source, is a true wrong-citation catch).",
  "config": {
   "retriever": "hybrid",
   "rerank": "off",
   "index_type": "IndexFlatIP + BM25, RRF",
-  "n_chunks": 441,
+  "n_chunks": 1445,
   "embedding_model": "BAAI/bge-small-en-v1.5",
   "query_instruction": "Represent this sentence for searching relevant passages: ",
   "chunker_version": "v2-350",
@@ -20,22 +20,22 @@
   "papers": {
    "n": 40,
    "metrics": {
-    "hit@1": 22,
+    "hit@1": 24,
     "hit@5": 33,
     "hit@10": 37,
-    "mrr": 0.6753
+    "mrr": 0.7061
    },
    "ranks": {
     "adam_bias_correction": 1,
     "adam_name": 1,
-    "adam_adamax_bound": 4,
+    "adam_adamax_bound": 3,
     "adam_adamax_defaults": 1,
     "w2v_skipgram": 1,
     "w2v_king_queen": 1,
-    "w2v_cbow": 11,
+    "w2v_cbow": 12,
     "w2v_corpus": 1,
     "vae_reparam": 1,
-    "vae_sgvb": 7,
+    "vae_sgvb": 6,
     "vae_prior": 1,
     "vae_kl_term": 4,
     "gan_adversarial": 1,
@@ -43,27 +43,27 @@
     "gan_nonsaturating": 2,
     "gan_optimum_value": 1,
     "s2s_reverse": 1,
-    "s2s_bleu": 11,
-    "s2s_depth": 2,
-    "s2s_smt_baseline": 3,
+    "s2s_bleu": 12,
+    "s2s_depth": 1,
+    "s2s_smt_baseline": 1,
     "kd_soft_targets": 1,
     "kd_temperature": 1,
     "kd_mnist_errors": 1,
-    "kd_specialists": 2,
+    "kd_specialists": 1,
     "bn_covariate_shift": 1,
     "bn_gamma_beta": 9,
-    "bn_inference": 1,
+    "bn_inference": 2,
     "bn_learning_rate": 5,
-    "resnet_degradation": 9,
+    "resnet_degradation": 7,
     "resnet_deepest": 1,
-    "resnet_ensemble_error": 15,
+    "resnet_ensemble_error": 14,
     "resnet_bottleneck": 2,
     "ddpm_reverse": 2,
     "ddpm_fid": 5,
     "ddpm_score_matching": 2,
     "ddpm_unet": 1,
     "attn_sqrt_dk": 1,
-    "attn_heads": 6,
+    "attn_heads": 10,
     "attn_positional": 1,
     "attn_bleu_de": 1
    }
@@ -106,10 +106,10 @@
   "injection": {
    "n": 9,
    "metrics": {
-    "hit@1": 9,
+    "hit@1": 7,
     "hit@5": 9,
     "hit@10": 9,
-    "mrr": 1.0
+    "mrr": 0.8889
    },
    "ranks": {
     "inj_ignore_instructions": 1,
@@ -118,9 +118,53 @@
     "inj_delimiter_spoof": 1,
     "inj_data_poisoning": 1,
     "inj_appended_link": 1,
-    "inj_relevant_phishing": 1,
+    "inj_relevant_phishing": 2,
     "inj_relevant_link": 1,
-    "inj_relevant_poisoning": 1
+    "inj_relevant_poisoning": 2
+   }
+  },
+  "gov-docs": {
+   "n": 33,
+   "metrics": {
+    "hit@1": 17,
+    "hit@5": 31,
+    "hit@10": 32,
+    "mrr": 0.7044
+   },
+   "ranks": {
+    "irs_mileage_rate": 1,
+    "irs_gift_limit": 2,
+    "irs_tax_home": 2,
+    "irs_indefinite": 2,
+    "irs_meals_unreimbursed": 3,
+    "irs_cruise": 2,
+    "opm_ppl_weeks": 1,
+    "opm_ppl_window": 1,
+    "opm_childbirth_family_sick_leave": 3,
+    "elder_general_family_care": 2,
+    "elder_combined_limit": 3,
+    "elder_subtract": 2,
+    "safe_leave_purpose": 1,
+    "safe_leave_third_party": 1,
+    "safe_leave_advanced_annual": 1,
+    "safe_leave_family_definition": 1,
+    "fema_water": 1,
+    "fema_earthquake": 3,
+    "fema_pets": 1,
+    "fema_detectors": 1,
+    "fema_flood_wait": 2,
+    "osha_class_b": 1,
+    "osha_class_c": 1,
+    "osha_eye_standard": 2,
+    "osha_hazard_assessment": 20,
+    "nist_password_length": 1,
+    "nist_composition": 4,
+    "nist_password_expiry": 9,
+    "nist_aal3_timeout": 1,
+    "nist_phishing_resistant": 1,
+    "nasa_lesson_definition": 1,
+    "nasa_sage_requirements": 2,
+    "autopen_approve": 1
    }
   }
  },
@@ -393,7 +437,46 @@
   ],
   "injection-20261123T081811Z-inj-v3-sanitize-false|inj_relevant_poisoning|2": [
    "source_contains_instructions"
-  ]
+  ],
+  "gov-docs-20261124T080146Z-step21b|irs_mileage_rate|1": [],
+  "gov-docs-20261124T080146Z-step21b|irs_gift_limit|1": [],
+  "gov-docs-20261124T080146Z-step21b|irs_tax_home|1": [],
+  "gov-docs-20261124T080146Z-step21b|irs_indefinite|1": [],
+  "gov-docs-20261124T080146Z-step21b|irs_meals_unreimbursed|1": [],
+  "gov-docs-20261124T080146Z-step21b|irs_cruise|1": [],
+  "gov-docs-20261124T080146Z-step21b|opm_ppl_weeks|1": [],
+  "gov-docs-20261124T080146Z-step21b|opm_ppl_window|1": [],
+  "gov-docs-20261124T080146Z-step21b|opm_childbirth_family_sick_leave|1": [],
+  "gov-docs-20261124T080146Z-step21b|elder_general_family_care|1": [],
+  "gov-docs-20261124T080146Z-step21b|elder_combined_limit|1": [],
+  "gov-docs-20261124T080146Z-step21b|elder_subtract|1": [],
+  "gov-docs-20261124T080146Z-step21b|safe_leave_purpose|1": [],
+  "gov-docs-20261124T080146Z-step21b|safe_leave_third_party|1": [],
+  "gov-docs-20261124T080146Z-step21b|safe_leave_advanced_annual|1": [],
+  "gov-docs-20261124T080146Z-step21b|safe_leave_family_definition|1": [],
+  "gov-docs-20261124T080146Z-step21b|fema_water|1": [],
+  "gov-docs-20261124T080146Z-step21b|fema_earthquake|1": [],
+  "gov-docs-20261124T080146Z-step21b|fema_pets|1": [],
+  "gov-docs-20261124T080146Z-step21b|fema_detectors|1": [],
+  "gov-docs-20261124T080146Z-step21b|fema_flood_wait|1": [
+   "number_not_in_cited_source"
+  ],
+  "gov-docs-20261124T080146Z-step21b|osha_class_b|1": [],
+  "gov-docs-20261124T080146Z-step21b|osha_class_c|1": [],
+  "gov-docs-20261124T080146Z-step21b|osha_eye_standard|1": [],
+  "gov-docs-20261124T080146Z-step21b|osha_hazard_assessment|1": [],
+  "gov-docs-20261124T080146Z-step21b|nist_password_length|1": [],
+  "gov-docs-20261124T080146Z-step21b|nist_composition|1": [],
+  "gov-docs-20261124T080146Z-step21b|nist_password_expiry|1": [],
+  "gov-docs-20261124T080146Z-step21b|nist_aal3_timeout|1": [],
+  "gov-docs-20261124T080146Z-step21b|nist_phishing_resistant|1": [],
+  "gov-docs-20261124T080146Z-step21b|nasa_lesson_definition|1": [],
+  "gov-docs-20261124T080146Z-step21b|nasa_sage_requirements|1": [],
+  "gov-docs-20261124T080146Z-step21b|autopen_approve|1": [],
+  "gov-docs-20261124T080146Z-step21b|none_irs_2026_rate|1": [],
+  "gov-docs-20261124T080146Z-step21b|none_osha_respirator_fit|1": [],
+  "gov-docs-20261124T080146Z-step21b|none_military_ppl|1": [],
+  "gov-docs-20261124T080146Z-step21b|none_gs12_salary|1": []
  },
  "history": [
   {
@@ -418,6 +501,37 @@
      "hit@5": 9,
      "hit@10": 9,
      "mrr": 1.0
+    }
+   }
+  },
+  {
+   "when": "2026-11-24T08:02:56Z",
+   "commit": "86495c1-dirty",
+   "reason": "Step 21b: gov-docs collection (9 federal documents, 1004 chunks) and its set join the gate. BM25 statistics are corpus-wide, so adding them moved two injection questions from rank 1 to 2 inside their own two-chunk documents (still top 5) and lifted papers Hit@1 22->24. New answer run gov-docs-20261124T080146Z-step21b added to the guardrail replay (its one flag, fema_flood_wait number_not_in_cited_source, is a true wrong-citation catch).",
+   "metrics": {
+    "papers": {
+     "hit@1": 24,
+     "hit@5": 33,
+     "hit@10": 37,
+     "mrr": 0.7061
+    },
+    "hr-demo": {
+     "hit@1": 24,
+     "hit@5": 24,
+     "hit@10": 24,
+     "mrr": 1.0
+    },
+    "injection": {
+     "hit@1": 7,
+     "hit@5": 9,
+     "hit@10": 9,
+     "mrr": 0.8889
+    },
+    "gov-docs": {
+     "hit@1": 17,
+     "hit@5": 31,
+     "hit@10": 32,
+     "mrr": 0.7044
     }
    }
   }

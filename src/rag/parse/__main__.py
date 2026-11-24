@@ -65,6 +65,11 @@ def run(parsed_args) -> int:
             f"{report.dropped_page_numbers} page numbers"
         )
         print(f"Joined:         {report.joined_across_pages} paragraphs split by a page break")
+        print(f"Split off:      {report.split_headings} headings sharing a block with their paragraph")
+        if report.missing_bookmarks:
+            print(
+                f"Not found:      {len(report.missing_bookmarks)} bookmarks: " + "; ".join(report.missing_bookmarks[:8])
+            )
         for note in report.notes:
             print(f"Note:           {note}")
     print(f"\n{which} time: {elapsed:.2f}s   saved: {out_dir / stem}.json")

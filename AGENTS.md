@@ -277,9 +277,17 @@ never innerHTML (a test greps for it); CSP on the page. Browser check with real 
 (markers that open a sentence are not moved back; in refusals they become "Source 6 …"); a Markdown
 subset in `static/js/format.js` (no library); math with **KaTeX 0.19.1, vendored** in
 `static/vendor/katex/` (user approved the dependency and the download; sha512 checked; trust off,
-expansion limits). 356 tests. Next: step 21b
-(general documents) — pitch first. Do not
-start Phase 16.
+expansion limits). 356 tests. Step 21b done (general documents; notes
+`experiments/stage3/general_docs_step21b.md`): default PDF parser `src/rag/parse/pdf.py`
+(`LayoutPDFParser`, PyMuPDF, no service; `PDF_PARSER=pymupdf|grobid`, `--parser`; GROBID optional);
+on the papers it equals GROBID (Hit@5 33/33 hybrid, 35/35 fused) at ~0.15 s/paper. `rag ingest files`
+walks folders recursively with a skip report; .docx and .html via the standard library
+(`rag/parse/office.py`); schema v5 ('docx'). Collection `gov-docs`: 9 federal public-domain documents
+(`experiments/stage3/fetch_general_docs.py`, files in `data/raw/incoming/general/`), set
+`eval/sets/gov-docs.jsonl` (37 questions, drafted by Claude, review pending), fused Hit@5 30/33,
+MRR 0.773; in the gate. Open decisions for the user: BM25 statistics per collection vs shared; PyMuPDF
+is AGPL (decide before packaging). 375 tests. Next: steps 24 + 30 (folder/upload from the UI) — pitch
+first. Do not start Phase 16.
 
 ### Phase 7 close-out (2026-09-20)
 

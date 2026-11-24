@@ -1,0 +1,9 @@
+tax/irs-p463-travel-gift-car-expenses-2025.pdf|1851538|ddc3bb15e437bd65c37da2036debdae78c1a0bf5a080b19d5301c81f5ec5ae5d|https://www.irs.gov/pub/irs-prior/p463--2025.pdf
+hr/opm-handbook-childbirth-adoption-foster-care-2025.pdf|1239649|bdea1e0d4f071717899dbda32974679c9225fd9c418905bc2fb95a5511b5dd93|https://www.opm.gov/chcoc/transmittals/2025/Rev%20CPM%202025-04%20Handbook%20on%20Flexibilities%20for%20Childbirth%20Adoption%20and%20Foster%20Care.pdf
+hr/opm-handbook-elder-care-2015.pdf|755484|32875aa9cdd4199a60d6bb51226baad188525d9699e0efed8acf891859e79c61|https://www.opm.gov/policy-data-oversight/pay-leave/leave-administration/fact-sheets/handbook-on-workplace-flexibilities-and-work-life-programs-for-elder-care.pdf
+safety/osha-3151-personal-protective-equipment.pdf|572471|1d6cf79ee848af930b952d20bcf33d62b5094f4580ab52f126dfb841091d8d70|https://www.osha.gov/sites/default/files/publications/osha3151.pdf
+tech/nist-sp-800-63b-4-digital-identity.pdf|993734|d9ab89576b5ae2cfb3ba37781110788dea27a85a5079496dbfc1a79834670afd|https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-63B-4.pdf
+safety/fema-are-you-ready-guide-2020.pdf|4233522|3873f8ae7528389adacab72259c37b9ae3c507bd3ae23783122e06586560040c|https://www.ready.gov/sites/default/files/2021-03/are-you-ready-guide.pdf
+tech/nasa-ai-for-lessons-learned-2024.pdf|2430010|340905875eed3fba16a27e57d7cf97c02d71ad3418d55bb7d30e20625bae81ed|https://ntrs.nasa.gov/api/citations/20240006820/downloads/Ideas_to_%20Apply_AI_to_NASA_Lessons_Learned.pdf
+tech/autopen-template-decision-document.docx|54997|00f0fa685e5bc5384049e0810ee5f5449ffcc8150b7a492b5de84ed5bdcd827b|https://www.idmanagement.gov/docs/autopen-template-decision-document.docx
+hr/opm-time-off-for-safe-leave-purposes.html|146866|250717d67544a09cd2429143d09b9dcda76dd79b26574e0e206fa250a68e43b7|https://www.opm.gov/policy-data-oversight/pay-leave/leave-administration/fact-sheets/time-off-for-safe-leave-purposes/

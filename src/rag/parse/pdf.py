@@ -6,7 +6,8 @@ each one visible in `rag parse --parser pymupdf <pdf>`:
  1. Lines from every page, with font size, boldness and position. Rotated text (arXiv's side
     stamp) is skipped. A PDF with almost no text has no text layer: ParseError("needs OCR").
  2. Running headers and footers go: a line near the top or bottom of the page whose text (digits
-    ignored) repeats on at least 40% of pages, and bare page numbers ("12", "Page 3 of 10").
+    ignored) repeats on at least 3 pages and 10% of them (a header can change per chapter), and bare
+    page numbers ("12", "Page 3 of 10").
  3. Body size = the font size holding most characters.
  4. Headings, from the PDF's bookmarks (its table of contents) when it has at least 3 entries that
     can be found on their pages; otherwise from the text itself: a short block (at most 15 words,
@@ -37,7 +38,7 @@ VERSION = "pdf-layout-v1"
 BOLD = 16  # PyMuPDF span flag
 HORIZONTAL = (1, 0)
 MARGIN = 0.08  # top / bottom share of the page where running headers and footers live
-REPEAT_SHARE = 0.4
+REPEAT_SHARE = 0.1  # margin text on at least 3 pages and 10% of them (headers that change per chapter)
 MIN_CHARS_PER_PAGE = 10  # below this on average: no text layer (a scanned PDF has ~0)
 SIZE_TOLERANCE = 0.4
 MAX_HEADING_WORDS = 15
@@ -58,6 +59,10 @@ class Line:
     bold: bool
     y0: float
     y1: float
+    # A run-in heading: the line opens with bold spans and goes on in regular text
+    # ("5.1 Experimental setup We now describe ..."). The bold part and the rest, else "".
+    bold_lead: str = ""
+    after_bold: str = ""
 
 
 @dataclass
@@ -91,6 +96,9 @@ class LayoutReport:
     dropped_page_numbers: int = 0
     title_from_layout: str = ""
     joined_across_pages: int = 0
+    split_headings: int = 0  # headings split off the paragraph they shared a text block with
+    merged_numbers: int = 0  # heading numbers joined to the heading words after them
+    missing_bookmarks: list[str] = field(default_factory=list)  # bookmarks whose heading wasn't found
     notes: list[str] = field(default_factory=list)
 
 
@@ -136,6 +144,58 @@ def normalized(text: str) -> str:
     return re.sub(r"\s+", " ", re.sub(r"\d+", "#", text)).strip().lower()
 
 
+# On normalized text (lower case, digits as "#"): "#.#.# ", "chapter # ", "a. ", "iii: ". A letter or a
+# roman numeral needs punctuation after it, so a first word like "a" or "model" is never taken.
+LEAD_NUMBER = re.compile(
+    r"^(?:(?:chapter|section|part|appendix|slide|page)\s+)?(?:#+(?:\.#+)*[.):]?|[a-z](?:(?:\.#+)+[.):]?|[.):])|[ivxl]+[.):])(?:\s+|$)"
+)
+NUMBER_ONLY = re.compile(r"^(?:(?:chapter|section|part|appendix)\s+)?[\dA-Z]{1,3}(?:\.\d+)*[.):]?$", re.I)
+
+
+def core(text: str) -> str:
+    """A heading without its numbering: "Chapter 3 Gifts", "3. Gifts", "2.2.1. Gifts" -> "gifts"."""
+    return LEAD_NUMBER.sub("", normalized(text), count=1).strip()
+
+
+def same_heading(text: str, title: str) -> bool:
+    """Does this text carry this bookmark title? Numbering aside; an appendix letter on its own
+    ("A QLoRA vs Standard Finetuning") is dropped too, since the bookmark settles that it isn't "a"."""
+    want = core(title)
+    if not want:
+        return False
+    have = core(text)
+    return have == want or (re.match(r"^[a-z] ", have) is not None and have[2:] == want)
+
+
+def in_margin(block: "Block") -> bool:
+    top = block.lines[0].y0 / block.page_height
+    bottom = block.lines[-1].y1 / block.page_height
+    return top < MARGIN or bottom > 1 - MARGIN
+
+
+def merge_number_blocks(blocks: list["Block"]) -> int:
+    """A heading number set apart from its words ("4." / "Transportation", the same size, one after
+    the other on the page) becomes one block."""
+    out: list[Block] = []
+    merged = 0
+    for block in blocks:
+        previous = out[-1] if out else None
+        if (
+            previous is not None
+            and previous.page == block.page
+            and not previous.drop
+            and NUMBER_ONLY.match(previous.text.strip())
+            and abs(previous.size - block.size) <= SIZE_TOLERANCE
+            and 0 <= block.lines[0].y0 - previous.lines[-1].y1 < 2.5 * block.size
+        ):
+            previous.lines = previous.lines + block.lines
+            merged += 1
+            continue
+        out.append(block)
+    blocks[:] = out
+    return merged
+
+
 def read_blocks(document) -> list[Block]:
     blocks = []
     for page in document:
@@ -152,18 +212,22 @@ def read_blocks(document) -> list[Block]:
                 chars = sum(len(s["text"].strip()) for s in spans)
                 bold_chars = sum(len(s["text"].strip()) for s in spans if s["flags"] & BOLD)
                 size = max(s["size"] for s in spans)
-                lines.append(Line(text, size, bold_chars >= 0.8 * chars, line["bbox"][1], line["bbox"][3]))
+                lead = 0
+                while lead < len(spans) and spans[lead]["flags"] & BOLD:
+                    lead += 1
+                bold_lead = after = ""
+                if 0 < lead < len(spans):
+                    bold_lead = join_spans(spans[:lead]).strip()
+                    after = join_spans(spans[lead:]).strip()
+                lines.append(
+                    Line(text, size, bold_chars >= 0.8 * chars, line["bbox"][1], line["bbox"][3], bold_lead, after)
+                )
             if lines:
                 blocks.append(Block(page.number + 1, lines, height))
     return blocks
 
 
 def drop_headers_and_footers(blocks: list[Block], n_pages: int, report: LayoutReport) -> None:
-    def in_margin(block: Block) -> bool:
-        top = block.lines[0].y0 / block.page_height
-        bottom = block.lines[-1].y1 / block.page_height
-        return top < MARGIN or bottom > 1 - MARGIN
-
     pages_with: dict[str, set[int]] = {}
     for block in blocks:
         if in_margin(block):
@@ -175,7 +239,7 @@ def drop_headers_and_footers(blocks: list[Block], n_pages: int, report: LayoutRe
         if PAGE_NUMBER.match(text.strip()):
             block.drop = True
             report.dropped_page_numbers += 1
-        elif n_pages >= 3 and len(pages_with[normalized(text)]) >= max(2, REPEAT_SHARE * n_pages):
+        elif n_pages >= 3 and len(pages_with[normalized(text)]) >= max(3, REPEAT_SHARE * n_pages):
             block.drop = True
             report.dropped_header_footer += 1
 
@@ -186,6 +250,57 @@ def body_size(blocks: list[Block]) -> float:
         for line in block.lines:
             chars[round(line.size * 2) / 2] += len(line.text)
     return chars.most_common(1)[0][0] if chars else 10.0
+
+
+def split_leading_headings(blocks: list[Block], body: float, toc: list) -> int:
+    """Some PDFs put a heading in the same text block as the paragraph under it ("2.2.1. Permitted
+    Authenticator Types At AAL2, authentication SHALL ..."). Split the first line off when it is a
+    bookmark title on that page, or when it stands out (bold, or larger) from the lines after it."""
+    titles: dict[int, list[str]] = {}
+    for _, title, page in toc:
+        titles.setdefault(page, []).append(title)
+
+    def is_bookmark(text: str, page: int) -> bool:
+        return any(same_heading(text, title) for title in titles.get(page, ()))
+
+    out: list[Block] = []
+    n = 0
+    for block in blocks:
+        lines = block.lines
+        k = 0  # how many leading lines form the heading (a number may sit on its own line: "2.2.1.")
+        if len(lines) > 1 and not block.drop:
+            for i in range(1, min(3, len(lines) - 1) + 1):
+                head, rest = lines[:i], lines[i:]
+                text = join_lines([line.text for line in head]).strip()
+                if len(text.split()) > MAX_HEADING_WORDS or text.endswith(SENTENCE_END[1:]):
+                    break
+                bookmark = is_bookmark(text, block.page)
+                styled = (all(line.bold for line in head) and not any(line.bold for line in rest)) or min(
+                    line.size for line in head
+                ) >= max(line.size for line in rest) + 1.0
+                if bookmark or (styled and head[0].size >= body - SIZE_TOLERANCE and any(c.isalpha() for c in text)):
+                    k = i
+                    if bookmark:
+                        break
+        first = lines[0]
+        run_in = first.bold_lead.rstrip(".:")
+        if not k and run_in and not block.drop and len(run_in.split()) <= MAX_HEADING_WORDS:
+            # "5.1 Experimental setup We now ..." - a bookmark title, or a numbered heading, in bold
+            if is_bookmark(run_in, block.page) or (NUMBERED.match(run_in) and numbered_title(run_in)):
+                head = Line(run_in, first.size, True, first.y0, first.y1)
+                body_line = Line(first.after_bold, first.size, False, first.y0, first.y1)
+                out.append(Block(block.page, [head], block.page_height))
+                out.append(Block(block.page, [body_line, *lines[1:]], block.page_height))
+                n += 1
+                continue
+        if k:
+            out.append(Block(block.page, lines[:k], block.page_height))
+            out.append(Block(block.page, lines[k:], block.page_height))
+            n += 1
+        else:
+            out.append(block)
+    blocks[:] = out
+    return n
 
 
 def heading_candidate(block: Block, body: float) -> bool:
@@ -249,7 +364,7 @@ STRUCTURAL = re.compile(
 )
 
 
-def headings_from_bookmarks(blocks: list[Block], toc: list, body: float) -> int:
+def headings_from_bookmarks(blocks: list[Block], toc: list, body: float, missing: list[str] | None = None) -> int:
     """Mark the block each bookmark points at: on its page, text equal to the bookmark title (with or
     without its number). A block that looks like a heading wins over one that only has the words
     (a figure label "Multi-Head Attention" vs the heading "3.2.2 Multi-Head Attention"). Standard
@@ -267,13 +382,16 @@ def headings_from_bookmarks(blocks: list[Block], toc: list, body: float) -> int:
         matches = []
         for block in by_page.get(page, []):
             text = normalized(block.text)
-            stripped = normalized(re.sub(r"^[\dA-Z]+(?:\.\d+)*[.)]?\s+", "", block.text))
-            if block.heading_level is None and len(text) <= len(want) + 12 and want in (text, stripped):
+            if block.heading_level is None and len(text) <= len(want) + 16 and same_heading(block.text, title):
                 matches.append(block)
-        if matches:
-            best = next((b for b in matches if heading_candidate(b, body)), matches[0])
+        likely = [b for b in matches if heading_candidate(b, body)]
+        others = [b for b in matches if b not in likely and not in_margin(b)]  # a footer can repeat a title
+        best = (likely or others or [None])[0]
+        if best is not None:
             best.heading_level = min(level, 4)
             found += 1
+        elif missing is not None:
+            missing.append(f"p.{page} {title}")
     for block in blocks:
         if block.heading_level is None and not block.drop and STRUCTURAL.match(block.text.strip()):
             if heading_candidate(block, body):
@@ -324,12 +442,14 @@ class LayoutPDFParser(Parser):
         drop_headers_and_footers(blocks, n_pages, report)
         report.body_size = body = body_size([b for b in blocks if not b.drop])
 
+        report.split_headings = split_leading_headings(blocks, body, toc)
+        report.merged_numbers = merge_number_blocks(blocks)
         title = title_block(blocks, body)
         if title is not None:
             title.drop = True
             report.title_from_layout = title.text
 
-        found = headings_from_bookmarks(blocks, toc, body) if len(toc) >= 3 else 0
+        found = headings_from_bookmarks(blocks, toc, body, report.missing_bookmarks) if len(toc) >= 3 else 0
         if found >= 3:
             report.headings_from = f"bookmarks ({found} of {len(toc)} found on their pages)"
         else:

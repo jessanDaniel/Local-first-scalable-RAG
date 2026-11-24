@@ -22,7 +22,7 @@ from pathlib import Path
 from rag.config import PROJECT_ROOT
 
 BASELINE_PATH = PROJECT_ROOT / "eval" / "baseline.json"
-GATE_SETS = ("papers", "hr-demo", "injection")
+GATE_SETS = ("papers", "hr-demo", "injection", "gov-docs")  # gov-docs: general documents (step 21b)
 METRICS = ("hit@1", "hit@5", "hit@10", "mrr")
 TOP = 5
 # Stored answer runs replayed through the guardrails: step 16 (labelled) and step 17.
@@ -32,6 +32,7 @@ REPLAY_RUNS = (
     "papers-20261123T082735Z-v3-guard",
     "hr-demo-20261123T083001Z-v3-guard",
     "injection-20261123T081811Z-inj-v3-sanitize-false",
+    "gov-docs-20261124T080146Z-step21b",  # general documents (step 21b)
 )
 
 
